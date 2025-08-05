@@ -2,7 +2,7 @@
 
 <!--
   Last Updated: Aug 05, 2025
-  Changes: Updating JS and layout -->
+  Changes: full-report form fix 5 -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -205,82 +205,59 @@
   <div class="footer">&copy; 2025 SnipeRank by <a href="https://quontora.com" target="_blank" style="color: #3182CE; text-decoration: none;">quontora.com</a>. Last updated August 4.</div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetUrl = urlParams.get("url") || "https://example.com";
-      document.getElementById("current-url").textContent = targetUrl;
+  document.addEventListener("DOMContentLoaded", async () => {
+    // Load dynamic AI analysis results
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetUrl = urlParams.get("url") || "https://example.com";
+    document.getElementById("current-url").textContent = targetUrl;
+
+    try {
+      const res = await fetch(`https://sniperank-v2-dev.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+      const html = await res.text();
+      document.getElementById("summary-results").innerHTML = html;
+    } catch (err) {
+      console.error("Error loading analysis:", err);
+      document.getElementById("summary-results").innerHTML = "<p style='color:red; text-align:center;'>Error loading analysis</p>";
+    }
+
+    // Full Report form handling
+    const form = document.getElementById("fullReportForm");
+    if (form && targetUrl) {
       document.getElementById("urlField").value = targetUrl;
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const status = document.getElementById("formMessage");
+        status.textContent = "📤 Sending...";
+        const payload = {
+          name: form.name.value,
+          email: form.email.value,
+          phone: form.phone.value,
+          company: form.company.value,
+          message: form.message.value,
+          url: form.url.value,
+        };
 
-      try {
-          const res = await fetch(`https://sniperank-v2-dev.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
-        const html = await res.text();
-        document.getElementById("summary-results").innerHTML = html.trim() || "<p style='color:red; text-align:center;'>No results found.</p>";
-      } catch (err) {
-        console.error("Error:", err);
-        document.getElementById("summary-results").innerHTML =
-          "<p style='color:red; text-align:center;'>Error loading analysis</p>";
-      }
-
-      const form = document.getElementById("fullReportForm");
-      if (form) {
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-
-<<<<<<< HEAD
         try {
-            const res = await fetch(`https://sniperank-v2-dev.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
-          const html = await res.text();
-          document.getElementById("summary-results").innerHTML = html;
-        } catch (err) {
-          console.error("Error loading analysis:", err);
-          document.getElementById("summary-results").innerHTML =
-            "<p style='color:red; text-align:center;'>Error loading analysis</p>";
-        }
-
-        // Full Report form handling
-        const form = document.getElementById("fullReportForm");
-        if (form && targetUrl) {
-          document.getElementById("urlField").value = targetUrl;
-
-          form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-
-            const status = document.getElementById("formMessage");
-            status.textContent = "📤 Sending...";
-
-            const payload = {
-              name: form.name.value,
-              email: form.email.value,
-              phone: form.phone.value,
-              company: form.company.value,
-              message: form.message.value,
-              url: form.url.value,
-            };
-
-            try {
-              const res = await fetch("https://sniperank-v2-dev.onrender.com/api/send-link", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-
-              const result = await res.json();
-              if (result.success) {
-                const reportUrl = `https://snipe-rank-frontend.vercel.app/full-report.html?url=${encodeURIComponent(payload.url)}`;
-                window.location.href = reportUrl;
-              }
-              
-              else {
-                status.textContent = "❌ Something went wrong. Please try again.";
-              }
-            } catch (err) {
-              console.error(err);
-              status.textContent = "❌ Server error. Try again later.";
-            }
+          const res = await fetch("https://sniperank-v2-dev.onrender.com/api/send-link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           });
+          const result = await res.json();
+          if (result.success) {
+            const reportUrl = `https://sniperank-app.vercel.app/full-report.html?url=${encodeURIComponent(payload.url)}`;
+            window.location.href = reportUrl;
+          } else {
+            status.textContent = "❌ Something went wrong. Please try again.";
+          }
+        } catch (err) {
+          console.error(err);
+          status.textContent = "❌ Server error. Try again later.";
         }
       });
-    </script>
+    }
+  });
+  </script>
     
     <!--
     /*
