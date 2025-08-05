@@ -2,7 +2,7 @@
 
 <!--
   Last Updated: Aug 05, 2025
-  Changes: full-report form fix 5 -->
+  Changes: fix button -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -96,16 +96,26 @@
       text-align: center;
     }
 
-    .form-button-wrapper button {
-      background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-      transition: all 0.3s ease;
-    }
+    .form-button-wrapper
+    {
+        display: inline-block;
+        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
+        color: white;
+        padding: 1rem 2rem;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+      }
 
-    .form-button-wrapper button:hover {
-      background: linear-gradient(135deg, #C53030 0%, #9C2A2A 100%);
-      transform: translateY(-1px);
-    }
-
+      .form-button:hover {
+        background: linear-gradient(135deg, #C53030 0%, #9C2A2A 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(229, 62, 62, 0.4);
+      }
+      
     .schedule-button {
       display: inline-block;
       background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
@@ -209,7 +219,7 @@
     </p>
   </section>
 
-  <div class="footer">&copy; 2025 SnipeRank by <a href="https://quontora.com" target="_blank" style="color: #3182CE; text-decoration: none;">quontora.com</a>. Last updated August 4.</div>
+  <div class="footer">&copy; 2025 SnipeRank by <a href="https://quontora.com" target="_blank" style="color: #3182CE; text-decoration: none;">quontora.com</a>. Last updated August 5.</div>
 
   <script>
   document.addEventListener("DOMContentLoaded", async () => {
