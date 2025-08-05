@@ -206,7 +206,7 @@
       document.getElementById("urlField").value = targetUrl;
 
       try {
-        const res = await fetch(`https://sniperank-backend-newjuly23.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+          const res = await fetch(`https://sniperank-v2-dev.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         document.getElementById("summary-results").innerHTML = html.trim() || "<p style='color:red; text-align:center;'>No results found.</p>";
       } catch (err) {
