@@ -1,12 +1,10 @@
-<HEAD>
-
 <!--
   Last Updated: Aug 06, 2025
-  Changes: fix button -->
+  Changes: fix button
+-->
 
 <!DOCTYPE html>
 <html lang="en">
-    <!--- Aug 5 version 1.5.1 -->
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -73,20 +71,20 @@
       font-weight: 500;
     }
 
-      #summary-results ul {
-        list-style: none;
-        padding-left: 0;
-      }
+    #summary-results ul {
+      list-style: none;
+      padding-left: 0;
+    }
 
-      #summary-results li {
-        margin-bottom: 15px;
-        line-height: 1.5;
-      }
+    #summary-results li {
+      margin-bottom: 15px;
+      line-height: 1.5;
+    }
 
-      #summary-results li strong {
-        display: block;
-        margin-bottom: 5px;
-      }
+    #summary-results li strong {
+      display: block;
+      margin-bottom: 5px;
+    }
 
     .consultation-section {
       width: 100%;
@@ -96,45 +94,6 @@
       text-align: center;
     }
 
-    .form-button-wrapper
-    {
-        display: inline-block;
-        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-        color: white;
-        padding: 1rem 2rem;
-        text-decoration: none;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
-      }
-
-      .form-button:hover {
-        background: linear-gradient(135deg, #C53030 0%, #9C2A2A 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(229, 62, 62, 0.4);
-      }
-      
-      .primary-button {
-        display: inline-block;
-        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-        color: white;
-        padding: 1rem 2rem;
-        text-decoration: none;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
-      }
-
-      .primary-button:hover {
-        background: linear-gradient(135deg, #C53030 0%, #9C2A2A 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(229, 62, 62, 0.4);
-      }
-      
     .schedule-button {
       display: inline-block;
       background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
@@ -218,7 +177,7 @@
       <input type="hidden" name="url" id="urlField" />
 
       <div class="form-button-wrapper">
-        <button type="submit" class="form-button">Get My Full Report</button>
+        <button type="submit" class="schedule-button">Get My Full Report</button>
       </div>
 
       <p id="formMessage" style="text-align: center; font-size: 0.95rem; color: gray;"></p>
@@ -285,20 +244,5 @@
       }
     });
   </script>
-    <!--
-    /*
-    // Handle new analysis form
-    document.getElementById("newAnalysisForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    let url = document.getElementById("newUrl").value.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
-    window.location.href = `test.html?url=${encodeURIComponent(url)}`;
-    });
-    */
-    -->
-
 </body>
-</HEAD>
-<!-- 🔁 Manual deploy at  -->
-<!-- 🔁 Manual deploy at Wed Aug  6 11:53:46 EDT 2025 -->
+</html>
