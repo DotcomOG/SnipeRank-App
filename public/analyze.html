@@ -229,7 +229,7 @@
     document.getElementById("current-url").textContent = targetUrl;
 
     try {
-      const res = await fetch(`https://sniperank-v2-dev.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
       const html = await res.text();
       document.getElementById("summary-results").innerHTML = html;
     } catch (err) {
@@ -291,3 +291,5 @@
 
 </body>
 </HEAD>
+<!-- 🔁 Manual deploy at  -->
+<!-- 🔁 Manual deploy at Wed Aug  6 11:53:46 EDT 2025 -->
