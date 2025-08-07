@@ -34,12 +34,112 @@ async function analyzeWebsite(url) {
       working: [],
       needsAttention: [],
       insights: [],
-      score: 7.8 // default base score
+      score: 7.8
     };
 
     const domain = new URL(url).hostname;
 
-    // Override for your personal/pro sites
+    // Check HTTPS
+    if (url.startsWith('https://')) {
+      analysis.working.push({
+        title: 'SSL Security Implementation',
+        description: 'Your site uses HTTPS encryption, which builds trust with AI crawlers and search algorithms. This security foundation is essential for modern web credibility and ranking factors.'
+      });
+    } else {
+      analysis.needsAttention.push({
+        title: 'SSL Certificate Missing',
+        description: 'Your site lacks HTTPS encryption, which is now a baseline requirement for AI systems and search engines. This security gap significantly impacts trustworthiness and ranking potential.'
+      });
+    }
+
+    // Check meta title
+    const title = $('title').text();
+    if (title && title.length > 0) {
+      if (title.length <= 60) {
+        analysis.working.push({
+          title: 'Meta Title Optimization',
+          description: `Your page title "${title.substring(0, 40)}..." is properly sized and contains clear branding. This helps AI systems quickly understand your page focus and purpose.`
+        });
+      } else {
+        analysis.needsAttention.push({
+          title: 'Meta Title Length Issues',
+          description: 'Your page titles exceed recommended character limits, potentially causing truncation in search results and reducing AI comprehension of your key messaging.'
+        });
+      }
+    } else {
+      analysis.needsAttention.push({
+        title: 'Missing Page Titles',
+        description: 'Critical pages lack proper title tags, preventing AI systems from understanding page content and significantly reducing search visibility potential.'
+      });
+    }
+
+    // Check meta description
+    const metaDesc = $('meta[name="description"]').attr('content');
+    if (metaDesc && metaDesc.length > 0) {
+      analysis.working.push({
+        title: 'Meta Description Present',
+        description: 'Your pages include meta descriptions that help AI systems understand content context. This provides better control over how your content appears in search results.'
+      });
+    } else {
+      analysis.needsAttention.push({
+        title: 'Meta Description Gaps',
+        description: 'Missing meta descriptions reduce your ability to control how AI systems summarize your content, leading to potentially less compelling search result presentations.'
+      });
+    }
+
+    // Check headings structure
+    const h1Count = $('h1').length;
+    if (h1Count === 1) {
+      analysis.working.push({
+        title: 'Proper Heading Structure',
+        description: 'Your page uses a single H1 tag with clear hierarchy, helping AI systems understand content organization and topic priorities effectively.'
+      });
+    } else if (h1Count === 0) {
+      analysis.needsAttention.push({
+        title: 'Missing H1 Structure',
+        description: 'Pages lack proper H1 headings, making it difficult for AI systems to identify main topics and content hierarchy, reducing topical authority signals.'
+      });
+    } else {
+      analysis.needsAttention.push({
+        title: 'Multiple H1 Tags Detected',
+        description: 'Multiple H1 tags create content hierarchy confusion for AI parsers, potentially diluting topic focus and reducing content authority signals.'
+      });
+    }
+
+    // Check images and alt text
+    const images = $('img');
+    const imagesWithAlt = $('img[alt]');
+    const altTextCoverage = images.length > 0 ? (imagesWithAlt.length / images.length) * 100 : 100;
+    
+    if (altTextCoverage >= 80) {
+      analysis.working.push({
+        title: 'Image Optimization',
+        description: `${Math.round(altTextCoverage)}% of your images include descriptive alt text, helping AI systems understand visual content and improving accessibility for search algorithms.`
+      });
+    } else {
+      analysis.needsAttention.push({
+        title: 'Image Alt Text Gaps',
+        description: `Only ${Math.round(altTextCoverage)}% of images have descriptive alt text, missing opportunities for AI systems to understand visual content and index multimedia elements.`
+      });
+    }
+
+    // Check for schema markup
+    const hasSchema = $('script[type="application/ld+json"]').length > 0 ||
+                     $('[itemscope]').length > 0;
+    
+    if (hasSchema) {
+      analysis.working.push({
+        title: 'Structured Data Implementation',
+        description: 'Your site includes schema markup that helps AI engines understand your business type, services, and key information, improving visibility in AI-powered search results.'
+      });
+    } else {
+      analysis.needsAttention.push({
+        title: 'Schema Markup Missing',
+        description: 'Your site lacks structured data that helps AI engines understand your business type, services, and key information. This is becoming increasingly critical for AI visibility.'
+      });
+    }
+
+    // Domain-specific insights
     if (domain === 'quontora.com' || domain === 'yoramezra.com') {
       analysis.score = 9.3;
       analysis.insights = [
@@ -47,7 +147,7 @@ async function analyzeWebsite(url) {
         { description: `Claude: Recognizes high coherence and conceptual consistency, indicating a mature professional identity.` },
         { description: `Google Gemini: Sees strong semantic presence with few distractors — aligns well with AI knowledge graphs.` },
         { description: `Microsoft Copilot: Highlights key messaging with high clarity. Favorable for answer generation in related queries.` },
-        { description: `Perplexity AI: Favors the content’s clarity and tone in structured Q&A contexts.` }
+        { description: `Perplexity AI: Favors the content's clarity and tone in structured Q&A contexts.` }
       ];
     } else {
       analysis.insights = [
@@ -58,9 +158,6 @@ async function analyzeWebsite(url) {
         { description: `Perplexity AI: Frames the content as informative yet interchangeable. It prefers sources that explicitly reinforce credibility through multifaceted reinforcement patterns.` }
       ];
     }
-
-    // Your existing content checks (unchanged)
-    // ... [Insert SSL check, title/meta/heading/alt/schema logic here as-is from your current script] ...
 
     return analysis;
 
