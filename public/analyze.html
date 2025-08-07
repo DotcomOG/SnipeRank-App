@@ -1,8 +1,11 @@
 
 <!--
-  Version: 1.9.5
-  Last Updated: Aug 7, 2025
-  Changes: ✅ Fix: commit analyze.html with corrected fetch to live backend -->
+  Version: 1.9.6
+  Last Updated: Aug 07, 2025
+  Changes: ✅ Auto-integrated score gauge @ Aug 07, 2025 20:44:33
+-->
+
+<!-- 🔁 Auto-integrated score gauge @ Aug 07, 2025 20:44:33 -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -96,7 +99,7 @@
       background: linear-gradient(90deg, #3182CE 0%, #E53E3E 50%, #F56500 100%);
     }
 */
-    /* Paul Rand inspired design elements */
+
     .insights-marker {
       display: inline-block;
       width: 4px;
@@ -132,7 +135,7 @@
       box-shadow: 0 1px 3px rgba(56, 161, 105, 0.3);
     }
 
-    /* Additional Paul Rand color accents */
+
     h1 {
       font-size: 4rem;
       font-weight: 700;
@@ -304,11 +307,29 @@
         max-width: 100%;
       }
     }
+      
+      .score-container {
+        text-align: center;
+        margin: 2rem auto 1rem;
+        width: 100%;
+      }
+
+      #scoreGauge {
+        display: block;
+        margin: auto;
+      }
   </style>
 </head>
 <body>
     <h1>SnipeRank</h1>
     <h2>AI SEO Analysis Results</h2>
+    
+    <div class="score-container">
+      <h3>Your AI SEO Score</h3>
+      <canvas id="scoreGauge" width="200" height="100"></canvas>
+      <p id="scoreLabel" style="margin-top: 0.5rem; font-weight: 500;"></p>
+    </div>
+    
     <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">Powered by <a href="https://quontora.com" target="_blank" style="color: #3182CE; text-decoration: none; font-weight: 500;">quontora</a></p>
     
     <div id="analyzed-url" style="margin-bottom: 0.5rem;">
@@ -393,7 +414,43 @@
         document.getElementById("summary-results").innerHTML =
           "<p style='color:red; text-align:center;'>Error loading analysis</p>";
       }
+      
+      // scoring
+      function renderGauge(score) {
+        const canvas = document.getElementById("scoreGauge");
+        const ctx = canvas.getContext("2d");
 
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height;
+        const radius = 80;
+
+        // Background arc (gray)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI);
+        ctx.lineWidth = 15;
+        ctx.strokeStyle = "#eee";
+        ctx.stroke();
+
+        // Score arc (colored)
+        const angle = Math.PI + (score / 100) * Math.PI;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, Math.PI, angle);
+        ctx.strokeStyle =
+          score >= 80
+            ? "#38A169"
+            : score >= 60
+            ? "#F6AD55"
+            : score >= 40
+            ? "#DD6B20"
+            : "#E53E3E";
+        ctx.stroke();
+
+        // Score text
+        const label = document.getElementById("scoreLabel");
+        label.textContent = `SnipeRank Score: ${score}/100`;
+      }
+      
       // Full Report form handling
       const form = document.getElementById("fullReportForm");
       if (form && targetUrl) {
