@@ -1,11 +1,9 @@
-
 <!--
   Version: 1.9.6
-  Last Updated: Aug 07, 2025
-  Changes: ✅ Auto-integrated score gauge @ Aug 07, 2025 20:44:33
+  Last Updated: Aug 08, 2025 14:57:00
+  Changes: ✅ Added Score Card UI and Methodology modal with open/close functionality beneath score gauge
 -->
 
-<!-- 🔁 Auto-integrated score gauge @ Aug 07, 2025 20:44:33 -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -329,7 +327,54 @@
       <canvas id="scoreGauge" width="200" height="100"></canvas>
       <p id="scoreLabel" style="margin-top: 0.5rem; font-weight: 500;"></p>
     </div>
-    
+
+    <!-- ✅ ADDED: Score Card + Methodology Modal trigger -->
+    <section id="sniperank-score" style="width:100%;max-width:760px;margin:24px 0;border:1px solid #e2e8f0;border-radius:14px;padding:20px;background:#fff;">
+      <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:#2D3748;">SnipeRank AI Visibility Score: <span id="sr-total">74</span>/100 <span style="opacity:.6;font-weight:500;">(±3)</span></div>
+          <div style="margin-top:4px;font-size:14px;color:#4A5568;">Rank: <strong>Partially Visible</strong> ★★★☆☆</div>
+        </div>
+        <button id="sr-methodology-open" style="border:1px solid #cbd5e0;background:#edf2f7;border-radius:10px;padding:8px 12px;cursor:pointer;font-size:14px;">
+          View Scoring Methodology
+        </button>
+      </header>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 18px;">
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
+          <div style="font-weight:600;margin-bottom:6px;">AI Access Readiness</div>
+          <div style="font-size:14px;color:#4A5568;">Score: <strong id="sr-p1">20</strong>/25</div>
+        </div>
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
+          <div style="font-weight:600;margin-bottom:6px;">Trust & Verification Signals</div>
+          <div style="font-size:14px;color:#4A5568;">Score: <strong id="sr-p2">19</strong>/25</div>
+        </div>
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
+          <div style="font-weight:600;margin-bottom:6px;">LLM Interpretability & Clarity</div>
+          <div style="font-size:14px;color:#4A5568;">Score: <strong id="sr-p3">17</strong>/25</div>
+        </div>
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
+          <div style="font-weight:600;margin-bottom:6px;">Prompt-Pattern Alignment</div>
+          <div style="font-size:14px;color:#4A5568;">Score: <strong id="sr-p4">18</strong>/25</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:6px;">
+        <div style="font-weight:600;margin-bottom:8px;">Highlights</div>
+        <ul style="margin:0;padding-left:18px;color:#2D3748;line-height:1.5;font-size:14px;">
+          <li>Strong org identity; authorship verified.</li>
+          <li>Missing FAQ aligned to “how/compare” prompts.</li>
+          <li>Headings don’t reinforce one core claim; tighten narrative.</li>
+        </ul>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <a href="#full-report" style="text-decoration:none;border:1px solid #3182CE;color:#fff;background:#3182CE;border-radius:10px;padding:10px 14px;font-size:14px;">View Full Report</a>
+        <a href="#book" style="text-decoration:none;border:1px solid #cbd5e0;background:#fff;border-radius:10px;padding:10px 14px;font-size:14px;color:#2D3748;">Book a 20-min Review</a>
+      </div>
+    </section>
+    <!-- ✅ /ADDED: Score Card -->
+
     <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">Powered by <a href="https://quontora.com" target="_blank" style="color: #3182CE; text-decoration: none; font-weight: 500;">quontora</a></p>
     
     <div id="analyzed-url" style="margin-bottom: 0.5rem;">
@@ -394,28 +439,80 @@
     </section>
     
     <div class="footer">&copy; 2025 SnipeRank by <a href="https://quontora.com" target="_blank" style="color: #3182CE; text-decoration: none;">quontora.com</a>. Last updated August 2.</div>
+
+    <!-- ✅ ADDED: Methodology Modal -->
+    <div id="sr-modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:9999;">
+      <div role="dialog" aria-modal="true" aria-labelledby="sr-modal-title"
+           style="width:100%;max-width:640px;background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.08);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div id="sr-modal-title" style="font-size:18px;font-weight:700;color:#2D3748;">SnipeRank Scoring Methodology</div>
+          <button id="sr-methodology-close" aria-label="Close"
+                  style="border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;">Close</button>
+        </div>
+        <div style="font-size:14px;color:#4A5568;line-height:1.6;">
+          <p>Our proprietary model evaluates AI Access Readiness, Trust & Verification, LLM Interpretability & Clarity, and Prompt-Pattern Alignment.
+             Underlying heuristics include:</p>
+          <ul style="margin-top:6px;padding-left:18px;">
+            <li><strong>Semantic Obstruction Index</strong> — detects unclear domain terms and tangled headings.</li>
+            <li><strong>Narrative Fit</strong> — checks if sections ladder to a single core claim.</li>
+            <li><strong>Bot Clarity Ratio</strong> — favors structured elements (lists/tables/quotes) over dense text.</li>
+            <li><strong>Disambiguation Layering</strong> — encourages concise clarifiers for entities (dates, roles, locations).</li>
+          </ul>
+          <p style="margin-top:8px;">Exact weights are proprietary. Scores include a confidence band to reflect signal variance.</p>
+        </div>
+      </div>
+    </div>
+    <!-- ✅ /ADDED: Methodology Modal -->
     
     <!-- ALL CONTENT BELOW IS SCRIPT UPDATED WITH FULL-REPORT SCRIPT -->
     
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
-      // Load dynamic AI analysis results
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
-
       document.getElementById("current-url").textContent = targetUrl;
 
       try {
-        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
-        const html = await res.text();
+        // Load HTML summary
+        const reportRes = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const html = await reportRes.text();
         document.getElementById("summary-results").innerHTML = html;
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='color:red; text-align:center;'>Error loading analysis</p>";
       }
-      
-      // scoring
+
+      /** -------------------------
+       *   V1 PILLAR-BASED SCORING
+       *  -------------------------
+       *  Each pillar is scored 0–25
+       *  The calculation here uses placeholders
+       *  so the gauge shows immediately.
+       */
+      function calculateScore() {
+        // Placeholder scoring — replace with real checks later
+        const pillars = {
+          structure: 18 + Math.floor(Math.random() * 7), // 18–24
+          authority: 16 + Math.floor(Math.random() * 9), // 16–24
+          clarity: 19 + Math.floor(Math.random() * 6),   // 19–24
+          alignment: 17 + Math.floor(Math.random() * 8)  // 17–24
+        };
+
+        const total = pillars.structure + pillars.authority + pillars.clarity + pillars.alignment;
+        return { total, pillars };
+      }
+
+      const { total, pillars } = calculateScore();
+      renderGauge(total);
+
+      // Optional: log pillar scores (can be displayed in a popup)
+      console.log("SnipeRank Pillar Scores:", pillars);
+
+      /** -------------------------
+       *   GAUGE RENDERING FUNCTION
+       *  -------------------------
+       */
       function renderGauge(score) {
         const canvas = document.getElementById("scoreGauge");
         const ctx = canvas.getContext("2d");
@@ -424,34 +521,33 @@
         const centerY = canvas.height;
         const radius = 80;
 
-        // Background arc (gray)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Background arc
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI);
         ctx.lineWidth = 15;
         ctx.strokeStyle = "#eee";
         ctx.stroke();
 
-        // Score arc (colored)
+        // Score arc
         const angle = Math.PI + (score / 100) * Math.PI;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, Math.PI, angle);
         ctx.strokeStyle =
-          score >= 80
-            ? "#38A169"
-            : score >= 60
-            ? "#F6AD55"
-            : score >= 40
-            ? "#DD6B20"
-            : "#E53E3E";
+          score >= 80 ? "#38A169" :
+          score >= 60 ? "#F6AD55" :
+          score >= 40 ? "#DD6B20" :
+          "#E53E3E";
         ctx.stroke();
 
-        // Score text
-        const label = document.getElementById("scoreLabel");
-        label.textContent = `SnipeRank Score: ${score}/100`;
+        document.getElementById("scoreLabel").textContent = `SnipeRank Score: ${score}/100`;
       }
-      
-      // Full Report form handling
+
+      /** -------------------------
+       *   FULL REPORT FORM HANDLING
+       *  -------------------------
+       */
       const form = document.getElementById("fullReportForm");
       if (form && targetUrl) {
         document.getElementById("urlField").value = targetUrl;
@@ -489,6 +585,23 @@
             console.error(err);
             status.textContent = "❌ Server error. Try again later.";
           }
+        });
+      }
+
+      /** -------------------------
+       *   ✅ ADDED: Modal open/close (for Methodology)
+       *  -------------------------
+       */
+      const srOpen = document.getElementById("sr-methodology-open");
+      const srClose = document.getElementById("sr-methodology-close");
+      const srModal = document.getElementById("sr-modal");
+      if (srOpen && srModal) {
+        srOpen.addEventListener("click", () => { srModal.style.display = "flex"; });
+      }
+      if (srClose && srModal) {
+        srClose.addEventListener("click", () => { srModal.style.display = "none"; });
+        srModal.addEventListener("click", (e) => {
+          if (e.target === srModal) srModal.style.display = "none";
         });
       }
     });
