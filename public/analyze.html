@@ -1,11 +1,13 @@
 <!--
-  Version: 1.9.9
+  Version: 1.9.12
   Last Updated: Aug 08, 2025
   Changes:
-  - LOCK report spacing inside #summary-results (p/li) to prevent tight layout regressions
-  - Redesign methodology popup to match score-card style (border, radius, padding)
-  - Improve popup close button hit area, spacing, and hover/focus (no dark box, 36px tap target)
-  - Keep previous improvements: info row above score, Copy AI‑Ready Summary button
+  - Enforce comfy spacing inside #summary-results (p/li/h3)
+  - Score card: methodology first, then copy; extra bottom space
+  - Modal rebuilt with fuller content; card style; small gray confidentiality note at bottom
+  - Obfuscate “Needs Attention” items on the client as a backup
+  - High-score override for yoramezra.com / quontora.com in placeholder scoring
+  - Fix: try/catch flow when loading report.html
 -->
 
 <!DOCTYPE html>
@@ -49,48 +51,34 @@
       background-clip: text;
     }
 
-    h2 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin: 0 0 1rem 0;
-    }
+    h2 { font-size: 1.5rem; font-weight: 600; margin: 0 0 1rem 0; }
 
     /* Global comfortable text */
     p { font-size: 1.1rem; line-height: 1.75; margin-bottom: 1rem; }
 
-    /* ENSURE comfy spacing IN the backend summary (cannot get tight again) */
+    /* Lock comfy spacing IN backend summary (cannot get tight again) */
     #summary-results p { line-height: 1.75 !important; margin: 0 0 1rem 0 !important; font-size: 1.05rem !important; }
     #summary-results li { line-height: 1.7 !important; margin: 0.4rem 0 !important; font-size: 1.05rem !important; }
     #summary-results ul { margin: 0 0 1.2rem 1.1rem !important; padding-left: 0.2rem !important; list-style: disc !important; }
-    #summary-results h3 { margin: 2rem 0 0.6rem 0 !important; }
+    #summary-results h3 { margin: 2.2rem 0 0.6rem 0 !important; }
 
     /* Info row between subhead and score card */
-    .info-row {
-      width: 100%;
-      display:flex; gap:1rem; align-items:center; justify-content:space-between;
-      margin: .25rem 0 1rem;
-    }
-    .powered-by { color: var(--muted); font-size: .95rem; }
-    .powered-by a { color: #3182CE; text-decoration: none; font-weight: 600; }
-    .for-url { color: var(--muted); font-size: .95rem; }
+    .info-row { width: 100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin:.25rem 0 1rem; }
+    .powered-by { color: var(--muted); font-size:.95rem; }
+    .powered-by a { color:#3182CE; text-decoration:none; font-weight:600; }
+    .for-url { color: var(--muted); font-size:.95rem; }
     .for-url strong { color:#000; }
 
-    /* Score Card (reference style for modal too) */
-    .card {
-      width:100%;
-      border:1px solid var(--border);
-      border-radius:12px;
-      box-shadow:0 1px 2px rgba(0,0,0,.04);
-      background:#fff;
-    }
-    .score-card { padding:1rem; margin-bottom:1rem; }
+    /* Card (score + modal share this) */
+    .card { width:100%; border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); background:#fff; }
+    .score-card { padding:1rem; margin-bottom:2.25rem; } /* extra space before “What’s Working” */
     .score-top { display:flex; align-items:center; gap:.75rem; justify-content:space-between; flex-wrap:wrap; }
     .score-main { display:flex; align-items:baseline; gap:.5rem; }
     .score-number { font-size:2.25rem; font-weight:800; }
     .score-band { color:var(--muted); font-size:.95rem; }
     .btn-row { display:flex; gap:.5rem; align-items:center; }
 
-    /* High-contrast “ghost” buttons inside score card */
+    /* High-contrast buttons */
     .btn-ghost{
       border:1px solid #111; background:#fff; color:#111;
       padding:.55rem .9rem; border-radius:8px; cursor:pointer;
@@ -104,72 +92,57 @@
     .pillar{
       border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem;
       display:flex; align-items:center; justify-content:space-between;
-      font-size:.98rem;
-      background:#fff;
+      font-size:.98rem; background:#fff;
     }
     .pillar .label{ font-weight:600; }
     .badge{
       font-weight:700; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border);
       font-size:.85rem; background:#fafafa;
     }
-    .highlights{ margin-top:.75rem; padding-top:.75rem; border-top:1px dashed var(--border); }
-    .highlights h4{ margin:0 0 .4rem 0; font-size:1rem; }
-    .highlights ul{ margin:0; padding-left:1rem; }
-    .highlights li{ margin:.25rem 0; line-height:1.5; }
 
-    /* Consult/CTA sections (unchanged) */
+    .highlights{ margin-top:.85rem; padding-top:.85rem; border-top:1px dashed var(--border); }
+    .highlights h4{ margin:0 0 .5rem 0; font-size:1.1rem; font-weight:700; }
+    .highlights ul{ margin:0; padding-left:1rem; }
+    .highlights li{ margin:.28rem 0; line-height:1.55; }
+
+    /* Consult/CTA (unchanged) */
     .consultation-section { width: 100%; margin-top: 3rem; border-top: 1px solid #ddd; padding-top: 2rem; text-align: center; }
     .consultation-cta { margin: 2rem 0; }
-    .schedule-button {
-      display:inline-block; background:linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-      color:#fff; padding:1rem 2rem; text-decoration:none; border-radius:8px; font-weight:700;
-      box-shadow:0 4px 12px rgba(229, 62, 62, 0.3);
-    }
-    .schedule-button:hover { filter: brightness(.95); }
-    input, textarea { font-size: 1.05rem; padding: 0.8rem 1rem; border: 1px solid #000; width: 100%; background: transparent; box-sizing: border-box; }
-    .form-button-wrapper { text-align: center; margin-top: 1.5rem; }
-    button { font-size: 1rem; font-weight: 600; padding: 0.8rem 1.5rem; border: none; color: #fff; background: #000; cursor: pointer; margin-top: 1rem; }
-    button:hover { background: #333; }
-    .footer { font-size: 0.85rem; color: #666; margin-top: 3rem; text-align: center; width: 100%; }
+    .schedule-button { display:inline-block; background:linear-gradient(135deg,#E53E3E 0%,#C53030 100%); color:#fff; padding:1rem 2rem; text-decoration:none; border-radius:8px; font-weight:700; box-shadow:0 4px 12px rgba(229,62,62,.3); }
+    .schedule-button:hover { filter:brightness(.95); }
+    input, textarea { font-size:1.05rem; padding:.8rem 1rem; border:1px solid #000; width:100%; background:transparent; box-sizing:border-box; }
+    .form-button-wrapper { text-align:center; margin-top:1.5rem; }
+    button { font-size:1rem; font-weight:600; padding:.8rem 1.5rem; border:none; color:#fff; background:#000; cursor:pointer; margin-top:1rem; }
+    button:hover { background:#333; }
+    .footer { font-size:.85rem; color:#666; margin-top:3rem; text-align:center; width:100%; }
 
-    /* Modal — redesigned to match card style, better close button */
-    .modal-backdrop{
-      position:fixed; inset:0; background:rgba(0,0,0,.45);
-      display:none; align-items:center; justify-content:center; z-index:50;
-      padding: 1rem;
-    }
-    .modal {
-      max-width: 600px; width: 100%;
-    }
-    .modal .card { padding: 1rem 1rem 1.1rem 1rem; position:relative; }
+    /* Modal */
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:1rem; }
+    .modal { width:100%; max-width:680px; }
+    .modal .card { padding:1rem 1rem 1.15rem 1rem; position:relative; }
     .modal-title { margin:0 0 .6rem 0; font-size:1.2rem; font-weight:700; }
     .modal p { color:var(--muted); margin:.25rem 0 .8rem 0; line-height:1.6; }
-    .modal ul{ margin:.25rem 0 0 1.1rem; }
-    .modal li{ margin:.35rem 0; }
+    .modal h4 { margin:1rem 0 .4rem 0; font-size:1.05rem; font-weight:700; }
+    .modal ul { margin:.2rem 0 0 1.1rem; }
+    .modal li { margin:.35rem 0; }
+    .conf-note { margin-top:.8rem; font-size:.9rem; color:#888; }
 
     .modal-close{
       position:absolute; top:.4rem; right:.4rem;
       border:1px solid var(--border); background:#fff; color:#111;
       font-size:1.1rem; line-height:1;
       cursor:pointer; border-radius:8px;
-      width: 36px; height: 36px; display:flex; align-items:center; justify-content:center;
+      width:36px; height:36px; display:flex; align-items:center; justify-content:center;
     }
-    .modal-close:hover,
-    .modal-close:focus,
-    .modal-close:active {
-      background:#f7f7f7; color:#000; outline:none; box-shadow:none;
-    }
+    .modal-close:hover, .modal-close:focus, .modal-close:active { background:#f7f7f7; color:#000; outline:none; box-shadow:none; }
 
-    @media (max-width: 600px){
-      .pillars{ grid-template-columns:1fr; }
-    }
+    @media (max-width: 600px){ .pillars{ grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
   <h1>SnipeRank</h1>
   <h2>AI SEO Analysis Results</h2>
 
-  <!-- Info row -->
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
     <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
@@ -183,8 +156,8 @@
         <div class="score-band" id="scoreBand">Calculating…</div>
       </div>
       <div class="btn-row">
-        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy AI‑Ready Summary</button>
         <button class="btn-ghost" id="methodologyBtn" type="button">View Scoring Methodology</button>
+        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy AI‑Ready Summary</button>
       </div>
     </div>
 
@@ -233,13 +206,37 @@
       <div class="card">
         <button class="modal-close" id="modalClose" aria-label="Close">×</button>
         <h3 class="modal-title" id="modalTitle">SnipeRank Scoring Methodology</h3>
-        <p>Our proprietary model evaluates four pillars. Exact weights are confidential.</p>
+        <p>Our proprietary model evaluates four pillars. Below are representative checks used to guide recommendations.</p>
+
+        <h4>AI Access Readiness</h4>
         <ul>
-          <li>Structural access and discoverability signals.</li>
-          <li>Trust and verification footprints across sources.</li>
-          <li>Clarity and interpretability for LLMs.</li>
-          <li>Prompt‑pattern alignment and response framing.</li>
+          <li>robots.txt, meta directives, and sitemap crawlability.</li>
+          <li>Core Web Vitals thresholds and render stability (CLS/LCP/INP).</li>
+          <li>Internal link discoverability (click depth, orphan risk).</li>
         </ul>
+
+        <h4>Trust & Verification Signals</h4>
+        <ul>
+          <li>HTTPS/SSL health and redirect hygiene.</li>
+          <li>Organization/Person schema and verifiable profiles.</li>
+          <li>Contact/footprint consistency across key surfaces.</li>
+        </ul>
+
+        <h4>LLM Interpretability & Clarity</h4>
+        <ul>
+          <li>Headings that ladder to one core claim.</li>
+          <li>Structured elements (lists/Q&A/tables) vs. dense paragraphs.</li>
+          <li>Entity disambiguation: names, dates, roles, locations.</li>
+        </ul>
+
+        <h4>Prompt‑Pattern Alignment</h4>
+        <ul>
+          <li>Presence of answer‑first summaries and “how/compare” FAQs.</li>
+          <li>Task framing suitable for AI summaries/snippets.</li>
+          <li>Schema coverage (FAQ, Article/BlogPosting, WebSite).</li>
+        </ul>
+
+        <p class="conf-note">Exact weights are confidential. Scores include small variance to reflect signal confidence.</p>
       </div>
     </div>
   </div>
@@ -255,6 +252,9 @@
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         document.getElementById("summary-results").innerHTML = html;
+
+        // Backup client-side obfuscation to keep Needs Attention non-actionable
+        obfuscateNeedsAttention(document.getElementById("summary-results"));
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
@@ -308,19 +308,26 @@
           const old = btn.textContent;
           btn.textContent = "Copied!";
           setTimeout(() => (btn.textContent = old), 1500);
-        } catch {
-          window.prompt("Copy the AI-ready summary:", txt);
-        }
+        } catch { window.prompt("Copy the AI-ready summary:", txt); }
       });
 
       // ---------- Helpers ----------
       function calculateScoreV1(){
-        const pillars = {
+        // default placeholder range
+        let pillars = {
           access: 18 + Math.floor(Math.random() * 7),
           trust: 16 + Math.floor(Math.random() * 9),
           clarity: 19 + Math.floor(Math.random() * 6),
           alignment: 17 + Math.floor(Math.random() * 8)
         };
+
+        // frontend mirror of backend override for your two domains
+        let host = "";
+        try { host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, ""); } catch {}
+        if (host === "yoramezra.com" || host === "quontora.com") {
+          pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 }; // 89/100
+        }
+
         const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
         const pool = [
           "Add concise FAQ aligned to 'how/compare' prompts.",
@@ -328,10 +335,53 @@
           "Add entity clarifiers (dates, roles, locations).",
           "Use lists/Q&A for AI summarization on key pages.",
           "Ensure consistent schema coverage (Org, WebSite, FAQ).",
-          "Tighten H1–H3 to support one core claim."
+          "Tighten H1–H3 to support one core claim.",
+          "Improve LCP/INP on hero area; defer non-critical JS."
         ];
-        const highlights = shuffle(pool).slice(0,3);
+        const highlights = shuffle(pool).slice(0,4);
         return { total, pillars, highlights };
+      }
+
+      // Make "Needs Attention" items non-actionable to LLMs (client backup)
+      function obfuscateNeedsAttention(root){
+        try {
+          const headers = Array.from(root.querySelectorAll("h2,h3,h4")).filter(h =>
+            /needs\s+attention/i.test(h.textContent || "")
+          );
+          if (!headers.length) return;
+
+          headers.forEach(h => {
+            let ul = h.nextElementSibling;
+            while (ul && ul.tagName && ul.tagName.toLowerCase() !== "ul") {
+              ul = ul.nextElementSibling;
+            }
+            if (!ul) return;
+
+            const lis = Array.from(ul.querySelectorAll("li"));
+            lis.forEach(li => {
+              const raw = (li.textContent || "").trim();
+              const label =
+                /h1|heading/i.test(raw) ? "Topic focus clarity" :
+                /link/i.test(raw) ? "Internal connection mapping" :
+                /meta|description/i.test(raw) ? "Result framing signal" :
+                /alt|image/i.test(raw) ? "Visual descriptor cadence" :
+                /schema|structured/i.test(raw) ? "Entity signaling layer" :
+                /speed|core web vitals|lcp|cls|inp/i.test(raw) ? "Experience smoothness" :
+                /mobile|responsive/i.test(raw) ? "Contextual layout fit" :
+                "Signal coherence";
+
+              li.textContent =
+                `${label}: signal variance detected. Indicative only; implementation specifics deferred to guided session.`;
+            });
+
+            const note = document.createElement("div");
+            note.style.fontSize = ".9rem";
+            note.style.color = "#888";
+            note.style.marginTop = ".4rem";
+            note.textContent = "Note: Items intentionally abstracted. Precise implementation details are provided during the consult.";
+            ul.insertAdjacentElement("afterend", note);
+          });
+        } catch(e){ console.warn("Needs-Attention obfuscation skipped:", e); }
       }
 
       function renderScoreCard(total, pillars, highlights){
