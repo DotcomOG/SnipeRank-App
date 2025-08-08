@@ -1,7 +1,8 @@
-// server.js (v1.9.12) — backend source of truth for analysis + HTML rendering
-// - High-score override for yoramezra.com and quontora.com
-// - Non-actionable wording for "Needs Attention"
-// - Same outputs used by /report.html (HTML list sections)
+// server.js (v1.9.13)
+// - High-score override for yoramezra.com & quontora.com
+// - Non-actionable "Needs Attention" (server-side)
+// - Deduplicate items by title, no repeats
+// - Same HTML sections; plays nice with frontend spacing rules
 
 import express from 'express';
 import cors from 'cors';
@@ -59,6 +60,18 @@ function makeNeedsAttentionNonActionable(items = []) {
   });
 }
 
+function uniqueByTitle(items = []) {
+  const seen = new Set();
+  const out = [];
+  for (const it of items) {
+    const key = (it.title || '').trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
+}
+
 /** ---------- Analysis ---------- */
 async function analyzeWebsite(url) {
   try {
@@ -72,7 +85,7 @@ async function analyzeWebsite(url) {
       working: [],
       needsAttention: [],
       insights: [],
-      score: 7.8,
+      score: 78,
       pillars: { access: 18, trust: 18, clarity: 18, alignment: 18 }
     };
 
@@ -174,7 +187,7 @@ async function analyzeWebsite(url) {
       });
     }
 
-    // AI Engine Insights + Score override
+    // High score for your domains
     if (HIGH_SCORE_WHITELIST.has(domain)) {
       const o = highScoreOverrideFor(domain);
       analysis.score = o.score;
@@ -196,22 +209,29 @@ async function analyzeWebsite(url) {
       ];
     }
 
-    // Some filler to keep sections populated
-    while (analysis.working.length < 5) {
-      analysis.working.push({
-        title: 'Mobile-Responsive Design',
-        description: 'Mobile-first rendering supports AI and user experience expectations.'
-      });
-    }
-    while (analysis.needsAttention.length < 6) {
-      analysis.needsAttention.push({
-        title: 'Competitive Content Gaps',
-        description: 'Potential gaps where competitors capture AI attention with formats you may not be using.'
-      });
-    }
+    // Provide some generic positives without dupes
+    const genericWorking = [
+      { title: 'Mobile-Responsive Design', description: 'Mobile-first rendering supports AI and user experience expectations.' },
+      { title: 'Content Structure Recognition', description: 'Semantic HTML elements help AI parse content hierarchy efficiently.' },
+      { title: 'Loading Speed Baseline', description: 'Core web vitals appear acceptable for most pages; further tuning could raise scores.' }
+    ];
+    for (const item of genericWorking) if (analysis.working.length < 5) analysis.working.push(item);
 
-    // FINAL: make Needs Attention non-actionable server-side
-    analysis.needsAttention = makeNeedsAttentionNonActionable(analysis.needsAttention);
+    // Generic issues without repeats
+    const genericIssues = [
+      { title: 'Internal Linking Strategy', description: 'Cross-reference signals could better guide AI to cornerstone content.' },
+      { title: 'Content Depth Analysis', description: 'Some topics could show deeper coverage to convey authority.' },
+      { title: 'Site Architecture Issues', description: 'Navigation hierarchy and URL structure can be clarified.' },
+      { title: 'Local SEO Signals', description: 'Geographic relevance markers appear limited or inconsistent.' },
+      { title: 'Content Freshness Gaps', description: 'Update cadence may not reflect current expertise signals.' },
+      { title: 'Core Web Vitals Optimization', description: 'Experience metrics have room for improvement on key templates.' },
+      { title: 'Competitive Content Gaps', description: 'Competitors capture related queries with formats you may not be using.' }
+    ];
+    for (const gi of genericIssues) if (analysis.needsAttention.length < 8) analysis.needsAttention.push(gi);
+
+    // FINAL: de-dupe and obfuscate Needs Attention server-side
+    analysis.working = uniqueByTitle(analysis.working);
+    analysis.needsAttention = uniqueByTitle(makeNeedsAttentionNonActionable(analysis.needsAttention));
 
     return analysis;
 
@@ -228,7 +248,7 @@ async function analyzeWebsite(url) {
       insights: [
         { description: 'Complete AI analysis may require deeper access for accurate visibility mapping.' }
       ],
-      score: 86, // give a neutral-good score on transient errors
+      score: 86,
       pillars: { access: 21, trust: 22, clarity: 21, alignment: 22 }
     };
   }
