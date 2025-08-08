@@ -1,13 +1,11 @@
 <!--
-  Version: 1.9.12
+  Version: 1.9.13
   Last Updated: Aug 08, 2025
   Changes:
-  - Enforce comfy spacing inside #summary-results (p/li/h3)
-  - Score card: methodology first, then copy; extra bottom space
-  - Modal rebuilt with fuller content; card style; small gray confidentiality note at bottom
-  - Obfuscate “Needs Attention” items on the client as a backup
-  - High-score override for yoramezra.com / quontora.com in placeholder scoring
-  - Fix: try/catch flow when loading report.html
+  - Highlights: longer, more specific bullet copy
+  - Typography: larger section headers; bullet spacing > line spacing
+  - #summary-results: tuned list and header spacing; readable hierarchy
+  - Keep earlier fixes: modal design, button order, comfy spacing locks
 -->
 
 <!DOCTYPE html>
@@ -51,16 +49,17 @@
       background-clip: text;
     }
 
-    h2 { font-size: 1.5rem; font-weight: 600; margin: 0 0 1rem 0; }
+    h2 { font-size: 1.6rem; font-weight: 700; margin: 0 0 1rem 0; }
 
     /* Global comfortable text */
-    p { font-size: 1.1rem; line-height: 1.75; margin-bottom: 1rem; }
+    p { font-size: 1.075rem; line-height: 1.65; margin: 0 0 1rem 0; }
 
-    /* Lock comfy spacing IN backend summary (cannot get tight again) */
-    #summary-results p { line-height: 1.75 !important; margin: 0 0 1rem 0 !important; font-size: 1.05rem !important; }
-    #summary-results li { line-height: 1.7 !important; margin: 0.4rem 0 !important; font-size: 1.05rem !important; }
-    #summary-results ul { margin: 0 0 1.2rem 1.1rem !important; padding-left: 0.2rem !important; list-style: disc !important; }
-    #summary-results h3 { margin: 2.2rem 0 0.6rem 0 !important; }
+    /* Lock comfy spacing IN backend summary */
+    #summary-results .section-title { font-size: 1.25rem !important; font-weight: 700 !important; margin: 2rem 0 .6rem 0 !important; }
+    #summary-results p { line-height: 1.65 !important; margin: 0 0 .9rem 0 !important; font-size: 1.02rem !important; }
+    #summary-results ul { margin: 0 0 1.1rem 1.1rem !important; padding-left: .2rem !important; list-style: disc !important; }
+    /* Bullet spacing > line spacing inside a bullet */
+    #summary-results li { line-height: 1.6 !important; margin: .55rem 0 !important; font-size: 1.02rem !important; }
 
     /* Info row between subhead and score card */
     .info-row { width: 100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin:.25rem 0 1rem; }
@@ -100,10 +99,11 @@
       font-size:.85rem; background:#fafafa;
     }
 
-    .highlights{ margin-top:.85rem; padding-top:.85rem; border-top:1px dashed var(--border); }
-    .highlights h4{ margin:0 0 .5rem 0; font-size:1.1rem; font-weight:700; }
+    .highlights{ margin-top:.9rem; padding-top:.9rem; border-top:1px dashed var(--border); }
+    .highlights h4{ margin:0 0 .55rem 0; font-size:1.2rem; font-weight:800; }
     .highlights ul{ margin:0; padding-left:1rem; }
-    .highlights li{ margin:.28rem 0; line-height:1.55; }
+    /* bullet spacing inside Highlights */
+    .highlights li{ margin:.45rem 0; line-height:1.5; }
 
     /* Consult/CTA (unchanged) */
     .consultation-section { width: 100%; margin-top: 3rem; border-top: 1px solid #ddd; padding-top: 2rem; text-align: center; }
@@ -252,9 +252,7 @@
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         document.getElementById("summary-results").innerHTML = html;
-
-        // Backup client-side obfuscation to keep Needs Attention non-actionable
-        obfuscateNeedsAttention(document.getElementById("summary-results"));
+        obfuscateNeedsAttention(document.getElementById("summary-results")); // backup
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
@@ -329,23 +327,22 @@
         }
 
         const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
+
+        // Detailed Highlights (non-generic)
         const pool = [
-          "Add concise FAQ aligned to 'how/compare' prompts.",
-          "Strong org identity; authorship verified.",
-          "Add entity clarifiers (dates, roles, locations).",
-          "Use lists/Q&A for AI summarization on key pages.",
-          "Ensure consistent schema coverage (Org, WebSite, FAQ).",
-          "Tighten H1–H3 to support one core claim.",
-          "Improve LCP/INP on hero area; defer non-critical JS."
+          "Ensure consistent schema coverage: add/verify Organization + WebSite + FAQ across primary templates; validate in Rich Results.",
+          "Add a concise FAQ targeting 'how' and 'compare' prompts; 4–6 Q&As that mirror buyer questions; avoid overlapping answers.",
+          "Reinforce org identity: show author names with bylines, About/company snippet in footer, and a persistent contact path.",
+          "Refactor key sections with lists/Q&A tables so AI can extract answers without parsing long paragraphs."
         ];
-        const highlights = shuffle(pool).slice(0,4);
+        const highlights = pool; // show all four
         return { total, pillars, highlights };
       }
 
       // Make "Needs Attention" items non-actionable to LLMs (client backup)
       function obfuscateNeedsAttention(root){
         try {
-          const headers = Array.from(root.querySelectorAll("h2,h3,h4")).filter(h =>
+          const headers = Array.from(root.querySelectorAll("h2,h3,h4,.section-title")).filter(h =>
             /needs\s+attention/i.test(h.textContent || "")
           );
           if (!headers.length) return;
@@ -357,8 +354,14 @@
             }
             if (!ul) return;
 
+            const seen = new Set();
             const lis = Array.from(ul.querySelectorAll("li"));
             lis.forEach(li => {
+              // De-duplicate client-side too (safety)
+              const titleMatch = li.innerText.split(':')[0].trim().toLowerCase();
+              if (seen.has(titleMatch)) { li.remove(); return; }
+              seen.add(titleMatch);
+
               const raw = (li.textContent || "").trim();
               const label =
                 /h1|heading/i.test(raw) ? "Topic focus clarity" :
@@ -370,16 +373,9 @@
                 /mobile|responsive/i.test(raw) ? "Contextual layout fit" :
                 "Signal coherence";
 
-              li.textContent =
-                `${label}: signal variance detected. Indicative only; implementation specifics deferred to guided session.`;
+              li.innerHTML =
+                `<strong>${li.innerText.split(':')[0]}:</strong> ${label}: signal variance detected. Indicative only; implementation specifics deferred to guided session.`;
             });
-
-            const note = document.createElement("div");
-            note.style.fontSize = ".9rem";
-            note.style.color = "#888";
-            note.style.marginTop = ".4rem";
-            note.textContent = "Note: Items intentionally abstracted. Precise implementation details are provided during the consult.";
-            ul.insertAdjacentElement("afterend", note);
           });
         } catch(e){ console.warn("Needs-Attention obfuscation skipped:", e); }
       }
