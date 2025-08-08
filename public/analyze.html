@@ -399,23 +399,51 @@
     
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
-      // Load dynamic AI analysis results
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
-
       document.getElementById("current-url").textContent = targetUrl;
 
       try {
-        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
-        const html = await res.text();
+        // Load HTML summary
+        const reportRes = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const html = await reportRes.text();
         document.getElementById("summary-results").innerHTML = html;
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='color:red; text-align:center;'>Error loading analysis</p>";
       }
-      
-      // scoring
+
+      /** -------------------------
+       *   V1 PILLAR-BASED SCORING
+       *  -------------------------
+       *  Each pillar is scored 0–25
+       *  The calculation here uses placeholders
+       *  so the gauge shows immediately.
+       */
+      function calculateScore() {
+        // Placeholder scoring — replace with real checks later
+        const pillars = {
+          structure: 18 + Math.floor(Math.random() * 7), // 18–24
+          authority: 16 + Math.floor(Math.random() * 9), // 16–24
+          clarity: 19 + Math.floor(Math.random() * 6),   // 19–24
+          alignment: 17 + Math.floor(Math.random() * 8)  // 17–24
+        };
+
+        const total = pillars.structure + pillars.authority + pillars.clarity + pillars.alignment;
+        return { total, pillars };
+      }
+
+      const { total, pillars } = calculateScore();
+      renderGauge(total);
+
+      // Optional: log pillar scores (can be displayed in a popup)
+      console.log("SnipeRank Pillar Scores:", pillars);
+
+      /** -------------------------
+       *   GAUGE RENDERING FUNCTION
+       *  -------------------------
+       */
       function renderGauge(score) {
         const canvas = document.getElementById("scoreGauge");
         const ctx = canvas.getContext("2d");
@@ -424,34 +452,33 @@
         const centerY = canvas.height;
         const radius = 80;
 
-        // Background arc (gray)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Background arc
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI);
         ctx.lineWidth = 15;
         ctx.strokeStyle = "#eee";
         ctx.stroke();
 
-        // Score arc (colored)
+        // Score arc
         const angle = Math.PI + (score / 100) * Math.PI;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, Math.PI, angle);
         ctx.strokeStyle =
-          score >= 80
-            ? "#38A169"
-            : score >= 60
-            ? "#F6AD55"
-            : score >= 40
-            ? "#DD6B20"
-            : "#E53E3E";
+          score >= 80 ? "#38A169" :
+          score >= 60 ? "#F6AD55" :
+          score >= 40 ? "#DD6B20" :
+          "#E53E3E";
         ctx.stroke();
 
-        // Score text
-        const label = document.getElementById("scoreLabel");
-        label.textContent = `SnipeRank Score: ${score}/100`;
+        document.getElementById("scoreLabel").textContent = `SnipeRank Score: ${score}/100`;
       }
-      
-      // Full Report form handling
+
+      /** -------------------------
+       *   FULL REPORT FORM HANDLING
+       *  -------------------------
+       */
       const form = document.getElementById("fullReportForm");
       if (form && targetUrl) {
         document.getElementById("urlField").value = targetUrl;
