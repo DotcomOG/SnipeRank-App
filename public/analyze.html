@@ -1,13 +1,13 @@
 <!--
-  Version: 1.9.8
+  Version: 1.9.9
   Last Updated: Aug 08, 2025
   Changes:
-  - Move "Powered by quontora" and "Analysis for…" above score card
-  - Fix modal close hover so no black box appears
-  - Add "Copy AI-Ready Summary" button to score card for LLM action plans
-  - Preserve restored report text spacing
-  - Keep lightbox/modal content and behavior otherwise unchanged
+  - LOCK report spacing inside #summary-results (p/li) to prevent tight layout regressions
+  - Redesign methodology popup to match score-card style (border, radius, padding)
+  - Improve popup close button hit area, spacing, and hover/focus (no dark box, 36px tap target)
+  - Keep previous improvements: info row above score, Copy AI‑Ready Summary button
 -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,7 +24,7 @@
     }
 
     body {
-      font-family: Helvetica, sans-serif;
+      font-family: Helvetica, Arial, sans-serif;
       background: #fff;
       color: #000;
       margin: 0;
@@ -55,42 +55,42 @@
       margin: 0 0 1rem 0;
     }
 
-    /* Restore comfy reading */
+    /* Global comfortable text */
     p { font-size: 1.1rem; line-height: 1.75; margin-bottom: 1rem; }
 
-    #summary-results {
-      width: 100%;
-      margin: 2rem 0;
-      padding: 0;
-      background: none;
-      border: none;
-    }
+    /* ENSURE comfy spacing IN the backend summary (cannot get tight again) */
+    #summary-results p { line-height: 1.75 !important; margin: 0 0 1rem 0 !important; font-size: 1.05rem !important; }
+    #summary-results li { line-height: 1.7 !important; margin: 0.4rem 0 !important; font-size: 1.05rem !important; }
+    #summary-results ul { margin: 0 0 1.2rem 1.1rem !important; padding-left: 0.2rem !important; list-style: disc !important; }
+    #summary-results h3 { margin: 2rem 0 0.6rem 0 !important; }
 
-    /* Info row placed between subhead and score card */
-    .info-row { width: 100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin: .25rem 0 1rem; }
+    /* Info row between subhead and score card */
+    .info-row {
+      width: 100%;
+      display:flex; gap:1rem; align-items:center; justify-content:space-between;
+      margin: .25rem 0 1rem;
+    }
     .powered-by { color: var(--muted); font-size: .95rem; }
     .powered-by a { color: #3182CE; text-decoration: none; font-weight: 600; }
     .for-url { color: var(--muted); font-size: .95rem; }
     .for-url strong { color:#000; }
 
-    /* Score Card */
-    .score-card{
+    /* Score Card (reference style for modal too) */
+    .card {
       width:100%;
       border:1px solid var(--border);
       border-radius:12px;
-      padding:1rem;
       box-shadow:0 1px 2px rgba(0,0,0,.04);
-      margin-bottom:1rem;
+      background:#fff;
     }
-    .score-top{
-      display:flex; align-items:center; gap:.75rem; justify-content:space-between; flex-wrap:wrap;
-    }
-    .score-main{ display:flex; align-items:baseline; gap:.5rem; }
-    .score-number{ font-size:2.25rem; font-weight:800; }
-    .score-band{ color:var(--muted); font-size:.95rem; }
+    .score-card { padding:1rem; margin-bottom:1rem; }
+    .score-top { display:flex; align-items:center; gap:.75rem; justify-content:space-between; flex-wrap:wrap; }
+    .score-main { display:flex; align-items:baseline; gap:.5rem; }
+    .score-number { font-size:2.25rem; font-weight:800; }
+    .score-band { color:var(--muted); font-size:.95rem; }
     .btn-row { display:flex; gap:.5rem; align-items:center; }
 
-    /* High-contrast buttons inside score box */
+    /* High-contrast “ghost” buttons inside score card */
     .btn-ghost{
       border:1px solid #111; background:#fff; color:#111;
       padding:.55rem .9rem; border-radius:8px; cursor:pointer;
@@ -105,6 +105,7 @@
       border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem;
       display:flex; align-items:center; justify-content:space-between;
       font-size:.98rem;
+      background:#fff;
     }
     .pillar .label{ font-weight:600; }
     .badge{
@@ -116,7 +117,7 @@
     .highlights ul{ margin:0; padding-left:1rem; }
     .highlights li{ margin:.25rem 0; line-height:1.5; }
 
-    /* Consult sections preserved */
+    /* Consult/CTA sections (unchanged) */
     .consultation-section { width: 100%; margin-top: 3rem; border-top: 1px solid #ddd; padding-top: 2rem; text-align: center; }
     .consultation-cta { margin: 2rem 0; }
     .schedule-button {
@@ -131,22 +132,33 @@
     button:hover { background: #333; }
     .footer { font-size: 0.85rem; color: #666; margin-top: 3rem; text-align: center; width: 100%; }
 
-    /* Modal */
-    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:50; }
-    .modal{ width:min(600px, 92vw); background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:1.1rem; position:relative; }
-    .modal h3{ margin:0 0 .5rem 0; font-size:1.2rem; }
+    /* Modal — redesigned to match card style, better close button */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      display:none; align-items:center; justify-content:center; z-index:50;
+      padding: 1rem;
+    }
+    .modal {
+      max-width: 600px; width: 100%;
+    }
+    .modal .card { padding: 1rem 1rem 1.1rem 1rem; position:relative; }
+    .modal-title { margin:0 0 .6rem 0; font-size:1.2rem; font-weight:700; }
     .modal p { color:var(--muted); margin:.25rem 0 .8rem 0; line-height:1.6; }
     .modal ul{ margin:.25rem 0 0 1.1rem; }
     .modal li{ margin:.35rem 0; }
+
     .modal-close{
-      position:absolute; top:.35rem; right:.5rem;
-      border:none; background:transparent; color:#222;
-      font-size:1.6rem; line-height:1; cursor:pointer;
+      position:absolute; top:.4rem; right:.4rem;
+      border:1px solid var(--border); background:#fff; color:#111;
+      font-size:1.1rem; line-height:1;
+      cursor:pointer; border-radius:8px;
+      width: 36px; height: 36px; display:flex; align-items:center; justify-content:center;
     }
-    /* Fix: no black hover box */
     .modal-close:hover,
     .modal-close:focus,
-    .modal-close:active { background:transparent; color:#000; outline:none; box-shadow:none; }
+    .modal-close:active {
+      background:#f7f7f7; color:#000; outline:none; box-shadow:none;
+    }
 
     @media (max-width: 600px){
       .pillars{ grid-template-columns:1fr; }
@@ -157,14 +169,14 @@
   <h1>SnipeRank</h1>
   <h2>AI SEO Analysis Results</h2>
 
-  <!-- Moved here per request -->
+  <!-- Info row -->
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
     <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
   <!-- Score Card -->
-  <section class="score-card" id="scoreCard" aria-live="polite">
+  <section class="card score-card" id="scoreCard" aria-live="polite">
     <div class="score-top">
       <div class="score-main">
         <div class="score-number" id="scoreNumber">—</div>
@@ -185,7 +197,9 @@
   </section>
 
   <!-- Backend HTML summary -->
-  <section id="summary-results"><p style="text-align:center; color:gray;">Loading analysis...</p></section>
+  <section id="summary-results">
+    <p style="text-align:center; color:gray;">Loading analysis...</p>
+  </section>
 
   <!-- Full Report CTA (unchanged) -->
   <section class="consultation-section">
@@ -216,15 +230,17 @@
   <!-- Methodology Modal -->
   <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal">
-      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
-      <h3 id="modalTitle">SnipeRank Scoring Methodology</h3>
-      <p>Our proprietary model evaluates four pillars. Exact weights are confidential.</p>
-      <ul>
-        <li>Structural access and discoverability signals.</li>
-        <li>Trust and verification footprints across sources.</li>
-        <li>Clarity and interpretability for LLMs.</li>
-        <li>Prompt‑pattern alignment and response framing.</li>
-      </ul>
+      <div class="card">
+        <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+        <h3 class="modal-title" id="modalTitle">SnipeRank Scoring Methodology</h3>
+        <p>Our proprietary model evaluates four pillars. Exact weights are confidential.</p>
+        <ul>
+          <li>Structural access and discoverability signals.</li>
+          <li>Trust and verification footprints across sources.</li>
+          <li>Clarity and interpretability for LLMs.</li>
+          <li>Prompt‑pattern alignment and response framing.</li>
+        </ul>
+      </div>
     </div>
   </div>
 
@@ -293,7 +309,6 @@
           btn.textContent = "Copied!";
           setTimeout(() => (btn.textContent = old), 1500);
         } catch {
-          // Fallback: open a prompt
           window.prompt("Copy the AI-ready summary:", txt);
         }
       });
