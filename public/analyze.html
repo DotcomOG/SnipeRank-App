@@ -1,11 +1,11 @@
 <!--
-  Version: 1.9.14
-  Last Updated: Aug 08, 2025
+  Version: 1.9.15
+  Last Updated: Aug 09, 2025
   Changes:
-  - FIX: remove duplicate/legacy modal & scripts; keep only sr-modal
-  - Hook button to sr-modal via data-open
-  - Minor CSS tidy (no visual change)
-  - Verified closing tags; no stray </html> in document
+  - Fixed form styling to match reference design
+  - Proper button styling (red background, white text)
+  - Consistent section spacing and typography
+  - Clean form layout with proper input styling
 -->
 
 <!DOCTYPE html>
@@ -21,6 +21,8 @@
       --pad-h: 2rem;
       --muted: #666;
       --border: #e5e5e5;
+      --red-primary: #dc3545;
+      --red-hover: #c82333;
 
       /* sr-modal tokens */
       --sr-radius: 16px;
@@ -33,83 +35,410 @@
       --sr-gap: 16px;
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Helvetica, Arial, sans-serif;
-      background: #fff; color: #000; margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      margin: 0;
       padding: var(--pad-v) var(--pad-h);
-      max-width: var(--max-width); margin-inline: auto;
-      display: flex; flex-direction: column; align-items: flex-start;
+      max-width: var(--max-width);
+      margin-inline: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
     }
 
     h1 {
-      font-size: 4rem; font-weight: 700; margin: 0 0 .25em 0; line-height: 1; letter-spacing: -1px;
+      font-size: 4rem;
+      font-weight: 700;
+      margin: 0 0 .25em 0;
+      line-height: 1;
+      letter-spacing: -1px;
       background: linear-gradient(135deg, #000 0%, #3182CE 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    h2 { font-size: 1.6rem; font-weight: 700; margin: 0 0 1rem 0; }
-    p { font-size: 1.075rem; line-height: 1.65; margin: 0 0 1rem 0; }
+    
+    h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 0 1rem 0;
+    }
+    
+    h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 2.5rem 0 1rem 0;
+      color: #000;
+    }
+    
+    p {
+      font-size: 1.075rem;
+      line-height: 1.65;
+      margin: 0 0 1rem 0;
+    }
 
     /* ===== Score card ===== */
-    .info-row { width: 100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin:.25rem 0 1rem; }
-    .powered-by, .for-url { color: var(--muted); font-size:.95rem; }
-    .powered-by a { color:#3182CE; text-decoration:none; font-weight:600; }
-    .for-url strong { color:#000; }
+    .info-row {
+      width: 100%;
+      display:flex;
+      gap:1rem;
+      align-items:center;
+      justify-content:space-between;
+      margin:.25rem 0 1rem;
+    }
+    
+    .powered-by, .for-url {
+      color: var(--muted);
+      font-size:.95rem;
+    }
+    
+    .powered-by a {
+      color:#3182CE;
+      text-decoration:none;
+      font-weight:600;
+    }
+    
+    .for-url strong {
+      color:#000;
+    }
 
-    .card { width:100%; border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); background:#fff; }
-    .score-card { padding:1rem; margin-bottom:2.25rem; }
-    .score-top { display:flex; align-items:center; gap:.75rem; justify-content:space-between; flex-wrap:wrap; }
-    .score-main { display:flex; align-items:baseline; gap:.5rem; }
-    .score-number { font-size:2.25rem; font-weight:800; }
-    .score-band { color:var(--muted); font-size:.95rem; }
-    .btn-row { display:flex; gap:.5rem; align-items:center; }
+    .card {
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+      background:#fff;
+    }
+    
+    .score-card {
+      padding:1rem;
+      margin-bottom:2.25rem;
+    }
+    
+    .score-top {
+      display:flex;
+      align-items:center;
+      gap:.75rem;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    
+    .score-main {
+      display:flex;
+      align-items:baseline;
+      gap:.5rem;
+    }
+    
+    .score-number {
+      font-size:2.25rem;
+      font-weight:800;
+    }
+    
+    .score-band {
+      color:var(--muted);
+      font-size:.95rem;
+    }
+    
+    .btn-row {
+      display:flex;
+      gap:.5rem;
+      align-items:center;
+    }
 
     .btn-ghost{
-      border:1px solid #111; background:#fff; color:#111;
-      padding:.55rem .9rem; border-radius:8px; cursor:pointer;
-      font-weight:700; font-size:.95rem;
+      border:1px solid #111;
+      background:#fff;
+      color:#111;
+      padding:.55rem .9rem;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:.95rem;
+      transition: background 0.2s;
     }
-    .btn-ghost:hover{ background:#f2f2f2; }
+    
+    .btn-ghost:hover{
+      background:#f2f2f2;
+    }
 
-    .pillars{ display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; margin-top:.75rem; }
-    .pillar{ border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem; display:flex; align-items:center; justify-content:space-between; font-size:.98rem; background:#fff; }
-    .pillar .label{ font-weight:600; }
-    .badge{ font-weight:700; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border); font-size:.85rem; background:#fafafa; }
+    .pillars{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:.75rem;
+      margin-top:.75rem;
+    }
+    
+    .pillar{
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:.6rem .75rem;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      font-size:.98rem;
+      background:#fff;
+    }
+    
+    .pillar .label{
+      font-weight:600;
+    }
+    
+    .badge{
+      font-weight:700;
+      padding:.2rem .5rem;
+      border-radius:999px;
+      border:1px solid var(--border);
+      font-size:.85rem;
+      background:#fafafa;
+    }
 
-    .highlights{ margin-top:.9rem; padding-top:.9rem; border-top:1px dashed var(--border); }
-    .highlights h4{ margin:0 0 .55rem 0; font-size:1.2rem; font-weight:800; }
-    .highlights ul{ margin:0; padding-left:1rem; }
-    .highlights li{ margin:.45rem 0; line-height:1.5; }
+    .highlights{
+      margin-top:.9rem;
+      padding-top:.9rem;
+      border-top:1px dashed var(--border);
+    }
+    
+    .highlights h4{
+      margin:0 0 .55rem 0;
+      font-size:1.2rem;
+      font-weight:800;
+    }
+    
+    .highlights ul{
+      margin:0;
+      padding-left:1rem;
+    }
+    
+    .highlights li{
+      margin:.45rem 0;
+      line-height:1.5;
+    }
 
     /* ===== Backend summary type locks ===== */
-    #summary-results .section-title { font-size: 1.25rem !important; font-weight: 700 !important; margin: 2rem 0 .6rem 0 !important; }
-    #summary-results p { line-height: 1.65 !important; margin: 0 0 .9rem 0 !important; font-size: 1.02rem !important; }
-    #summary-results ul { margin: 0 0 1.1rem 1.1rem !important; padding-left: .2rem !important; list-style: disc !important; }
-    #summary-results li { line-height: 1.6 !important; margin: .55rem 0 !important; font-size: 1.02rem !important; }
+    #summary-results .section-title {
+      font-size: 1.25rem !important;
+      font-weight: 700 !important;
+      margin: 2rem 0 .6rem 0 !important;
+    }
+    
+    #summary-results p {
+      line-height: 1.65 !important;
+      margin: 0 0 .9rem 0 !important;
+      font-size: 1.02rem !important;
+    }
+    
+    #summary-results ul {
+      margin: 0 0 1.1rem 1.1rem !important;
+      padding-left: .2rem !important;
+      list-style: disc !important;
+    }
+    
+    #summary-results li {
+      line-height: 1.6 !important;
+      margin: .55rem 0 !important;
+      font-size: 1.02rem !important;
+    }
+
+    /* ===== Form Sections ===== */
+    .report-section,
+    .consultation-section {
+      width: 100%;
+      margin: 2.5rem 0;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="tel"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #3182CE;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .btn-primary {
+      background: var(--red-primary);
+      color: white;
+      border: none;
+      padding: 0.85rem 2rem;
+      border-radius: 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-block;
+      text-decoration: none;
+      text-align: center;
+      margin: 1rem 0;
+    }
+
+    .btn-primary:hover {
+      background: var(--red-hover);
+    }
+
+    .form-button-wrapper {
+      text-align: center;
+      margin: 1.5rem 0;
+    }
+
+    .consultation-cta {
+      text-align: center;
+      margin: 1.5rem 0;
+    }
+
+    .consultation-note {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    /* ===== Footer ===== */
+    .footer {
+      width: 100%;
+      text-align: center;
+      padding: 2rem 0 1rem;
+      margin-top: 3rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
 
     /* ===== sr-modal (matches card look) ===== */
-    .sr-modal{ position: fixed; inset: 0; display: none; z-index: 9999; }
-    .sr-modal[aria-hidden="false"]{ display:block; }
-    .sr-modal__backdrop{ position:absolute; inset:0; background: rgba(0,0,0,.3); }
+    .sr-modal{
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 9999;
+    }
+    
+    .sr-modal[aria-hidden="false"]{
+      display:block;
+    }
+    
+    .sr-modal__backdrop{
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,.3);
+    }
+    
     .sr-modal__panel{
-      position: relative; max-width: 720px; width: calc(100% - 32px);
-      margin: 6vh auto; background: var(--sr-bg); color: var(--sr-text);
-      border: 1px solid var(--sr-border); border-radius: var(--sr-radius);
-      box-shadow: var(--sr-shadow); padding: 20px;
+      position: relative;
+      max-width: 720px;
+      width: calc(100% - 32px);
+      margin: 6vh auto;
+      background: var(--sr-bg);
+      color: var(--sr-text);
+      border: 1px solid var(--sr-border);
+      border-radius: var(--sr-radius);
+      box-shadow: var(--sr-shadow);
+      padding: 20px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
+    
     .sr-modal__close{
-      position:absolute; top:10px; right:10px; border:1px solid var(--sr-border);
-      background:#fff; border-radius: 999px; width:32px; height:32px; line-height:28px;
-      font-size:18px; cursor:pointer;
+      position:absolute;
+      top:10px;
+      right:10px;
+      border:1px solid var(--sr-border);
+      background:#fff;
+      border-radius: 999px;
+      width:32px;
+      height:32px;
+      line-height:28px;
+      font-size:18px;
+      cursor:pointer;
+      text-align: center;
     }
-    .sr-modal__header h2{ margin: 0 0 4px; font-size: 18px; font-weight: 700; }
-    .sr-modal__sub{ margin: 0 0 12px; color: var(--sr-muted); font-size: 14px; line-height: 1.35; }
-    .sr-pill{ background: var(--sr-pill-bg); border: 1px solid var(--sr-border); border-radius: 12px; padding: 12px 14px; margin-bottom: var(--sr-gap); }
-    .sr-pill__title{ margin: 0 0 6px; font-size: 15px; font-weight: 700; }
-    .sr-list{ margin:0; padding-left: 18px; }
-    .sr-list li{ margin: 6px 0; line-height: 1.35; }
-    .sr-modal__fineprint{ margin-top: 8px; color: var(--sr-muted); font-size: 12px; line-height: 1.3; border-top: 1px dashed var(--sr-border); padding-top: 10px; }
+    
+    .sr-modal__header h2{
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    
+    .sr-modal__sub{
+      margin: 0 0 12px;
+      color: var(--sr-muted);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    
+    .sr-pill{
+      background: var(--sr-pill-bg);
+      border: 1px solid var(--sr-border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: var(--sr-gap);
+    }
+    
+    .sr-pill__title{
+      margin: 0 0 6px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    
+    .sr-list{
+      margin:0;
+      padding-left: 18px;
+    }
+    
+    .sr-list li{
+      margin: 6px 0;
+      line-height: 1.35;
+    }
+    
+    .sr-modal__fineprint{
+      margin-top: 8px;
+      color: var(--sr-muted);
+      font-size: 12px;
+      line-height: 1.3;
+      border-top: 1px dashed var(--sr-border);
+      padding-top: 10px;
+    }
 
-    @media (max-width: 600px){ .pillars{ grid-template-columns:1fr; } }
+    @media (max-width: 600px){
+      .pillars{
+        grid-template-columns:1fr;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 {
+        font-size: 3rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -147,33 +476,40 @@
     <p style="text-align:center; color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Full Report CTA -->
-  <section class="consultation-section">
+  <!-- Full Report Section -->
+  <section class="report-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-grid">
         <input type="text" name="name" placeholder="Your Name" required autocomplete="name" />
         <input type="email" name="email" placeholder="Your Email" required autocomplete="email" />
         <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel" />
         <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization" />
       </div>
-      <textarea name="message" placeholder="Share context or ask a specific question — we’ll address at your free consult." rows="3" style="width:100%; margin-top:1rem;"></textarea>
+      <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
       <input type="hidden" name="url" id="urlField" />
-      <div class="form-button-wrapper"><button type="submit">Email Me My Full Report</button></div>
+      <div class="form-button-wrapper">
+        <button type="submit" class="btn-primary">Email Me My Full Report</button>
+      </div>
       <p id="formMessage" style="text-align:center; font-size:.95rem; color:gray;"></p>
     </form>
   </section>
 
+  <!-- Consultation Section -->
   <section class="consultation-section">
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30-minute consultation to discuss your specific opportunities and next steps.</p>
-    <div class="consultation-cta"><a href="https://calendly.com/quontora" id="scheduleBtn" class="schedule-button" target="_blank" rel="noopener">Schedule Free Consultation</a></div>
+    <div class="consultation-cta">
+      <a href="https://calendly.com/quontora" id="scheduleBtn" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
+    </div>
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
-  <div class="footer">&copy; 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE; text-decoration:none;">quontora.com</a>. Last updated August 8.</div>
+  <div class="footer">
+    © 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE; text-decoration:none;">quontora.com</a>. Last updated August 9.
+  </div>
 
-  <!-- ===== Scoring Methodology Modal (single source of truth) ===== -->
+  <!-- ===== Scoring Methodology Modal ===== -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
@@ -214,7 +550,7 @@
       <section class="sr-pill">
         <h3 class="sr-pill__title">Prompt-Pattern Alignment</h3>
         <ul class="sr-list">
-          <li>Answer-first summaries and “how/compare” FAQs.</li>
+          <li>Answer-first summaries and "how/compare" FAQs.</li>
           <li>Task framing suitable for AI snippets and summaries.</li>
           <li>Schema coverage (FAQ, Article/BlogPosting, WebSite).</li>
         </ul>
@@ -237,11 +573,11 @@
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         document.getElementById("summary-results").innerHTML = html;
-        obfuscateNeedsAttention(document.getElementById("summary-results")); // backup
+        obfuscateNeedsAttention(document.getElementById("summary-results"));
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
-          "<p style='color:red; text-align:center;'>Error loading analysis</p>";
+          "<p style='color:red; text-align:center;'>Error loading analysis. Please try again.</p>";
       }
 
       // --- V1 Scoring (frontend placeholder) ---
@@ -257,34 +593,50 @@
           const status = document.getElementById("formMessage");
           status.textContent = "📤 Sending...";
           const payload = {
-            name: form.name.value, email: form.email.value, phone: form.phone.value,
-            company: form.company.value, message: form.message.value, url: form.url.value,
+            name: form.name.value,
+            email: form.email.value,
+            phone: form.phone.value,
+            company: form.company.value,
+            message: form.message.value,
+            url: form.url.value,
           };
           try {
             const res = await fetch("https://sniperank-app2.onrender.com/api/send-link", {
-              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
             });
             const result = await res.json();
             if (result.success) {
               const reportUrl = `https://sniperank-app.vercel.app/full-report.html?url=${encodeURIComponent(payload.url)}`;
               window.location.href = reportUrl;
-            } else { status.textContent = "❌ Something went wrong. Please try again."; }
-          } catch (err) { console.error(err); status.textContent = "❌ Server error. Try again later."; }
+            } else {
+              status.textContent = "❌ Something went wrong. Please try again.";
+            }
+          } catch (err) {
+            console.error(err);
+            status.textContent = "❌ Server error. Please try again later.";
+          }
         });
       }
 
-      // ===== Modal controls (sr-modal only) =====
+      // ===== Modal controls =====
       document.addEventListener('click', (e) => {
         const open = e.target.closest('[data-open="sr-modal"]');
-        if (open){ document.getElementById('sr-modal').setAttribute('aria-hidden','false'); }
+        if (open){
+          document.getElementById('sr-modal').setAttribute('aria-hidden','false');
+        }
         if (e.target.matches('[data-close]')) {
           document.getElementById('sr-modal').setAttribute('aria-hidden','true');
         }
       });
-      document.addEventListener('keydown', (e)=>{
+      
+      document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           const m = document.getElementById('sr-modal');
-          if (m && m.getAttribute('aria-hidden') === 'false'){ m.setAttribute('aria-hidden','true'); }
+          if (m && m.getAttribute('aria-hidden') === 'false'){
+            m.setAttribute('aria-hidden','true');
+          }
         }
       });
 
@@ -297,7 +649,9 @@
           const old = btn.textContent;
           btn.textContent = "Copied!";
           setTimeout(() => (btn.textContent = old), 1500);
-        } catch { window.prompt("Copy the AI-ready summary:", txt); }
+        } catch {
+          window.prompt("Copy the AI-ready summary:", txt);
+        }
       });
 
       // ---------- Helpers ----------
@@ -308,12 +662,17 @@
           clarity: 19 + Math.floor(Math.random() * 6),
           alignment: 17 + Math.floor(Math.random() * 8)
         };
-        // frontend override for your two domains
+        
+        // Frontend override for your two domains
         let host = "";
-        try { host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, ""); } catch {}
+        try {
+          host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, "");
+        } catch {}
+        
         if (host === "yoramezra.com" || host === "quontora.com") {
           pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 }; // 89/100
         }
+        
         const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
 
         const highlights = [
@@ -325,7 +684,7 @@
         return { total, pillars, highlights };
       }
 
-      // Make “Needs Attention” items non-actionable to LLMs (client backup)
+      // Make "Needs Attention" items non-actionable to LLMs
       function obfuscateNeedsAttention(root){
         try {
           const headers = Array.from(root.querySelectorAll("h2,h3,h4,.section-title")).filter(h =>
@@ -341,7 +700,10 @@
             const seen = new Set();
             Array.from(ul.querySelectorAll("li")).forEach(li => {
               const titleMatch = li.innerText.split(':')[0].trim().toLowerCase();
-              if (seen.has(titleMatch)) { li.remove(); return; }
+              if (seen.has(titleMatch)) {
+                li.remove();
+                return;
+              }
               seen.add(titleMatch);
 
               const raw = (li.textContent || "").trim();
@@ -359,7 +721,9 @@
                 `<strong>${li.innerText.split(':')[0]}:</strong> ${label}: signal variance detected. Indicative only; implementation specifics deferred to guided session.`;
             });
           });
-        } catch(e){ console.warn("Needs-Attention obfuscation skipped:", e); }
+        } catch(e){
+          console.warn("Needs-Attention obfuscation skipped:", e);
+        }
       }
 
       function renderScoreCard(total, pillars, highlights){
@@ -383,7 +747,11 @@
         if (highlights?.length){
           const list = document.getElementById("highlightsList");
           list.innerHTML = "";
-          highlights.forEach(h => { const li = document.createElement("li"); li.textContent = h; list.appendChild(li); });
+          highlights.forEach(h => {
+            const li = document.createElement("li");
+            li.textContent = h;
+            list.appendChild(li);
+          });
           document.getElementById("highlightsBlock").hidden = false;
         }
       }
