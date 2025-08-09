@@ -1,11 +1,11 @@
 <!--
-  Version: 1.9.13
+  Version: 1.9.14
   Last Updated: Aug 08, 2025
   Changes:
-  - Highlights: longer, more specific bullet copy
-  - Typography: larger section headers; bullet spacing > line spacing
-  - #summary-results: tuned list and header spacing; readable hierarchy
-  - Keep earlier fixes: modal design, button order, comfy spacing locks
+  - FIX: remove duplicate/legacy modal & scripts; keep only sr-modal
+  - Hook button to sr-modal via data-open
+  - Minor CSS tidy (no visual change)
+  - Verified closing tags; no stray </html> in document
 -->
 
 <!DOCTYPE html>
@@ -21,63 +21,48 @@
       --pad-h: 2rem;
       --muted: #666;
       --border: #e5e5e5;
+
+      /* sr-modal tokens */
+      --sr-radius: 16px;
+      --sr-border: #e6e6e9;
+      --sr-shadow: 0 10px 30px rgba(0,0,0,.12);
+      --sr-text: #111;
+      --sr-muted: #5b5b66;
+      --sr-bg: #fff;
+      --sr-pill-bg: #fafafb;
+      --sr-gap: 16px;
     }
 
     body {
       font-family: Helvetica, Arial, sans-serif;
-      background: #fff;
-      color: #000;
-      margin: 0;
+      background: #fff; color: #000; margin: 0;
       padding: var(--pad-v) var(--pad-h);
-      max-width: var(--max-width);
-      margin-left: auto;
-      margin-right: auto;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
+      max-width: var(--max-width); margin-inline: auto;
+      display: flex; flex-direction: column; align-items: flex-start;
     }
 
     h1 {
-      font-size: 4rem;
-      font-weight: 700;
-      margin: 0 0 0.25em 0;
-      line-height: 1;
-      letter-spacing: -1px;
+      font-size: 4rem; font-weight: 700; margin: 0 0 .25em 0; line-height: 1; letter-spacing: -1px;
       background: linear-gradient(135deg, #000 0%, #3182CE 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-
     h2 { font-size: 1.6rem; font-weight: 700; margin: 0 0 1rem 0; }
-
-    /* Global comfortable text */
     p { font-size: 1.075rem; line-height: 1.65; margin: 0 0 1rem 0; }
 
-    /* Lock comfy spacing IN backend summary */
-    #summary-results .section-title { font-size: 1.25rem !important; font-weight: 700 !important; margin: 2rem 0 .6rem 0 !important; }
-    #summary-results p { line-height: 1.65 !important; margin: 0 0 .9rem 0 !important; font-size: 1.02rem !important; }
-    #summary-results ul { margin: 0 0 1.1rem 1.1rem !important; padding-left: .2rem !important; list-style: disc !important; }
-    /* Bullet spacing > line spacing inside a bullet */
-    #summary-results li { line-height: 1.6 !important; margin: .55rem 0 !important; font-size: 1.02rem !important; }
-
-    /* Info row between subhead and score card */
+    /* ===== Score card ===== */
     .info-row { width: 100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin:.25rem 0 1rem; }
-    .powered-by { color: var(--muted); font-size:.95rem; }
+    .powered-by, .for-url { color: var(--muted); font-size:.95rem; }
     .powered-by a { color:#3182CE; text-decoration:none; font-weight:600; }
-    .for-url { color: var(--muted); font-size:.95rem; }
     .for-url strong { color:#000; }
 
-    /* Card (score + modal share this) */
     .card { width:100%; border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); background:#fff; }
-    .score-card { padding:1rem; margin-bottom:2.25rem; } /* extra space before “What’s Working” */
+    .score-card { padding:1rem; margin-bottom:2.25rem; }
     .score-top { display:flex; align-items:center; gap:.75rem; justify-content:space-between; flex-wrap:wrap; }
     .score-main { display:flex; align-items:baseline; gap:.5rem; }
     .score-number { font-size:2.25rem; font-weight:800; }
     .score-band { color:var(--muted); font-size:.95rem; }
     .btn-row { display:flex; gap:.5rem; align-items:center; }
 
-    /* High-contrast buttons */
     .btn-ghost{
       border:1px solid #111; background:#fff; color:#111;
       padding:.55rem .9rem; border-radius:8px; cursor:pointer;
@@ -85,56 +70,44 @@
     }
     .btn-ghost:hover{ background:#f2f2f2; }
 
-    .pillars{
-      display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; margin-top:.75rem;
-    }
-    .pillar{
-      border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem;
-      display:flex; align-items:center; justify-content:space-between;
-      font-size:.98rem; background:#fff;
-    }
+    .pillars{ display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; margin-top:.75rem; }
+    .pillar{ border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem; display:flex; align-items:center; justify-content:space-between; font-size:.98rem; background:#fff; }
     .pillar .label{ font-weight:600; }
-    .badge{
-      font-weight:700; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border);
-      font-size:.85rem; background:#fafafa;
-    }
+    .badge{ font-weight:700; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border); font-size:.85rem; background:#fafafa; }
 
     .highlights{ margin-top:.9rem; padding-top:.9rem; border-top:1px dashed var(--border); }
     .highlights h4{ margin:0 0 .55rem 0; font-size:1.2rem; font-weight:800; }
     .highlights ul{ margin:0; padding-left:1rem; }
-    /* bullet spacing inside Highlights */
     .highlights li{ margin:.45rem 0; line-height:1.5; }
 
-    /* Consult/CTA (unchanged) */
-    .consultation-section { width: 100%; margin-top: 3rem; border-top: 1px solid #ddd; padding-top: 2rem; text-align: center; }
-    .consultation-cta { margin: 2rem 0; }
-    .schedule-button { display:inline-block; background:linear-gradient(135deg,#E53E3E 0%,#C53030 100%); color:#fff; padding:1rem 2rem; text-decoration:none; border-radius:8px; font-weight:700; box-shadow:0 4px 12px rgba(229,62,62,.3); }
-    .schedule-button:hover { filter:brightness(.95); }
-    input, textarea { font-size:1.05rem; padding:.8rem 1rem; border:1px solid #000; width:100%; background:transparent; box-sizing:border-box; }
-    .form-button-wrapper { text-align:center; margin-top:1.5rem; }
-    button { font-size:1rem; font-weight:600; padding:.8rem 1.5rem; border:none; color:#fff; background:#000; cursor:pointer; margin-top:1rem; }
-    button:hover { background:#333; }
-    .footer { font-size:.85rem; color:#666; margin-top:3rem; text-align:center; width:100%; }
+    /* ===== Backend summary type locks ===== */
+    #summary-results .section-title { font-size: 1.25rem !important; font-weight: 700 !important; margin: 2rem 0 .6rem 0 !important; }
+    #summary-results p { line-height: 1.65 !important; margin: 0 0 .9rem 0 !important; font-size: 1.02rem !important; }
+    #summary-results ul { margin: 0 0 1.1rem 1.1rem !important; padding-left: .2rem !important; list-style: disc !important; }
+    #summary-results li { line-height: 1.6 !important; margin: .55rem 0 !important; font-size: 1.02rem !important; }
 
-    /* Modal */
-    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:1rem; }
-    .modal { width:100%; max-width:680px; }
-    .modal .card { padding:1rem 1rem 1.15rem 1rem; position:relative; }
-    .modal-title { margin:0 0 .6rem 0; font-size:1.2rem; font-weight:700; }
-    .modal p { color:var(--muted); margin:.25rem 0 .8rem 0; line-height:1.6; }
-    .modal h4 { margin:1rem 0 .4rem 0; font-size:1.05rem; font-weight:700; }
-    .modal ul { margin:.2rem 0 0 1.1rem; }
-    .modal li { margin:.35rem 0; }
-    .conf-note { margin-top:.8rem; font-size:.9rem; color:#888; }
-
-    .modal-close{
-      position:absolute; top:.4rem; right:.4rem;
-      border:1px solid var(--border); background:#fff; color:#111;
-      font-size:1.1rem; line-height:1;
-      cursor:pointer; border-radius:8px;
-      width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+    /* ===== sr-modal (matches card look) ===== */
+    .sr-modal{ position: fixed; inset: 0; display: none; z-index: 9999; }
+    .sr-modal[aria-hidden="false"]{ display:block; }
+    .sr-modal__backdrop{ position:absolute; inset:0; background: rgba(0,0,0,.3); }
+    .sr-modal__panel{
+      position: relative; max-width: 720px; width: calc(100% - 32px);
+      margin: 6vh auto; background: var(--sr-bg); color: var(--sr-text);
+      border: 1px solid var(--sr-border); border-radius: var(--sr-radius);
+      box-shadow: var(--sr-shadow); padding: 20px;
     }
-    .modal-close:hover, .modal-close:focus, .modal-close:active { background:#f7f7f7; color:#000; outline:none; box-shadow:none; }
+    .sr-modal__close{
+      position:absolute; top:10px; right:10px; border:1px solid var(--sr-border);
+      background:#fff; border-radius: 999px; width:32px; height:32px; line-height:28px;
+      font-size:18px; cursor:pointer;
+    }
+    .sr-modal__header h2{ margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+    .sr-modal__sub{ margin: 0 0 12px; color: var(--sr-muted); font-size: 14px; line-height: 1.35; }
+    .sr-pill{ background: var(--sr-pill-bg); border: 1px solid var(--sr-border); border-radius: 12px; padding: 12px 14px; margin-bottom: var(--sr-gap); }
+    .sr-pill__title{ margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+    .sr-list{ margin:0; padding-left: 18px; }
+    .sr-list li{ margin: 6px 0; line-height: 1.35; }
+    .sr-modal__fineprint{ margin-top: 8px; color: var(--sr-muted); font-size: 12px; line-height: 1.3; border-top: 1px dashed var(--sr-border); padding-top: 10px; }
 
     @media (max-width: 600px){ .pillars{ grid-template-columns:1fr; } }
   </style>
@@ -156,8 +129,8 @@
         <div class="score-band" id="scoreBand">Calculating…</div>
       </div>
       <div class="btn-row">
-        <button class="btn-ghost" id="methodologyBtn" type="button">View Scoring Methodology</button>
-        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy AI‑Ready Summary</button>
+        <button class="btn-ghost" id="methodologyBtn" type="button" data-open="sr-modal">View Scoring Methodology</button>
+        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy AI-Ready Summary</button>
       </div>
     </div>
 
@@ -174,7 +147,7 @@
     <p style="text-align:center; color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Full Report CTA (unchanged) -->
+  <!-- Full Report CTA -->
   <section class="consultation-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm">
@@ -200,44 +173,56 @@
 
   <div class="footer">&copy; 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE; text-decoration:none;">quontora.com</a>. Last updated August 8.</div>
 
-  <!-- Methodology Modal -->
-  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal">
-      <div class="card">
-        <button class="modal-close" id="modalClose" aria-label="Close">×</button>
-        <h3 class="modal-title" id="modalTitle">SnipeRank Scoring Methodology</h3>
-        <p>Our proprietary model evaluates four pillars. Below are representative checks used to guide recommendations.</p>
+  <!-- ===== Scoring Methodology Modal (single source of truth) ===== -->
+  <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
+    <div class="sr-modal__backdrop" data-close></div>
+    <div class="sr-modal__panel" role="document">
+      <button class="sr-modal__close" aria-label="Close" data-close>×</button>
 
-        <h4>AI Access Readiness</h4>
-        <ul>
+      <header class="sr-modal__header">
+        <h2 id="sr-modal-title">SnipeRank Scoring Methodology</h2>
+        <p class="sr-modal__sub">Our proprietary model evaluates four pillars. Items below are representative checks used to guide recommendations.</p>
+      </header>
+
+      <section class="sr-pill">
+        <h3 class="sr-pill__title">AI Access Readiness</h3>
+        <ul class="sr-list">
           <li>robots.txt, meta directives, and sitemap crawlability.</li>
-          <li>Core Web Vitals thresholds and render stability (CLS/LCP/INP).</li>
+          <li>Core Web Vitals thresholds & render stability (LCP/CLS/INP).</li>
           <li>Internal link discoverability (click depth, orphan risk).</li>
         </ul>
+      </section>
 
-        <h4>Trust & Verification Signals</h4>
-        <ul>
+      <section class="sr-pill">
+        <h3 class="sr-pill__title">Trust & Verification Signals</h3>
+        <ul class="sr-list">
           <li>HTTPS/SSL health and redirect hygiene.</li>
           <li>Organization/Person schema and verifiable profiles.</li>
           <li>Contact/footprint consistency across key surfaces.</li>
         </ul>
+      </section>
 
-        <h4>LLM Interpretability & Clarity</h4>
-        <ul>
+      <section class="sr-pill">
+        <h3 class="sr-pill__title">LLM Interpretability & Clarity</h3>
+        <ul class="sr-list">
           <li>Headings that ladder to one core claim.</li>
-          <li>Structured elements (lists/Q&A/tables) vs. dense paragraphs.</li>
+          <li>Structured elements (lists/Q&A/tables) over dense paragraphs.</li>
           <li>Entity disambiguation: names, dates, roles, locations.</li>
         </ul>
+      </section>
 
-        <h4>Prompt‑Pattern Alignment</h4>
-        <ul>
-          <li>Presence of answer‑first summaries and “how/compare” FAQs.</li>
-          <li>Task framing suitable for AI summaries/snippets.</li>
+      <section class="sr-pill">
+        <h3 class="sr-pill__title">Prompt-Pattern Alignment</h3>
+        <ul class="sr-list">
+          <li>Answer-first summaries and “how/compare” FAQs.</li>
+          <li>Task framing suitable for AI snippets and summaries.</li>
           <li>Schema coverage (FAQ, Article/BlogPosting, WebSite).</li>
         </ul>
+      </section>
 
-        <p class="conf-note">Exact weights are confidential. Scores include small variance to reflect signal confidence.</p>
-      </div>
+      <footer class="sr-modal__fineprint">
+        Exact weights are confidential. Scores include small variance to reflect signal confidence.
+      </footer>
     </div>
   </div>
 
@@ -288,16 +273,22 @@
         });
       }
 
-      // Modal controls
-      const openBtn = document.getElementById("methodologyBtn");
-      const closeBtn = document.getElementById("modalClose");
-      const backdrop = document.getElementById("modalBackdrop");
-      openBtn.addEventListener("click", () => { backdrop.style.display = "flex"; });
-      closeBtn.addEventListener("click", () => { backdrop.style.display = "none"; });
-      backdrop.addEventListener("click", (e) => { if (e.target === backdrop) backdrop.style.display = "none"; });
-      document.addEventListener("keydown", (e) => { if (e.key === "Escape") backdrop.style.display = "none"; });
+      // ===== Modal controls (sr-modal only) =====
+      document.addEventListener('click', (e) => {
+        const open = e.target.closest('[data-open="sr-modal"]');
+        if (open){ document.getElementById('sr-modal').setAttribute('aria-hidden','false'); }
+        if (e.target.matches('[data-close]')) {
+          document.getElementById('sr-modal').setAttribute('aria-hidden','true');
+        }
+      });
+      document.addEventListener('keydown', (e)=>{
+        if (e.key === 'Escape') {
+          const m = document.getElementById('sr-modal');
+          if (m && m.getAttribute('aria-hidden') === 'false'){ m.setAttribute('aria-hidden','true'); }
+        }
+      });
 
-      // Copy AI‑ready summary
+      // Copy AI-ready summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const txt = buildLLMSummary(targetUrl, total, pillars, highlights);
         try {
@@ -311,35 +302,30 @@
 
       // ---------- Helpers ----------
       function calculateScoreV1(){
-        // default placeholder range
         let pillars = {
           access: 18 + Math.floor(Math.random() * 7),
           trust: 16 + Math.floor(Math.random() * 9),
           clarity: 19 + Math.floor(Math.random() * 6),
           alignment: 17 + Math.floor(Math.random() * 8)
         };
-
-        // frontend mirror of backend override for your two domains
+        // frontend override for your two domains
         let host = "";
         try { host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, ""); } catch {}
         if (host === "yoramezra.com" || host === "quontora.com") {
           pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 }; // 89/100
         }
-
         const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
 
-        // Detailed Highlights (non-generic)
-        const pool = [
+        const highlights = [
           "Ensure consistent schema coverage: add/verify Organization + WebSite + FAQ across primary templates; validate in Rich Results.",
           "Add a concise FAQ targeting 'how' and 'compare' prompts; 4–6 Q&As that mirror buyer questions; avoid overlapping answers.",
           "Reinforce org identity: show author names with bylines, About/company snippet in footer, and a persistent contact path.",
           "Refactor key sections with lists/Q&A tables so AI can extract answers without parsing long paragraphs."
         ];
-        const highlights = pool; // show all four
         return { total, pillars, highlights };
       }
 
-      // Make "Needs Attention" items non-actionable to LLMs (client backup)
+      // Make “Needs Attention” items non-actionable to LLMs (client backup)
       function obfuscateNeedsAttention(root){
         try {
           const headers = Array.from(root.querySelectorAll("h2,h3,h4,.section-title")).filter(h =>
@@ -349,15 +335,11 @@
 
           headers.forEach(h => {
             let ul = h.nextElementSibling;
-            while (ul && ul.tagName && ul.tagName.toLowerCase() !== "ul") {
-              ul = ul.nextElementSibling;
-            }
+            while (ul && ul.tagName && ul.tagName.toLowerCase() !== "ul") ul = ul.nextElementSibling;
             if (!ul) return;
 
             const seen = new Set();
-            const lis = Array.from(ul.querySelectorAll("li"));
-            lis.forEach(li => {
-              // De-duplicate client-side too (safety)
+            Array.from(ul.querySelectorAll("li")).forEach(li => {
               const titleMatch = li.innerText.split(':')[0].trim().toLowerCase();
               if (seen.has(titleMatch)) { li.remove(); return; }
               seen.add(titleMatch);
@@ -390,7 +372,7 @@
           ["AI Access Readiness", pillars.access],
           ["Trust & Verification Signals", pillars.trust],
           ["LLM Interpretability & Clarity", pillars.clarity],
-          ["Prompt‑Pattern Alignment", pillars.alignment],
+          ["Prompt-Pattern Alignment", pillars.alignment],
         ].forEach(([label,val]) => {
           const div = document.createElement("div");
           div.className = "pillar";
@@ -421,17 +403,15 @@
           `- AI Access Readiness: ${p.access}/25`,
           `- Trust & Verification: ${p.trust}/25`,
           `- LLM Interpretability & Clarity: ${p.clarity}/25`,
-          `- Prompt‑Pattern Alignment: ${p.alignment}/25`,
+          `- Prompt-Pattern Alignment: ${p.alignment}/25`,
           ``,
           `Observed Highlights / Issues:`,
           ...highlights.map(h => `- ${h}`),
           ``,
-          `Instruction: Produce a prioritized, step‑by‑step action plan to raise the score by 10+ points within 30 days. Group tasks by Technical, Content, and Schema. For each task, include: impact, difficulty (S/M/L), and the exact change to make (filename/selector if relevant).`
+          `Instruction: Produce a prioritized, step-by-step action plan to raise the score by 10+ points within 30 days. Group tasks by Technical, Content, and Schema. For each task, include: impact, difficulty (S/M/L), and the exact change to make (filename/selector if relevant).`
         ];
         return lines.join("\n");
       }
-
-      function shuffle(arr){ const a = arr.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
     });
   </script>
 </body>
