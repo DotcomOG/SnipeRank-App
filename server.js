@@ -1,25 +1,23 @@
 /**
  * SnipeRank Server
- * Version: 1.9.14-ssr
- * Last Updated: 2025-08-08
+ * Version: 1.9.15-ssr
+ * Last Updated: 2025-08-09
  *
- * What’s new:
- * - Enforce "Needs Attention" rule server-side:
- *   -> Always 10 items; each 2–4 sentences; deduped; trimmed/padded.
- * - Optional upstream passthrough via UPSTREAM_REPORT_ENDPOINT.
- * - /api/send-link proxy via WEBHOOK_URL (optional, non-blocking).
+ * Changes:
+ * - FIX: Cheerio ESM import (use `import * as cheerio from 'cheerio'`)
+ * - Use Node 22 native fetch (no node-fetch)
+ * - Keeps server-side enforcement: "Needs Attention" = exactly 10 items, 2–4 sentences each, deduped
  */
 
 import express from "express";
 import cors from "cors";
 import compression from "compression";
-import fetch from "node-fetch";
-import cheerio from "cheerio";
+import * as cheerio from "cheerio"; // <-- important: namespace import for ESM
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ORIGIN = process.env.ALLOW_ORIGIN || "*";
-const UPSTREAM = process.env.UPSTREAM_REPORT_ENDPOINT || ""; // e.g., https://your-existing-service/report.html
+const UPSTREAM = process.env.UPSTREAM_REPORT_ENDPOINT || ""; // e.g., https://your-service/report.html
 const WEBHOOK = process.env.WEBHOOK_URL || ""; // optional email/webhook handler
 
 app.use(cors({ origin: ORIGIN }));
@@ -31,32 +29,31 @@ app.use(express.json({ limit: "1mb" }));
 --------------------------------------------- */
 
 /**
- * Normalize the "Needs Attention" section in a block of HTML.
+ * Normalize the "Needs Attention" section in an HTML string.
  * Rules:
  *  - Exactly 10 <li> items
- *  - Each item is 2–4 sentences, safe/non-actionable language
- *  - Deduplicate by case-insensitive title (text before the first ':')
+ *  - Each item is 2–4 sentences (we produce 3)
+ *  - Deduplicate by case-insensitive title (text before first ':')
  */
 function enforceNeedsAttention(html) {
   try {
     const $ = cheerio.load(html);
 
-    // Find headers that mark the Needs Attention section
-    const header = $("h1,h2,h3,h4,.section-title")
+    // Find a header that marks the Needs Attention section
+    const $header = $("h1,h2,h3,h4,.section-title")
       .filter((_, el) => /needs\s+attention/i.test($(el).text() || ""))
       .first();
 
-    if (!header.length) return $.html(); // nothing to do
+    if (!$header.length) return $.html();
 
-    // Find the first UL after the header
-    let $ul = header.next();
+    // Find or create the first UL after the header
+    let $ul = $header.next();
     while ($ul.length && $ul[0].tagName && $ul[0].tagName.toLowerCase() !== "ul") {
       $ul = $ul.next();
     }
     if (!$ul.length) {
-      // Create a UL if missing
       $ul = $("<ul></ul>");
-      header.after($ul);
+      $header.after($ul);
     }
 
     const fallbackPool = [
@@ -70,20 +67,19 @@ function enforceNeedsAttention(html) {
     const items = [];
 
     const makeText = (label) => {
-      // Build 2–4 safe sentences (here: 3 by default)
-      const sentences = [
+      // 3 safe sentences (within 2–4 constraint)
+      const s = [
         `${label}: signal variance detected across key surfaces.`,
         `Guidance is directional and intended for scoping; implementation specifics will be provided during the guided session.`,
         `Observed patterns indicate prioritization rather than immediate execution detail.`
       ];
-      // Enforce 2–4 sentences; choose 3 for consistency
-      return sentences.slice(0, 3).join(" ");
+      return s.join(" ");
     };
 
     const makeLI = (title, label) =>
       `<li><strong>${title}:</strong> ${makeText(label)}</li>`;
 
-    // Collect existing items, rewrite/dedupe
+    // Use existing <li> items, rewrite & dedupe
     $ul.find("li").each((_, li) => {
       const raw = $(li).text().trim();
       const title = (raw.split(":")[0] || "").trim() || "Signal coherence";
@@ -106,7 +102,7 @@ function enforceNeedsAttention(html) {
       seen.add(key);
     });
 
-    // Pad up to 10
+    // Pad to exactly 10
     let padIdx = 0;
     while (items.length < 10) {
       const label = fallbackPool[padIdx % fallbackPool.length];
@@ -121,7 +117,7 @@ function enforceNeedsAttention(html) {
       padIdx++;
     }
 
-    // Trim to 10
+    // Trim to exactly 10
     const normalized = items.slice(0, 10).join("");
 
     // Replace UL content
@@ -130,12 +126,13 @@ function enforceNeedsAttention(html) {
     return $.html();
   } catch (e) {
     console.error("enforceNeedsAttention error:", e);
-    return html; // fail-open: return original
+    return html; // fail-open
   }
 }
 
 /**
  * Optional: fetch upstream raw report HTML and normalize.
+ * Uses native fetch in Node 22.
  */
 async function fetchUpstreamReport(url) {
   const endpoint = `${UPSTREAM}?url=${encodeURIComponent(url)}`;
@@ -181,10 +178,8 @@ app.get("/report.html", async (req, res) => {
   try {
     let html;
     if (UPSTREAM) {
-      // Use your existing generator and then normalize
       html = await fetchUpstreamReport(targetUrl);
     } else {
-      // Local demo/fallback
       html = buildLocalReport(targetUrl);
     }
 
@@ -195,9 +190,7 @@ app.get("/report.html", async (req, res) => {
     console.error("report.html error:", err);
     res
       .status(500)
-      .send(
-        `<p style="color:red;text-align:center">Server error building report.</p>`
-      );
+      .send(`<p style="color:red;text-align:center">Server error building report.</p>`);
   }
 });
 
