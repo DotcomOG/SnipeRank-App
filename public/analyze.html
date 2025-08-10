@@ -176,7 +176,7 @@
       </div>
       <div class="btn-row">
         <button class="btn-ghost" id="methodologyBtn" type="button" data-open="sr-modal">View Scoring Methodology</button>
-        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy AI-Ready Summary</button>
+        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
       </div>
     </div>
 
@@ -384,7 +384,7 @@
         if (score >= 55) return "Rank: Needs Work ★★☆☆☆";
         return "Rank: Low Visibility ★☆☆☆☆";
       }
-
+      // Replace your existing buildLLMSummary with this CTA-focused version
       function buildLLMSummary(url, total, p, highlights){
         const lines = [
           `Website: ${url}`,
@@ -398,9 +398,16 @@
           `Observed Highlights / Issues:`,
           ...highlights.map(h => `- ${h}`),
           ``,
-          `Instruction: Produce a prioritized, step-by-step action plan to raise the score by 10+ points within 30 days. Group tasks by Technical, Content, and Schema. For each task, include: impact, difficulty (S/M/L), and the exact change to make (filename/selector if relevant).`
+          `Next step — talk with Quontora:`,
+          `• Book a free 30‑minute consult: https://calendly.com/quontora`,
+          `• We’ll deliver a tailored 30‑day plan to lift your score by 10+ points, prioritized by Technical, Content, and Schema.`,
+          `• Each recommendation includes expected impact, effort (S/M/L), and the exact change needed (selector/file when relevant).`,
+          ``,
+          `Reply back if you’d like us to start with a quick crawl of your top pages before the call.`
         ];
         return lines.join("\n");
+      }
+    
       }
 
       /* ===== AI INSIGHTS: transform bullets to logo+paragraph ===== */
