@@ -1,10 +1,11 @@
 <!--
-  Version: 1.9.18
+  Version: 1.9.20
   Last Updated: Aug 10, 2025
   Changes:
-  - Redesign AI Engine Insights section: each item = logo + paragraph (no bullets)
-  - Equalized logo heights with graceful fallback to text if image fails
-  - Non-invasive; preserves all existing styling, sr-modal, form, and spacing
+  - Scorecard pulls REAL data from backend: GET https://sniperank-app2.onrender.com/api/score?url=...
+  - If API fails, fallback to previous placeholder (no blank UI)
+  - LLM section renders from API (logo + paragraph). If API absent, fallback transforms UL -> logo+paragraph
+  - Full-report form: instant redirect to full-report.html (public beta)
 -->
 
 <!DOCTYPE html>
@@ -70,7 +71,6 @@
     .score-number { font-size:2.25rem; font-weight:800; }
     .score-band { color:var(--muted); font-size:.95rem; }
     .btn-row { display:flex; gap:.5rem; align-items:center; }
-
     .btn-ghost{ border:1px solid #111; background:#fff; color:#111; padding:.55rem .9rem; border-radius:8px; cursor:pointer; font-weight:700; font-size:.95rem; transition:.2s; }
     .btn-ghost:hover{ background:#f2f2f2; }
 
@@ -101,24 +101,9 @@
       border-bottom: 1px dashed var(--border);
     }
     .llm-row:last-child { border-bottom: 0; }
-    .llm-logo {
-      display:flex; align-items:center; justify-content:center;
-      width:auto; min-width: 42px;
-    }
-    .llm-logo img {
-      height: var(--llm-logo-h);
-      width: auto;
-      display:block;
-      object-fit: contain;
-    }
-    .llm-fallback {
-      display:inline-flex; align-items:center; justify-content:center;
-      height: var(--llm-logo-h);
-      padding: 0 .5rem;
-      border:1px solid var(--border);
-      border-radius: 8px;
-      font-size:.85rem; color:#111; background:#fafafa;
-    }
+    .llm-logo { display:flex; align-items:center; justify-content:center; width:auto; min-width: 42px; }
+    .llm-logo img { height: var(--llm-logo-h); width: auto; display:block; object-fit: contain; }
+    .llm-fallback { display:inline-flex; align-items:center; justify-content:center; height: var(--llm-logo-h); padding: 0 .5rem; border:1px solid var(--border); border-radius: 8px; font-size:.85rem; color:#111; background:#fafafa; }
 
     /* ===== Form Sections ===== */
     .report-section, .consultation-section { width:100%; margin:2.5rem 0; }
@@ -188,7 +173,7 @@
     </div>
   </section>
 
-  <!-- Backend HTML summary (we will transform the AI section after load) -->
+  <!-- Backend HTML summary -->
   <section id="summary-results">
     <p style="text-align:center; color:gray;">Loading analysis...</p>
   </section>
@@ -206,7 +191,7 @@
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
       <input type="hidden" name="url" id="urlField" />
       <div class="form-button-wrapper">
-        <button type="submit" class="btn-primary">Email Me My Full Report</button>
+        <button type="submit" class="btn-primary">View Full Report Now</button>
       </div>
       <p id="formMessage" style="text-align:center; font-size:.95rem; color:gray;"></p>
     </form>
@@ -289,21 +274,37 @@
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
-        const host = document.getElementById("summary-results");
-        host.innerHTML = html;
-
-        // Transform AI Engine Insights (bullets -> logo + paragraph)
-        transformAIInsights(host);
-
+        const hostEl = document.getElementById("summary-results");
+        hostEl.innerHTML = html;
+        // Don't transform yet; if API returns insights we render from API instead.
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='color:red; text-align:center;'>Error loading analysis. Please try again.</p>";
       }
 
-      // --- V1 Scoring (frontend placeholder) ---
-      const { total, pillars, highlights } = calculateScoreV1();
-      renderScoreCard(total, pillars, highlights);
+      // === REAL SCORECARD + LLM INSIGHTS ===
+      let usedAPI = false;
+      try {
+        const sres = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(targetUrl)}`);
+        if (!sres.ok) throw new Error('score api not ok');
+        const data = await sres.json();
+        renderScoreCard(data.score, data.pillars, data.highlights, data.band);
+        if (Array.isArray(data.insights) && data.insights.length){
+          renderAIInsightsFromAPI(data.insights); // logo + paragraph from API
+          usedAPI = true;
+        }
+      } catch (e) {
+        console.warn('Score API failed, falling back:', e);
+        const { total, pillars, highlights } = calculateScoreFallback();
+        renderScoreCard(total, pillars, highlights);
+      }
+
+      // If API didn't supply insights, transform the server UL to logos+paragraphs
+      if (!usedAPI) {
+        try { transformAIInsights(document.getElementById("summary-results")); }
+        catch (e) { console.warn('LLM transform skipped:', e); }
+      }
 
       // ===== Modal controls =====
       document.addEventListener('click', (e) => {
@@ -320,41 +321,42 @@
         }
       });
 
-      // Copy AI-ready summary
+      // Copy Shareable Summary (CTA)
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const txt = buildLLMSummary(targetUrl, total, pillars, highlights);
+        const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
+        const total = parseInt(scoreText, 10) || 0;
+        const pvals = Array.from(document.querySelectorAll('.pillar .badge'))
+          .map(el => parseInt(el.textContent, 10) || 0);
+        const p = { access: pvals[0]||0, trust: pvals[1]||0, clarity: pvals[2]||0, alignment: pvals[3]||0 };
+
+        const highlights = Array.from(document.querySelectorAll('#highlightsList li')).map(li => li.textContent.trim());
+        const txt = buildShareableSummary(targetUrl, total, p, highlights);
         try {
           await navigator.clipboard.writeText(txt);
           const btn = document.getElementById("copyLLMBtn");
           const old = btn.textContent;
           btn.textContent = "Copied!";
           setTimeout(() => (btn.textContent = old), 1500);
-        } catch { window.prompt("Copy the AI-ready summary:", txt); }
+        } catch { window.prompt("Copy the summary:", txt); }
       });
 
-      // ---------- Helpers ----------
-      function calculateScoreV1(){
-        let pillars = {
-          access: 18 + Math.floor(Math.random() * 7),
-          trust: 16 + Math.floor(Math.random() * 9),
-          clarity: 19 + Math.floor(Math.random() * 6),
-          alignment: 17 + Math.floor(Math.random() * 8)
-        };
-        let host = ""; try { host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, ""); } catch {}
-        if (host === "yoramezra.com" || host === "quontora.com") { pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 }; }
-        const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
-        const highlights = [
-          "Ensure consistent schema coverage: add/verify Organization + WebSite + FAQ across primary templates; validate in Rich Results.",
-          "Add a concise FAQ targeting 'how' and 'compare' prompts; 4–6 Q&As that mirror buyer questions; avoid overlapping answers.",
-          "Reinforce org identity: show author names with bylines, About/company snippet in footer, and a persistent contact path.",
-          "Refactor key sections with lists/Q&A tables so AI can extract answers without parsing long paragraphs."
-        ];
-        return { total, pillars, highlights };
+      // Public Beta: Full Report instant redirect
+      const form = document.getElementById("fullReportForm");
+      if (form) {
+        const urlHidden = document.getElementById("urlField");
+        if (urlHidden) urlHidden.value = targetUrl;
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const target = form.url?.value || targetUrl;
+          const reportUrl = `https://sniperank-app.vercel.app/full-report.html?url=${encodeURIComponent(target)}`;
+          window.location.href = reportUrl;
+        });
       }
 
-      function renderScoreCard(total, pillars, highlights){
+      // ---------- Helpers ----------
+      function renderScoreCard(total, pillars, highlights, bandOverride){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
-        document.getElementById("scoreBand").textContent = bandText(total);
+        document.getElementById("scoreBand").textContent = bandOverride || bandText(total);
 
         const grid = document.getElementById("pillarsGrid");
         grid.innerHTML = "";
@@ -384,8 +386,28 @@
         if (score >= 55) return "Rank: Needs Work ★★☆☆☆";
         return "Rank: Low Visibility ★☆☆☆☆";
       }
-      // Replace your existing buildLLMSummary with this CTA-focused version
-      function buildLLMSummary(url, total, p, highlights){
+
+      // Fallback placeholder ONLY if API fails
+      function calculateScoreFallback(){
+        let pillars = {
+          access: 18 + Math.floor(Math.random() * 7),
+          trust: 16 + Math.floor(Math.random() * 9),
+          clarity: 19 + Math.floor(Math.random() * 6),
+          alignment: 17 + Math.floor(Math.random() * 8)
+        };
+        let host = ""; try { host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, ""); } catch {}
+        if (host === "yoramezra.com" || host === "quontora.com") { pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 }; }
+        const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
+        const highlights = [
+          "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
+          "Add concise FAQ aligned to 'how/compare' prompts (4–6 non-overlapping Q&As).",
+          "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
+          "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
+        ];
+        return { total, pillars, highlights };
+      }
+
+      function buildShareableSummary(url, total, p, highlights){
         const lines = [
           `Website: ${url}`,
           `SnipeRank Score: ${total}/100`,
@@ -407,44 +429,77 @@
         ];
         return lines.join("\n");
       }
-    
+
+      // Render LLM insights from API (logo + paragraph)
+      function renderAIInsightsFromAPI(insights){
+        if (!Array.isArray(insights) || !insights.length) return;
+        const root = document.getElementById('summary-results');
+        const titleNode = Array.from(root.querySelectorAll('.section-title'))
+          .find(n => /ai\s*engine\s*insights/i.test(n.textContent || ''));
+        if (!titleNode) return;
+
+        // Find the UL after the title (to replace), else insert after title
+        let sibling = titleNode.nextElementSibling;
+        while (sibling && sibling.tagName && sibling.tagName.toLowerCase() !== 'ul') sibling = sibling.nextElementSibling;
+        const replaceTarget = sibling || titleNode.nextElementSibling;
+
+        const container = document.createElement('div');
+        container.className = 'llm-insights';
+
+        insights.forEach(({ engine, text, logo }) => {
+          const row = document.createElement('div');
+          row.className = 'llm-row';
+
+          const logoDiv = document.createElement('div');
+          logoDiv.className = 'llm-logo';
+
+          if (logo) {
+            const img = document.createElement('img');
+            img.alt = `${engine} logo`;
+            img.src = logo;
+            img.onerror = () => { logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`; };
+            logoDiv.appendChild(img);
+          } else {
+            logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          }
+
+          const para = document.createElement('p');
+          para.textContent = text;
+
+          row.appendChild(logoDiv);
+          row.appendChild(para);
+          container.appendChild(row);
+        });
+
+        if (replaceTarget && replaceTarget.parentNode) {
+          replaceTarget.parentNode.replaceChild(container, replaceTarget);
+        } else {
+          titleNode.insertAdjacentElement('afterend', container);
+        }
       }
 
-      /* ===== AI INSIGHTS: transform bullets to logo+paragraph ===== */
+      // Fallback: transform server UL into logo + paragraph (if API not used)
       function transformAIInsights(root){
         const titleNode = Array.from(root.querySelectorAll('.section-title'))
           .find(n => /ai\s*engine\s*insights/i.test(n.textContent||''));
         if (!titleNode) return;
 
-        // Find the UL following the title
         let ul = titleNode.nextElementSibling;
         while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
         if (!ul) return;
 
-        // Extract the 5 LI texts (order defined by backend: ChatGPT, Claude, Gemini, Copilot, Perplexity)
         const items = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent || '').trim());
         if (!items.length) return;
 
-        // Build new container
         const container = document.createElement('div');
         container.className = 'llm-insights';
 
         const engines = [
-          { key: 'chatgpt', label: 'ChatGPT', srcs: [
-              'https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg'
-            ]},
-          { key: 'claude', label: 'Claude', srcs: [
-              'https://upload.wikimedia.org/wikipedia/commons/4/45/Claude_logo.svg'
-            ]},
-          { key: 'gemini', label: 'Gemini', srcs: [
-              'https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Gemini_logo.svg'
-            ]},
-          { key: 'copilot', label: 'Copilot', srcs: [
-              'https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_Copilot_logo.svg'
-            ]},
-          { key: 'perplexity', label: 'Perplexity', srcs: [
-              'https://upload.wikimedia.org/wikipedia/commons/0/04/Perplexity_AI_logo.svg'
-            ]},
+          { key: 'chatgpt', label: 'ChatGPT', srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg']},
+          { key: 'claude',  label: 'Claude',  srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/45/Claude_logo.svg']},
+          { key: 'gemini',  label: 'Gemini',  srcs: ['https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Gemini_logo.svg']},
+          { key: 'copilot', label: 'Copilot', srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_Copilot_logo.svg']},
+          { key: 'perplexity', label: 'Perplexity', srcs: ['https://upload.wikimedia.org/wikipedia/commons/0/04/Perplexity_AI_logo.svg']},
         ];
 
         engines.forEach((eng, idx) => {
@@ -455,7 +510,6 @@
           const logo = document.createElement('div');
           logo.className = 'llm-logo';
 
-          // Try each src until one loads; fallback to text pill
           const img = document.createElement('img');
           let tried = 0;
           function tryNext() {
@@ -478,7 +532,6 @@
           container.appendChild(row);
         });
 
-        // Replace UL with the new container (removing bullets)
         ul.replaceWith(container);
       }
     });
