@@ -431,8 +431,10 @@
       }
 
       // Render LLM insights from API (logo + paragraph)
+
       function renderAIInsightsFromAPI(insights){
         if (!Array.isArray(insights) || !insights.length) return;
+
         const root = document.getElementById('summary-results');
         const titleNode = Array.from(root.querySelectorAll('.section-title'))
           .find(n => /ai\s*engine\s*insights/i.test(n.textContent || ''));
@@ -442,6 +444,30 @@
         let sibling = titleNode.nextElementSibling;
         while (sibling && sibling.tagName && sibling.tagName.toLowerCase() !== 'ul') sibling = sibling.nextElementSibling;
         const replaceTarget = sibling || titleNode.nextElementSibling;
+
+        // Product-logo candidates (most reliable first). Add your own hosted files later if you like.
+        const SRC = {
+          ChatGPT: [
+            'https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg',
+            'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg'
+          ],
+          Claude: [
+            'https://upload.wikimedia.org/wikipedia/commons/4/45/Claude_logo.svg',
+            'https://vectorlogo.zone/logos/anthropic/anthropic-icon.svg'
+          ],
+          Gemini: [
+            'https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Gemini_logo.svg',
+            'https://vectorwiki.com/images/nv0l6__gemini-ai.svg'
+          ],
+          Copilot: [
+            'https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_Copilot_logo.svg',
+            'https://vectorlogo.zone/logos/microsoft_copilot/microsoft_copilot-icon.svg'
+          ],
+          Perplexity: [
+            'https://upload.wikimedia.org/wikipedia/commons/0/04/Perplexity_AI_logo.svg',
+            'https://seeklogo.com/images/P/perplexity-ai-logo-1D5CFA0E09-seeklogo.com.png'
+          ]
+        };
 
         const container = document.createElement('div');
         container.className = 'llm-insights';
@@ -453,15 +479,26 @@
           const logoDiv = document.createElement('div');
           logoDiv.className = 'llm-logo';
 
-          if (logo) {
-            const img = document.createElement('img');
-            img.alt = `${engine} logo`;
-            img.src = logo;
-            img.onerror = () => { logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`; };
-            logoDiv.appendChild(img);
-          } else {
-            logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-          }
+          // Try local list first; if empty, fall back to API-provided logo
+          const candidates = [...(SRC[engine] || []), ...(logo ? [logo] : [])];
+
+          const img = document.createElement('img');
+          img.alt = `${engine} logo`;
+          img.loading = 'lazy';
+          img.referrerPolicy = 'no-referrer';
+
+          let i = 0;
+          const tryNext = () => {
+            if (i >= candidates.length) {
+              logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+              return;
+            }
+            img.src = candidates[i++];
+          };
+
+          img.onerror = tryNext;
+          img.onload = () => { logoDiv.innerHTML = ''; logoDiv.appendChild(img); };
+          tryNext();
 
           const para = document.createElement('p');
           para.textContent = text;
