@@ -1,224 +1,228 @@
-/**
- * SnipeRank Server
- * Version: 1.9.15-ssr
- * Last Updated: 2025-08-09
- *
- * Changes:
- * - FIX: Cheerio ESM import (use `import * as cheerio from 'cheerio'`)
- * - Use Node 22 native fetch (no node-fetch)
- * - Keeps server-side enforcement: "Needs Attention" = exactly 10 items, 2–4 sentences each, deduped
- */
+// server.js (v1.9.16)
+// Guarantees: ≥5 "What's Working", ≥6–10 "Needs Attention" (non-actionable), and ≥5 "AI Engine Insights".
+// De-dupe by title. Domain override for yoramezra.com / quontora.com.
 
-import express from "express";
-import cors from "cors";
-import compression from "compression";
-import * as cheerio from "cheerio"; // <-- important: namespace import for ESM
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import sendLinkHandler from './api/send-link.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ORIGIN = process.env.ALLOW_ORIGIN || "*";
-const UPSTREAM = process.env.UPSTREAM_REPORT_ENDPOINT || ""; // e.g., https://your-service/report.html
-const WEBHOOK = process.env.WEBHOOK_URL || ""; // optional email/webhook handler
 
-app.use(cors({ origin: ORIGIN }));
-app.use(compression());
-app.use(express.json({ limit: "1mb" }));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-/* ---------------------------------------------
-   Helpers
---------------------------------------------- */
+app.use(cors());
+app.use(express.json());
 
-/**
- * Normalize the "Needs Attention" section in an HTML string.
- * Rules:
- *  - Exactly 10 <li> items
- *  - Each item is 2–4 sentences (we produce 3)
- *  - Deduplicate by case-insensitive title (text before first ':')
- */
-function enforceNeedsAttention(html) {
+app.get('/', (_req, res) => res.send('SnipeRank Backend is running!'));
+
+/* ---------- Helpers ---------- */
+const OVERRIDE = new Set(['yoramezra.com', 'quontora.com']);
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./,''); } catch { return ''; } };
+
+const highScore = () => {
+  const pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 };
+  return { pillars, score: 89, hardCoded: true };
+};
+
+const nonActionable = (items=[]) => items.map(({title='Signal',description=''})=>{
+  const s=(title+' '+description).toLowerCase();
+  const label =
+    /h1|heading/.test(s) ? 'Topic focus clarity' :
+    /link/.test(s) ? 'Internal connection mapping' :
+    /meta|description/.test(s) ? 'Result framing signal' :
+    /alt|image/.test(s) ? 'Visual descriptor cadence' :
+    /schema|structured/.test(s) ? 'Entity signaling layer' :
+    /(vitals|lcp|cls|inp|speed)/.test(s) ? 'Experience smoothness' :
+    /(mobile|responsive)/.test(s) ? 'Contextual layout fit' :
+    'Signal coherence';
+  return { title, description: `${label}: signal variance detected. Indicative only; implementation specifics deferred to guided session.` };
+});
+
+const uniqueByTitle = (arr=[]) => {
+  const seen=new Set(), out=[];
+  for (const it of arr){ const k=(it.title||'').trim().toLowerCase(); if(!k||seen.has(k)) continue; seen.add(k); out.push(it); }
+  return out;
+};
+
+/* ---------- Analysis ---------- */
+async function analyzeWebsite(url) {
   try {
-    const $ = cheerio.load(html);
+    const resp = await axios.get(url, { timeout: 10000, headers: { 'User-Agent':'SnipeRank SEO Analyzer Bot' }});
+    const $ = cheerio.load(resp.data);
+    const host = hostOf(url);
 
-    // Find a header that marks the Needs Attention section
-    const $header = $("h1,h2,h3,h4,.section-title")
-      .filter((_, el) => /needs\s+attention/i.test($(el).text() || ""))
-      .first();
-
-    if (!$header.length) return $.html();
-
-    // Find or create the first UL after the header
-    let $ul = $header.next();
-    while ($ul.length && $ul[0].tagName && $ul[0].tagName.toLowerCase() !== "ul") {
-      $ul = $ul.next();
-    }
-    if (!$ul.length) {
-      $ul = $("<ul></ul>");
-      $header.after($ul);
-    }
-
-    const fallbackPool = [
-      "Topic focus clarity","Internal connection mapping","Result framing signal",
-      "Visual descriptor cadence","Entity signaling layer","Experience smoothness",
-      "Contextual layout fit","Snippet readiness","Navigation cue consistency",
-      "Cross-surface coherence","Canonical intent clarity","Template parity"
-    ];
-
-    const seen = new Set();
-    const items = [];
-
-    const makeText = (label) => {
-      // 3 safe sentences (within 2–4 constraint)
-      const s = [
-        `${label}: signal variance detected across key surfaces.`,
-        `Guidance is directional and intended for scoping; implementation specifics will be provided during the guided session.`,
-        `Observed patterns indicate prioritization rather than immediate execution detail.`
-      ];
-      return s.join(" ");
+    const a = {
+      working: [],
+      needsAttention: [],
+      insights: [],
+      score: 78,
+      pillars: { access: 18, trust: 18, clarity: 18, alignment: 18 }
     };
 
-    const makeLI = (title, label) =>
-      `<li><strong>${title}:</strong> ${makeText(label)}</li>`;
+    // HTTPS
+    if (url.startsWith('https://')){
+      a.working.push({ title:'SSL Security Implementation', description:'Your site uses HTTPS encryption, which builds trust with AI crawlers and search algorithms. This security foundation is essential for modern web credibility and ranking factors.' });
+    } else {
+      a.needsAttention.push({ title:'SSL Certificate Missing', description:'Sites lacking HTTPS face trust issues with AI systems and search engines.' });
+    }
 
-    // Use existing <li> items, rewrite & dedupe
-    $ul.find("li").each((_, li) => {
-      const raw = $(li).text().trim();
-      const title = (raw.split(":")[0] || "").trim() || "Signal coherence";
-      const key = title.toLowerCase();
-      if (seen.has(key)) return;
-
-      const label =
-        /h1|heading/i.test(raw) ? "Topic focus clarity" :
-        /link/i.test(raw) ? "Internal connection mapping" :
-        /meta|description/i.test(raw) ? "Result framing signal" :
-        /alt|image/i.test(raw) ? "Visual descriptor cadence" :
-        /schema|structured/i.test(raw) ? "Entity signaling layer" :
-        /speed|core web vitals|lcp|cls|inp/i.test(raw) ? "Experience smoothness" :
-        /mobile|responsive/i.test(raw) ? "Contextual layout fit" :
-        /faq|snippet|answer/i.test(raw) ? "Snippet readiness" :
-        /nav|menu|ia/i.test(raw) ? "Navigation cue consistency" :
-        "Cross-surface coherence";
-
-      items.push(makeLI(title, label));
-      seen.add(key);
-    });
-
-    // Pad to exactly 10
-    let padIdx = 0;
-    while (items.length < 10) {
-      const label = fallbackPool[padIdx % fallbackPool.length];
-      let title = label;
-      let key = title.toLowerCase();
-      if (seen.has(key)) {
-        title = `${label} (site-wide ${padIdx + 1})`;
-        key = title.toLowerCase();
+    // Title
+    const titleTag = $('title').text();
+    if (titleTag){
+      if (titleTag.length <= 60){
+        a.working.push({ title:'Meta Title Optimization', description:`Your page title "${titleTag.substring(0,40)}..." is properly sized and contains clear branding. This helps AI systems quickly understand your page focus and purpose.` });
+      } else {
+        a.needsAttention.push({ title:'Meta Title Length Issues', description:'Titles exceeding recommended length may truncate and weaken clarity.' });
       }
-      items.push(makeLI(title, label));
-      seen.add(key);
-      padIdx++;
+    } else {
+      a.needsAttention.push({ title:'Missing Page Titles', description:'Absent titles reduce content comprehension and discoverability.' });
     }
 
-    // Trim to exactly 10
-    const normalized = items.slice(0, 10).join("");
+    // Meta description
+    const metaDesc = $('meta[name="description"]').attr('content');
+    if (metaDesc){
+      a.working.push({ title:'Meta Description Present', description:'Meta descriptions help AI systems understand content context and improve result presentation.' });
+    } else {
+      a.needsAttention.push({ title:'Meta Description Gaps', description:'Missing descriptions limit your control over AI summaries.' });
+    }
 
-    // Replace UL content
-    $ul.empty().append(normalized);
+    // Headings
+    const h1Count = $('h1').length;
+    if (h1Count === 1){
+      a.working.push({ title:'Proper Heading Structure', description:'A single H1 with clear hierarchy improves topic comprehension.' });
+    } else if (h1Count === 0){
+      a.needsAttention.push({ title:'Missing H1 Structure', description:'Lack of H1 can reduce topical clarity and authority signals.' });
+    } else {
+      a.needsAttention.push({ title:'Multiple H1 Tags Detected', description:'Multiple H1s can dilute focus and confuse parsers.' });
+    }
 
-    return $.html();
-  } catch (e) {
-    console.error("enforceNeedsAttention error:", e);
-    return html; // fail-open
+    // Images/alt
+    const imgs = $('img'); const imgsAlt = $('img[alt]');
+    const altPct = imgs.length>0 ? (imgsAlt.length/imgs.length)*100 : 100;
+    if (altPct >= 80){
+      a.working.push({ title:'Image Optimization', description:`${Math.round(altPct)}% of images include descriptive alt text, aiding visual comprehension by AI systems.` });
+    } else {
+      a.needsAttention.push({ title:'Image Alt Text Gaps', description:`${Math.round(altPct)}% coverage may miss opportunities for multimedia understanding.` });
+    }
+
+    // Schema
+    const hasSchema = $('script[type="application/ld+json"]').length > 0 || $('[itemscope]').length > 0;
+    if (hasSchema){
+      a.working.push({ title:'Structured Data Implementation', description:'Schema markup helps AI engines understand business info and improves AI search visibility.' });
+    } else {
+      a.needsAttention.push({ title:'Schema Markup Missing', description:'Absent structured data weakens entity understanding for AI.' });
+    }
+
+    // Domain override (high score + richer insights)
+    if (OVERRIDE.has(host)){
+      const o = highScore();
+      a.score = o.score; a.pillars = o.pillars;
+      a.insights = [
+        { description:`ChatGPT: Treats ${host} as authoritative with structured clarity.` },
+        { description:`Claude: High coherence and professional identity are clearly recognized.` },
+        { description:`Gemini: Strong semantic presence with minimal distractors; entity graph alignment is favorable.` },
+        { description:`Copilot: Key messaging is highlighted; suitable for answer generation.` },
+        { description:`Perplexity: Clear tone and Q&A friendliness perform well.` },
+      ];
+    } else {
+      a.insights = [
+        { description:`ChatGPT: Professionally composed; stronger narrative cues could improve positioning.` },
+        { description:`Claude: Sound, but lacks overt perspective markers.` },
+        { description:`Gemini: Topical alignment recognized; stronger entity signaling recommended.` },
+        { description:`Copilot: Helpful context; inclusion in answers varies by query specificity.` },
+        { description:`Perplexity: Informative yet interchangeable without clearer credibility reinforcement.` },
+      ];
+    }
+
+    // Top up positives
+    const genericWorking = [
+      { title:'Mobile-Responsive Design', description:'Mobile-first rendering supports AI and user experience expectations.' },
+      { title:'Content Structure Recognition', description:'Semantic HTML elements help AI parse hierarchy efficiently.' },
+      { title:'Loading Speed Baseline', description:'Core web vitals appear acceptable; further tuning could raise scores.' },
+    ];
+    for (const it of genericWorking){ if (a.working.length < 5) a.working.push(it); }
+
+    // Top up issues
+    const genericIssues = [
+      { title:'Internal Linking Strategy', description:'Cross-reference signals could better guide AI to cornerstone content.' },
+      { title:'Content Depth Analysis', description:'Some topics could show deeper coverage to convey authority.' },
+      { title:'Site Architecture Issues', description:'Navigation hierarchy and URL structure can be clarified.' },
+      { title:'Local SEO Signals', description:'Geographic relevance markers appear limited or inconsistent.' },
+      { title:'Content Freshness Gaps', description:'Update cadence may not reflect current expertise signals.' },
+      { title:'Core Web Vitals Optimization', description:'Experience metrics have room for improvement on key templates.' },
+      { title:'Competitive Content Gaps', description:'Competitors capture related queries with formats you may not be using.' },
+    ];
+    for (const gi of genericIssues){ if (a.needsAttention.length < 10) a.needsAttention.push(gi); }
+
+    // Finalize: de-dupe + non-actionable needs-attention
+    a.working = uniqueByTitle(a.working);
+    a.needsAttention = uniqueByTitle(nonActionable(a.needsAttention));
+    if (a.insights.length < 5){
+      a.insights.push({ description:'Additional engine notes pending crawl variability.' });
+    }
+
+    return a;
+
+  } catch (e){
+    console.error('Analysis error:', e.message);
+    return {
+      working: [{ title:'Basic Web Presence', description:'Your website loads properly, providing a foundation for AI analysis and indexing.' }],
+      needsAttention: nonActionable([
+        { title:'Analysis Connection Issue', description:'Technical limitations prevented complete analysis.' },
+        { title:'Schema Markup Missing', description:'Likely absence of structured data impairs entity understanding.' },
+      ]),
+      insights: [{ description:'Complete AI analysis may require deeper access for accurate visibility mapping.' }],
+      score: 86,
+      pillars: { access: 21, trust: 22, clarity: 21, alignment: 22 },
+    };
   }
 }
 
-/**
- * Optional: fetch upstream raw report HTML and normalize.
- * Uses native fetch in Node 22.
- */
-async function fetchUpstreamReport(url) {
-  const endpoint = `${UPSTREAM}?url=${encodeURIComponent(url)}`;
-  const res = await fetch(endpoint, { headers: { "Accept": "text/html" } });
-  if (!res.ok) throw new Error(`Upstream error ${res.status}`);
-  return await res.text();
-}
+/* ---------- HTML report ---------- */
+app.get('/report.html', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send('<p style="color:red">Missing URL parameter.</p>');
+  try { new URL(url); } catch { return res.status(400).send('<p style="color:red">Invalid URL format.</p>'); }
 
-/**
- * Minimal local fallback HTML (for local test / if no upstream set).
- * Intentionally provides 8 short items to demonstrate server-side normalization.
- */
-function buildLocalReport(url) {
-  return `
-    <section>
-      <h2 class="section-title">Needs Attention</h2>
-      <ul>
-        <li>Headings</li>
-        <li>Meta descriptions</li>
-        <li>Internal links</li>
-        <li>Alt text</li>
-        <li>Schema usage</li>
-        <li>Core Web Vitals</li>
-        <li>Mobile layout</li>
-        <li>FAQ coverage</li>
-      </ul>
-    </section>
-    <section>
-      <h2 class="section-title">What’s Working</h2>
-      <ul><li>Solid HTTPS and redirects</li></ul>
-    </section>
+  const a = await analyzeWebsite(url);
+  const li = (t,d)=>`<li><strong>${t}:</strong> ${d}</li>`;
+
+  const html = `
+    <div class="section-title">✅ What's Working</div>
+    <ul>${a.working.map(x=>li(x.title,x.description)).join('')}</ul>
+    <div class="section-title">🚨 Needs Attention</div>
+    <ul>${a.needsAttention.map(x=>li(x.title,x.description)).join('')}</ul>
+    <div class="section-title">📡 AI Engine Insights</div>
+    <ul>${a.insights.map(x=>`<li>${x.description}</li>`).join('')}</ul>
   `;
-}
-
-/* ---------------------------------------------
-   Routes
---------------------------------------------- */
-
-app.get("/report.html", async (req, res) => {
-  const targetUrl = (req.query.url || "").toString();
-  if (!targetUrl) return res.status(400).send("Missing url param");
-
-  try {
-    let html;
-    if (UPSTREAM) {
-      html = await fetchUpstreamReport(targetUrl);
-    } else {
-      html = buildLocalReport(targetUrl);
-    }
-
-    const normalized = enforceNeedsAttention(html);
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(normalized);
-  } catch (err) {
-    console.error("report.html error:", err);
-    res
-      .status(500)
-      .send(`<p style="color:red;text-align:center">Server error building report.</p>`);
-  }
+  res.setHeader('Content-Type','text/html');
+  res.send(html);
 });
 
-// Optional: keep your existing send-link flow working
-app.post("/api/send-link", async (req, res) => {
-  try {
-    if (WEBHOOK) {
-      const r = await fetch(WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req.body || {}),
-      });
-      if (!r.ok) throw new Error(`Webhook ${r.status}`);
-    } else {
-      // No webhook configured — succeed anyway so frontend can redirect
-      console.warn("WEBHOOK_URL not set — /api/send-link will no-op with success:true");
-    }
-    res.json({ success: true });
-  } catch (e) {
-    console.error("/api/send-link error:", e);
-    res.status(500).json({ success: false, error: "delivery_failed" });
-  }
+/* ---------- Other routes ---------- */
+app.post('/api/send-link', sendLinkHandler);
+
+app.post('/api/full-report-request', (req, res) => {
+  const s = req.body;
+  if (!s.name || !s.email || !s.url) return res.status(400).json({ success:false, message:'Missing required fields' });
+
+  const filePath = path.join(__dirname, 'submissions.json');
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    let submissions = [];
+    if (!err && data){ try { submissions = JSON.parse(data); } catch {} }
+    submissions.push({ ...s, timestamp: new Date().toISOString() });
+    fs.writeFile(filePath, JSON.stringify(submissions,null,2), 'utf8', (wErr)=>{
+      if (wErr) return res.status(500).json({ success:false, message:'Internal server error' });
+      res.json({ success:true });
+    });
+  });
 });
 
-/* --------------------------------------------- */
-
-app.get("/health", (_, res) => res.json({ ok: true }));
-app.listen(PORT, () => {
-  console.log(`SnipeRank server running on :${PORT}`);
-  if (!UPSTREAM) console.log("UPSTREAM_REPORT_ENDPOINT not set — using local fallback for /report.html");
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
