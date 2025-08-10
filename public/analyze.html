@@ -93,9 +93,34 @@
       border-bottom: 1px dashed var(--border);
     }
     .llm-row:last-child { border-bottom: 0; }
-    .llm-logo { display:flex; align-items:center; justify-content:center; width:auto; min-width: 42px; }
-    .llm-logo img, .llm-logo svg { height: var(--llm-logo-h); width: auto; display:block; object-fit: contain; }
-    .llm-fallback { display:inline-flex; align-items:center; justify-content:center; height: var(--llm-logo-h); padding: 0 .5rem; border:1px solid var(--border); border-radius: 8px; font-size:.85rem; color:#111; background:#fafafa; font-weight: 600; }
+    .llm-logo {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:auto;
+      min-width: 42px;
+      height: 32px;
+    }
+    .llm-logo img {
+      height: 28px;
+      width: auto;
+      display:block;
+      object-fit: contain;
+      max-width: 100px;
+    }
+    .llm-fallback {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      height: 28px;
+      padding: 0 .75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size:.85rem;
+      font-weight: 600;
+      color: #333;
+      background: #f8f9fa;
+    }
 
     /* Form */
     .report-section, .consultation-section { width:100%; margin:2.5rem 0; }
@@ -257,13 +282,29 @@
   </div>
 
   <script>
-    // Inline SVG fallbacks (base64 encoded for reliability)
-    const LOGO_FALLBACKS = {
-      ChatGPT: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiMxMEE0N0UiLz48cGF0aCBkPSJNMTUuNSA5LjVDMTUuNSA3LjU3IDE0LjQzIDYgMTMgNkgxMUM5LjM0IDYgOCA3LjM0IDggOVYxNUg5LjVWMTBDOS41IDkuMTcgMTAuMTcgOC41IDExIDguNUgxMi41QzEzLjMzIDguNSAxNCA5LjE3IDE0IDEwVjEyQzE0IDEyLjgzIDEzLjMzIDEzLjUgMTIuNSAxMy41SDExVjE2SDEzQzE0LjY2IDE2IDE2IDE0LjY2IDE2IDEzVjkuNUMxNiA5LjIyIDE1Ljc4IDkgMTUuNSA5WiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
-      Claude: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iI0Q5N0E0OSIvPjxwYXRoIGQ9Ik04IDhIMTZWMTBIOFY4WiIgZmlsbD0id2hpdGUiLz48cGF0aCBkPSJNOCAxMUgxNlYxM0g4VjExWiIgZmlsbD0id2hpdGUiLz48cGF0aCBkPSJNOCAxNEgxNlYxNkg4VjE0WiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
-      Gemini: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiM0Mjg1RjQiLz48cGF0aCBkPSJNMTIgN0wxNC41IDEwSDkuNUwxMiA3WiIgZmlsbD0id2hpdGUiLz48cGF0aCBkPSJNMTIgMTdMOS41IDE0SDE0LjVMMTIgMTdaIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
-      Copilot: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iIzAwNzhENCIvPjxwYXRoIGQ9Ik0xMiA3VjEyTDE2IDE0VjlMMTIgN1oiIGZpbGw9IndoaXRlIi8+PHBhdGggZD0iTTggMTBWMTVMMTIgMTdWMTJMOCAxMFoiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjciLz48L3N2Zz4=',
-      Perplexity: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiMxRkJCQTQiLz48cGF0aCBkPSJNMTIgOFYxNiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBhdGggZD0iTTggMTJIMTYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg=='
+    // Multiple CDN sources for actual LLM logos
+    const LOGO_SOURCES = {
+      ChatGPT: [
+        'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/openai/openai-original.svg',
+        'https://cdn.worldvectorlogo.com/logos/openai-2.svg',
+        'https://cdn.worldvectorlogo.com/logos/chatgpt-1.svg'
+      ],
+      Claude: [
+        'https://cdn.worldvectorlogo.com/logos/claude-ai.svg',
+        'https://avatars.githubusercontent.com/u/76263028?s=200&v=4', // Anthropic GitHub
+      ],
+      Gemini: [
+        'https://cdn.worldvectorlogo.com/logos/google-gemini.svg',
+        'https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06b.png'
+      ],
+      Copilot: [
+        'https://github.gallerycdn.vsassets.io/extensions/github/copilot/1.143.0/1700695161025/Microsoft.VisualStudio.Services.Icons.Default',
+        'https://cdn.worldvectorlogo.com/logos/github-copilot-1.svg'
+      ],
+      Perplexity: [
+        'https://pbs.twimg.com/profile_images/1666169513315086336/y5azjMqL_400x400.jpg',
+        'https://framerusercontent.com/images/tVcNJMIPA3QqlZxqQbAMgKeVlE.png'
+      ]
     };
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -430,7 +471,7 @@
         return lines.join("\n");
       }
 
-      // === API-driven LLM logos renderer with better fallbacks ===
+      // === API-driven LLM logos renderer with actual logo images ===
       function renderAIInsightsFromAPI(insights){
         if (!Array.isArray(insights) || !insights.length) return;
 
@@ -453,12 +494,32 @@
           const logoDiv = document.createElement('div');
           logoDiv.className = 'llm-logo';
 
-          // Use base64 fallback directly - guaranteed to work
-          const img = document.createElement('img');
-          img.src = LOGO_FALLBACKS[engine] || LOGO_FALLBACKS['ChatGPT'];
-          img.alt = `${engine} logo`;
-          img.style.height = 'var(--llm-logo-h)';
-          logoDiv.appendChild(img);
+          // Try multiple sources for logos
+          const sources = LOGO_SOURCES[engine] || [];
+          if (sources.length > 0) {
+            const img = document.createElement('img');
+            img.alt = `${engine} logo`;
+            let sourceIndex = 0;
+            
+            const tryNextSource = () => {
+              if (sourceIndex < sources.length) {
+                img.src = sources[sourceIndex++];
+              } else {
+                // Final fallback to text
+                logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+              }
+            };
+            
+            img.onerror = tryNextSource;
+            img.onload = () => {
+              logoDiv.innerHTML = '';
+              logoDiv.appendChild(img);
+            };
+            
+            tryNextSource();
+          } else {
+            logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          }
 
           const para = document.createElement('p');
           para.textContent = text;
@@ -475,7 +536,7 @@
         }
       }
 
-      // Fallback: transform server UL into logos + paragraphs
+      // Fallback: transform server UL into logos
       function transformAIInsights(root){
         const titleNode = Array.from(root.querySelectorAll('.section-title'))
           .find(n => /ai\s*engine\s*insights/i.test(n.textContent||''));
@@ -491,35 +552,48 @@
         const container = document.createElement('div');
         container.className = 'llm-insights';
 
-        const engines = [
-          { key: 'ChatGPT', label: 'ChatGPT' },
-          { key: 'Claude', label: 'Claude' },
-          { key: 'Gemini', label: 'Gemini' },
-          { key: 'Copilot', label: 'Copilot' },
-          { key: 'Perplexity', label: 'Perplexity' }
-        ];
+        const engines = ['ChatGPT', 'Claude', 'Gemini', 'Copilot', 'Perplexity'];
 
-        engines.forEach((eng, idx) => {
+        engines.forEach((engine, idx) => {
           const text = items[idx] || '';
           if (!text) return;
           
           const row = document.createElement('div');
           row.className = 'llm-row';
           
-          const logo = document.createElement('div');
-          logo.className = 'llm-logo';
+          const logoDiv = document.createElement('div');
+          logoDiv.className = 'llm-logo';
 
-          // Use inline SVG fallback - guaranteed to work
-          const img = document.createElement('img');
-          img.src = LOGO_FALLBACKS[eng.key] || LOGO_FALLBACKS['ChatGPT'];
-          img.alt = `${eng.label} logo`;
-          img.style.height = 'var(--llm-logo-h)';
-          logo.appendChild(img);
+          // Try loading actual logos
+          const sources = LOGO_SOURCES[engine] || [];
+          if (sources.length > 0) {
+            const img = document.createElement('img');
+            img.alt = `${engine} logo`;
+            let sourceIndex = 0;
+            
+            const tryNextSource = () => {
+              if (sourceIndex < sources.length) {
+                img.src = sources[sourceIndex++];
+              } else {
+                logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+              }
+            };
+            
+            img.onerror = tryNextSource;
+            img.onload = () => {
+              logoDiv.innerHTML = '';
+              logoDiv.appendChild(img);
+            };
+            
+            tryNextSource();
+          } else {
+            logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          }
 
           const para = document.createElement('p');
           para.textContent = text;
           
-          row.appendChild(logo);
+          row.appendChild(logoDiv);
           row.appendChild(para);
           container.appendChild(row);
         });
