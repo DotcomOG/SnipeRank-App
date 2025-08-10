@@ -1,11 +1,10 @@
 <!--
-  Version: 1.9.20
+  Version: 1.9.21
   Last Updated: Aug 10, 2025
   Changes:
-  - Scorecard pulls REAL data from backend: GET https://sniperank-app2.onrender.com/api/score?url=...
-  - If API fails, fallback to previous placeholder (no blank UI)
-  - LLM section renders from API (logo + paragraph). If API absent, fallback transforms UL -> logo+paragraph
-  - Full-report form: instant redirect to full-report.html (public beta)
+  - LLM logos: robust multi-source loader + no-referrer; graceful text fallback
+  - Copyable summary: removed "quick crawl" line
+  - Keeps real score via /api/score with fallback; public-beta full-report redirect
 -->
 
 <!DOCTYPE html>
@@ -24,7 +23,6 @@
       --red-primary: #dc3545;
       --red-hover: #c82333;
 
-      /* sr-modal tokens */
       --sr-radius: 16px;
       --sr-border: #e6e6e9;
       --sr-shadow: 0 10px 30px rgba(0,0,0,.12);
@@ -34,10 +32,8 @@
       --sr-pill-bg: #fafafb;
       --sr-gap: 16px;
 
-      /* LLM logos */
       --llm-logo-h: 28px;
     }
-
     * { box-sizing: border-box; }
 
     body {
@@ -49,8 +45,7 @@
     }
 
     h1 {
-      font-size: 4rem; font-weight: 700; margin: 0 0 .25em 0;
-      line-height: 1; letter-spacing: -1px;
+      font-size: 4rem; font-weight: 700; margin: 0 0 .25em 0; line-height: 1; letter-spacing: -1px;
       background: linear-gradient(135deg, #000 0%, #3182CE 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
@@ -58,7 +53,7 @@
     h3 { font-size: 1.4rem; font-weight: 700; margin: 2.5rem 0 1rem 0; color: #000; }
     p { font-size: 1.075rem; line-height: 1.65; margin: 0 0 1rem 0; }
 
-    /* ===== Score card ===== */
+    /* Score card */
     .info-row { width:100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin:.25rem 0 1rem; }
     .powered-by, .for-url { color: var(--muted); font-size:.95rem; }
     .powered-by a { color:#3182CE; text-decoration:none; font-weight:600; }
@@ -84,20 +79,17 @@
     .highlights ul{ margin:0; padding-left:1rem; }
     .highlights li{ margin:.45rem 0; line-height:1.5; }
 
-    /* ===== Backend summary type locks ===== */
+    /* Server-rendered sections */
     #summary-results .section-title { font-size: 1.25rem !important; font-weight: 700 !important; margin: 2rem 0 .6rem 0 !important; }
     #summary-results p { line-height: 1.65 !important; margin: 0 0 .9rem 0 !important; font-size: 1.02rem !important; }
     #summary-results ul { margin: 0 0 1.1rem 1.1rem !important; padding-left: .2rem !important; list-style: disc !important; }
     #summary-results li { line-height: 1.6 !important; margin: .55rem 0 !important; font-size: 1.02rem !important; }
 
-    /* ===== LLM Insights (logo + paragraph) ===== */
+    /* LLM Insights */
     .llm-insights { margin: .4rem 0 1.2rem; }
     .llm-row {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: .8rem 1rem;
-      align-items: start;
-      padding: .8rem 0;
+      display: grid; grid-template-columns: auto 1fr;
+      gap: .8rem 1rem; align-items: start; padding: .8rem 0;
       border-bottom: 1px dashed var(--border);
     }
     .llm-row:last-child { border-bottom: 0; }
@@ -105,7 +97,7 @@
     .llm-logo img { height: var(--llm-logo-h); width: auto; display:block; object-fit: contain; }
     .llm-fallback { display:inline-flex; align-items:center; justify-content:center; height: var(--llm-logo-h); padding: 0 .5rem; border:1px solid var(--border); border-radius: 8px; font-size:.85rem; color:#111; background:#fafafa; }
 
-    /* ===== Form Sections ===== */
+    /* Form */
     .report-section, .consultation-section { width:100%; margin:2.5rem 0; }
     .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
     input[type="text"], input[type="email"], input[type="tel"], textarea {
@@ -119,10 +111,10 @@
     .consultation-cta { text-align:center; margin:1.5rem 0; }
     .consultation-note { background:#f8f9fa; padding:1rem; border-radius:8px; margin-top:1.5rem; font-size:.95rem; }
 
-    /* ===== Footer ===== */
+    /* Footer */
     .footer { width:100%; text-align:center; padding:2rem 0 1rem; margin-top:3rem; border-top:1px solid var(--border); color:var(--muted); font-size:.9rem; }
 
-    /* ===== sr-modal ===== */
+    /* Modal */
     .sr-modal{ position:fixed; inset:0; display:none; z-index:9999; }
     .sr-modal[aria-hidden="false"]{ display:block; }
     .sr-modal__backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.3); }
@@ -130,7 +122,7 @@
     .sr-modal__close{ position:absolute; top:10px; right:10px; border:1px solid var(--sr-border); background:#fff; border-radius:999px; width:32px; height:32px; line-height:28px; font-size:18px; cursor:pointer; text-align:center; }
     .sr-modal__header h2{ margin:0 0 4px; font-size:18px; font-weight:700; }
     .sr-modal__sub{ margin:0 0 12px; color:var(--sr-muted); font-size:14px; line-height:1.35; }
-    .sr-pill{ background:var(--sr-pill-bg); border:1px solid var(--sr-border); border-radius:12px; padding:12px 14px; margin-bottom:var(--sr-gap); }
+    .sr-pill{ background:var(--sr-pill-bg); border: 1px solid var(--sr-border); border-radius:12px; padding:12px 14px; margin-bottom:var(--sr-gap); }
     .sr-pill__title{ margin:0 0 6px; font-size:15px; font-weight:700; }
     .sr-list{ margin:0; padding-left:18px; }
     .sr-list li{ margin:6px 0; line-height:1.35; }
@@ -160,7 +152,7 @@
         <div class="score-band" id="scoreBand">Calculating…</div>
       </div>
       <div class="btn-row">
-        <button class="btn-ghost" id="methodologyBtn" type="button" data-open="sr-modal">View Scoring Methodology</button>
+        <button class="btn-ghost" type="button" data-open="sr-modal">View Scoring Methodology</button>
         <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
       </div>
     </div>
@@ -202,7 +194,7 @@
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30-minute consultation to discuss your specific opportunities and next steps.</p>
     <div class="consultation-cta">
-      <a href="https://calendly.com/quontora" id="scheduleBtn" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
+      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
     </div>
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
@@ -211,7 +203,7 @@
     © 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE; text-decoration:none;">quontora.com</a>. Last updated August 10.
   </div>
 
-  <!-- ===== Scoring Methodology Modal ===== -->
+  <!-- Scoring Methodology Modal -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
@@ -270,20 +262,18 @@
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Load backend HTML summary
+      // Load backend HTML summary (working/needs attention + placeholder AI list)
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
-        const hostEl = document.getElementById("summary-results");
-        hostEl.innerHTML = html;
-        // Don't transform yet; if API returns insights we render from API instead.
+        document.getElementById("summary-results").innerHTML = html;
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='color:red; text-align:center;'>Error loading analysis. Please try again.</p>";
       }
 
-      // === REAL SCORECARD + LLM INSIGHTS ===
+      // Real score + API-driven LLM insights (fallback below)
       let usedAPI = false;
       try {
         const sres = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(targetUrl)}`);
@@ -291,7 +281,7 @@
         const data = await sres.json();
         renderScoreCard(data.score, data.pillars, data.highlights, data.band);
         if (Array.isArray(data.insights) && data.insights.length){
-          renderAIInsightsFromAPI(data.insights); // logo + paragraph from API
+          renderAIInsightsFromAPI(data.insights);
           usedAPI = true;
         }
       } catch (e) {
@@ -300,13 +290,13 @@
         renderScoreCard(total, pillars, highlights);
       }
 
-      // If API didn't supply insights, transform the server UL to logos+paragraphs
+      // If API didn’t provide insights, transform server UL to logos + paragraphs
       if (!usedAPI) {
         try { transformAIInsights(document.getElementById("summary-results")); }
         catch (e) { console.warn('LLM transform skipped:', e); }
       }
 
-      // ===== Modal controls =====
+      // Modal controls
       document.addEventListener('click', (e) => {
         const open = e.target.closest('[data-open="sr-modal"]');
         if (open){ document.getElementById('sr-modal').setAttribute('aria-hidden','false'); }
@@ -328,7 +318,6 @@
         const pvals = Array.from(document.querySelectorAll('.pillar .badge'))
           .map(el => parseInt(el.textContent, 10) || 0);
         const p = { access: pvals[0]||0, trust: pvals[1]||0, clarity: pvals[2]||0, alignment: pvals[3]||0 };
-
         const highlights = Array.from(document.querySelectorAll('#highlightsList li')).map(li => li.textContent.trim());
         const txt = buildShareableSummary(targetUrl, total, p, highlights);
         try {
@@ -340,7 +329,7 @@
         } catch { window.prompt("Copy the summary:", txt); }
       });
 
-      // Public Beta: Full Report instant redirect
+      // Full Report: instant redirect (public beta)
       const form = document.getElementById("fullReportForm");
       if (form) {
         const urlHidden = document.getElementById("urlField");
@@ -353,7 +342,8 @@
         });
       }
 
-      // ---------- Helpers ----------
+      /* -------- Helpers -------- */
+
       function renderScoreCard(total, pillars, highlights, bandOverride){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent = bandOverride || bandText(total);
@@ -387,7 +377,6 @@
         return "Rank: Low Visibility ★☆☆☆☆";
       }
 
-      // Fallback placeholder ONLY if API fails
       function calculateScoreFallback(){
         let pillars = {
           access: 18 + Math.floor(Math.random() * 7),
@@ -423,15 +412,12 @@
           `Next step — talk with Quontora:`,
           `• Book a free 30‑minute consult: https://calendly.com/quontora`,
           `• We’ll deliver a tailored 30‑day plan to lift your score by 10+ points, prioritized by Technical, Content, and Schema.`,
-          `• Each recommendation includes expected impact, effort (S/M/L), and the exact change needed (selector/file when relevant).`,
-          ``,
-          `Reply back if you’d like us to start with a quick crawl of your top pages before the call.`
+          `• Each recommendation includes expected impact, effort (S/M/L), and the exact change needed (selector/file when relevant).`
         ];
         return lines.join("\n");
       }
 
-      // Render LLM insights from API (logo + paragraph)
-
+      // === NEW: Robust API-driven LLM logos renderer ===
       function renderAIInsightsFromAPI(insights){
         if (!Array.isArray(insights) || !insights.length) return;
 
@@ -445,7 +431,7 @@
         while (sibling && sibling.tagName && sibling.tagName.toLowerCase() !== 'ul') sibling = sibling.nextElementSibling;
         const replaceTarget = sibling || titleNode.nextElementSibling;
 
-        // Product-logo candidates (most reliable first). Add your own hosted files later if you like.
+        // Multiple sources for each engine (fallback chain)
         const SRC = {
           ChatGPT: [
             'https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg',
@@ -479,7 +465,6 @@
           const logoDiv = document.createElement('div');
           logoDiv.className = 'llm-logo';
 
-          // Try local list first; if empty, fall back to API-provided logo
           const candidates = [...(SRC[engine] || []), ...(logo ? [logo] : [])];
 
           const img = document.createElement('img');
@@ -495,7 +480,6 @@
             }
             img.src = candidates[i++];
           };
-
           img.onerror = tryNext;
           img.onload = () => { logoDiv.innerHTML = ''; logoDiv.appendChild(img); };
           tryNext();
@@ -515,7 +499,7 @@
         }
       }
 
-      // Fallback: transform server UL into logo + paragraph (if API not used)
+      // Fallback: transform server UL into logos + paragraphs (if API not used)
       function transformAIInsights(root){
         const titleNode = Array.from(root.querySelectorAll('.section-title'))
           .find(n => /ai\s*engine\s*insights/i.test(n.textContent||''));
@@ -532,41 +516,31 @@
         container.className = 'llm-insights';
 
         const engines = [
-          { key: 'chatgpt', label: 'ChatGPT', srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg']},
-          { key: 'claude',  label: 'Claude',  srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/45/Claude_logo.svg']},
-          { key: 'gemini',  label: 'Gemini',  srcs: ['https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Gemini_logo.svg']},
-          { key: 'copilot', label: 'Copilot', srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_Copilot_logo.svg']},
-          { key: 'perplexity', label: 'Perplexity', srcs: ['https://upload.wikimedia.org/wikipedia/commons/0/04/Perplexity_AI_logo.svg']},
+          { key: 'chatgpt', label: 'ChatGPT', srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg','https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg']},
+          { key: 'claude',  label: 'Claude',  srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/45/Claude_logo.svg','https://vectorlogo.zone/logos/anthropic/anthropic-icon.svg']},
+          { key: 'gemini',  label: 'Gemini',  srcs: ['https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Gemini_logo.svg','https://vectorwiki.com/images/nv0l6__gemini-ai.svg']},
+          { key: 'copilot', label: 'Copilot', srcs: ['https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_Copilot_logo.svg','https://vectorlogo.zone/logos/microsoft_copilot/microsoft_copilot-icon.svg']},
+          { key: 'perplexity', label: 'Perplexity', srcs: ['https://upload.wikimedia.org/wikipedia/commons/0/04/Perplexity_AI_logo.svg','https://seeklogo.com/images/P/perplexity-ai-logo-1D5CFA0E09-seeklogo.com.png']},
         ];
 
         engines.forEach((eng, idx) => {
           const text = items[idx] || '';
-          const row = document.createElement('div');
-          row.className = 'llm-row';
-
-          const logo = document.createElement('div');
-          logo.className = 'llm-logo';
+          const row = document.createElement('div'); row.className = 'llm-row';
+          const logo = document.createElement('div'); logo.className = 'llm-logo';
 
           const img = document.createElement('img');
           let tried = 0;
           function tryNext() {
-            if (tried >= eng.srcs.length) {
-              logo.innerHTML = `<span class="llm-fallback">${eng.label}</span>`;
-              return;
-            }
-            img.src = eng.srcs[tried++];
+            if (tried >= eng.srcs.length) { logo.innerHTML = `<span class="llm-fallback">${eng.label}</span>`; return; }
+            img.src = eng.srcs[tried++]; img.referrerPolicy = 'no-referrer'; img.loading = 'lazy';
           }
           img.alt = `${eng.label} logo`;
           img.onload = () => { logo.innerHTML = ''; logo.appendChild(img); };
           img.onerror = () => { tryNext(); };
           tryNext();
 
-          const para = document.createElement('p');
-          para.textContent = text;
-
-          row.appendChild(logo);
-          row.appendChild(para);
-          container.appendChild(row);
+          const para = document.createElement('p'); para.textContent = text;
+          row.appendChild(logo); row.appendChild(para); container.appendChild(row);
         });
 
         ul.replaceWith(container);
