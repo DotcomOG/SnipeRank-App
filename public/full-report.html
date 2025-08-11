@@ -1,11 +1,12 @@
 <!--
- Version: 1.1.1
- Last Updated: Aug 11, 2025
- Changes:
- - Updated header to match analyze.html style with gradient logo
- - Added "Powered by quontora" and "Analysis for: [URL]" info row
- - Maintained LLM logos in AI Engine Insights section
- - Fixed API endpoint to use working score API
+  Version: 1.2.0
+  Last Updated: Aug 11, 2025
+  Changes:
+  - Complete redesign matching analyze.html exactly
+  - Fixed gradient SnipeRank logo sizing (4rem)
+  - Fixed info-row horizontal alignment
+  - Fixed LLM logo paths to use local /img directory
+  - Removed Tailwind CSS conflicts, using pure CSS
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -13,9 +14,29 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Full AI SEO Report – SnipeRank</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Header styles matching analyze.html */
+    :root {
+      --max-width: 760px;
+      --pad-v: 3vh;
+      --pad-h: 2rem;
+      --muted: #666;
+      --border: #e5e5e5;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      margin: 0;
+      padding: var(--pad-v) var(--pad-h);
+      max-width: var(--max-width);
+      margin-inline: auto;
+    }
+    
     h1 {
       font-size: 4rem;
       font-weight: 700;
@@ -26,19 +47,34 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      text-align: center;
+    }
+    
+    h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 0 1rem 0;
+      text-align: center;
+    }
+    
+    h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 2.5rem 0 1rem 0;
+      color: #000;
     }
     
     .info-row {
+      width: 100%;
       display: flex;
       gap: 1rem;
       align-items: center;
       justify-content: space-between;
-      margin: 0.25rem auto 1rem;
-      max-width: 48rem;
+      margin: 0.25rem 0 1rem;
     }
     
     .powered-by, .for-url {
-      color: #666;
+      color: var(--muted);
       font-size: 0.95rem;
     }
     
@@ -52,40 +88,164 @@
       color: #000;
     }
     
-    /* LLM row styles */
+    .score-display {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 800;
+      margin: 2rem 0;
+    }
+    
+    .content-section {
+      margin: 2.5rem 0;
+    }
+    
+    .content-section h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 2rem 0 1rem 0;
+    }
+    
+    .content-section ul {
+      margin: 0;
+      padding-left: 1.5rem;
+      list-style: disc;
+    }
+    
+    .content-section li {
+      margin: 0.75rem 0;
+      line-height: 1.6;
+    }
+    
+    /* LLM Insights Section */
+    .llm-insights {
+      margin: 1rem 0;
+    }
+    
     .llm-row {
-      display: flex;
-      align-items: flex-start;
+      display: grid;
+      grid-template-columns: auto 1fr;
       gap: 1rem;
-      padding: 0.75rem 0;
-      border-bottom: 1px dashed #e5e5e5;
+      align-items: start;
+      padding: 0.8rem 0;
+      border-bottom: 1px dashed var(--border);
     }
+    
     .llm-row:last-child {
-      border-bottom: none;
+      border-bottom: 0;
     }
+    
     .llm-logo {
       display: flex;
       align-items: center;
       justify-content: center;
+      width: auto;
       min-width: 42px;
-      height: 32px;
     }
+    
     .llm-logo img {
       height: 28px;
       width: auto;
+      display: block;
       object-fit: contain;
     }
+    
     .llm-text {
-      flex: 1;
       line-height: 1.6;
+      margin: 0;
+    }
+    
+    /* Form Section */
+    .consultation-section {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+    
+    .consultation-section h3 {
+      text-align: center;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #3182CE;
+    }
+    
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    .btn-submit {
+      background: #000;
+      color: #fff;
+      border: none;
+      padding: 0.85rem 2rem;
+      border-radius: 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    
+    .btn-submit:hover {
+      background: #333;
+    }
+    
+    /* Loading and error states */
+    #loadingIndicator {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+    }
+    
+    .error-message {
+      color: #dc3545;
+      text-align: center;
+      padding: 1rem;
+    }
+    
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 3rem;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
-<body class="bg-white text-black font-sans">
-
-  <header class="text-center py-8">
+<body>
+  <header>
     <h1>SnipeRank</h1>
-    <h2 class="text-xl font-medium mt-1">Full AI SEO Analysis Report</h2>
+    <h2>Full AI SEO Analysis Report</h2>
     
     <div class="info-row">
       <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
@@ -93,41 +253,43 @@
     </div>
   </header>
 
-  <main class="max-w-4xl mx-auto px-6 py-8 space-y-6">
-    <div id="fullScore" class="text-center text-2xl font-bold my-4"></div>
+  <main>
+    <div id="fullScore" class="score-display"></div>
     
     <!-- Loading indicator -->
-    <div id="loadingIndicator" class="text-center py-8">
-      <p class="text-gray-600">Loading your full report...</p>
+    <div id="loadingIndicator">
+      <p>Loading your full report...</p>
     </div>
 
     <div id="reportContent" style="display: none;">
-      <section>
-        <h2 class="text-xl font-bold mt-8 mb-2">What's Working</h2>
-        <ul id="fullStrengths" class="list-disc list-inside space-y-3"></ul>
+      <section class="content-section">
+        <h3>What's Working</h3>
+        <ul id="fullStrengths"></ul>
       </section>
 
-      <section>
-        <h2 class="text-xl font-bold mt-8 mb-2">Needs Attention</h2>
-        <ul id="fullOpportunities" class="list-disc list-inside space-y-3"></ul>
+      <section class="content-section">
+        <h3>Needs Attention</h3>
+        <ul id="fullOpportunities"></ul>
       </section>
 
-      <section>
-        <h2 class="text-xl font-bold mt-8 mb-4">AI Engine Insights</h2>
-        <div id="fullEngineInsights" class="space-y-2"></div>
+      <section class="content-section">
+        <h3>AI Engine Insights</h3>
+        <div id="fullEngineInsights" class="llm-insights"></div>
       </section>
     </div>
 
-    <section class="mt-12 border-t border-gray-300 pt-8">
-      <h3 class="text-2xl font-semibold mb-4 text-center">Request a Free Consultation</h3>
-      <form method="POST" action="https://formspree.io/f/mayzkzed" class="space-y-4 max-w-xl mx-auto">
-        <input type="text" id="name" name="name" placeholder="Your Full Name" class="w-full p-2 rounded border text-black" required />
-        <input type="email" id="email" name="email" placeholder="Your Email Address" class="w-full p-2 rounded border text-black" required />
-        <input type="tel" name="phone" placeholder="Phone (required)" class="w-full p-2 rounded border text-black" required />
-        <input type="text" name="company" placeholder="Company / Organization (Optional)" class="w-full p-2 rounded border text-black" />
+    <section class="consultation-section">
+      <h3>Request a Free Consultation</h3>
+      <form method="POST" action="https://formspree.io/f/mayzkzed" class="form-container">
+        <div class="form-grid">
+          <input type="text" id="name" name="name" placeholder="Your Full Name" required />
+          <input type="email" id="email" name="email" placeholder="Your Email Address" required />
+          <input type="tel" name="phone" placeholder="Phone (required)" required />
+          <input type="text" name="company" placeholder="Company / Organization (Optional)" />
+        </div>
         <input type="hidden" name="url" id="hiddenUrl" />
-        <textarea name="notes" placeholder="Your message (Optional)" class="w-full p-2 rounded border text-black h-32"></textarea>
-        <button type="submit" class="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 w-full">Submit</button>
+        <textarea name="notes" placeholder="Your message (Optional)" rows="4"></textarea>
+        <button type="submit" class="btn-submit">Submit</button>
       </form>
     </section>
   </main>
@@ -154,7 +316,7 @@
       img.alt = `${engine} logo`;
       logoDiv.appendChild(img);
       
-      const textDiv = document.createElement('div');
+      const textDiv = document.createElement('p');
       textDiv.className = 'llm-text';
       textDiv.textContent = text;
       
@@ -172,7 +334,7 @@
 
       if (!url) {
         document.getElementById("loadingIndicator").innerHTML =
-          "<p class='text-red-500'>No URL provided. Please go back and try again.</p>";
+          "<p class='error-message'>No URL provided. Please go back and try again.</p>";
         return;
       }
 
@@ -183,7 +345,7 @@
       document.getElementById("header-url").textContent = decodeURIComponent(url);
 
       try {
-        // Try the score API first (which we know works)
+        // Use the working score API endpoint
         const scoreRes = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(url)}`);
         
         if (scoreRes.ok) {
@@ -280,11 +442,11 @@
         ];
         
         const defaultInsights = [
-          "ChatGPT: Add FAQ sections to improve direct answer extraction",
-          "Claude: Structure content with clear context-action-outcome patterns",
-          "Gemini: Implement schema markup for better entity understanding",
-          "Copilot: Create task-oriented content with step-by-step instructions",
-          "Perplexity: Include specific facts and citations for better sourcing"
+          { engine: 'ChatGPT', text: 'Add FAQ sections to improve direct answer extraction' },
+          { engine: 'Claude', text: 'Structure content with clear context-action-outcome patterns' },
+          { engine: 'Gemini', text: 'Implement schema markup for better entity understanding' },
+          { engine: 'Copilot', text: 'Create task-oriented content with step-by-step instructions' },
+          { engine: 'Perplexity', text: 'Include specific facts and citations for better sourcing' }
         ];
         
         defaultStrengths.forEach(item => {
@@ -299,10 +461,10 @@
           document.getElementById("fullOpportunities").appendChild(li);
         });
         
+        const container = document.getElementById("fullEngineInsights");
         defaultInsights.forEach(item => {
-          const li = document.createElement("li");
-          li.textContent = item;
-          document.getElementById("fullEngineInsights").appendChild(li);
+          const row = createEngineInsightRow(item.engine, item.text);
+          container.appendChild(row);
         });
       }
     }
