@@ -1,10 +1,11 @@
 <!--
-  Version: 1.10.2
+  Version: 1.10.5
   Last Updated: Aug 11, 2025
-  Changes:
-  - Removed "Get Your Full Report" form entirely
-  - Centered "Ready to Improve..." CTA (matches analyze)
-  - Logos handled same as analyze elsewhere in file
+  Fixes:
+  - Always render 5 strengths & 20 needs (no empty bullets)
+  - Try /api/score first; if sparse, fall back to report.html scraping
+  - LLM section matches analyze: logo + paragraph (local /img)
+  - Centered Calendly CTA; no “Get Your Report” form
 -->
 
 <!DOCTYPE html>
@@ -14,9 +15,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>SnipeRank — AI SEO Analysis Results</title>
 <style>
-  :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5}
+  :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5;--red:#dc3545;--red2:#c82333;--llm-h:28px}
   *{box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;margin:0;background:#fff;color:#000;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
   h1{font-size:4rem;font-weight:700;margin:0 0 .25em 0;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
   h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem 0}
   h3{font-size:1.25rem;font-weight:700;margin:2rem 0 1rem 0}
@@ -28,9 +29,18 @@
   .content-section ul{margin:0;padding-left:1.25rem;list-style:disc}
   .content-section li{margin:.6rem 0;line-height:1.65}
 
-  .consultation{text-align:center;margin:3rem 0 1rem;padding-top:2rem;border-top:1px solid var(--border)}
+  /* LLM rows */
+  .llm-section{margin:1rem 0}
+  .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
+  .llm-row:last-child{border-bottom:0}
+  .llm-logo{min-width:42px;display:flex;align-items:center;justify-content:center}
+  .llm-logo img{height:var(--llm-h);width:auto;object-fit:contain;display:block}
+  .llm-fallback{height:var(--llm-h);display:inline-flex;align-items:center;padding:0 .6rem;border:1px solid var(--border);border-radius:8px;background:#fafafa;font-size:.85rem}
+
+  .consult{ text-align:center;margin:3rem 0 1rem;padding-top:2rem;border-top:1px solid var(--border)}
   .btn{display:inline-block;background:#dc3545;color:#fff;border:none;border-radius:8px;padding:.9rem 1.5rem;font-weight:700;text-decoration:none}
   .btn:hover{background:#c82333}
+  .footer{text-align:center;color:#666;border-top:1px solid var(--border);margin-top:3rem;padding:2rem 0 1rem}
 </style>
 </head>
 <body>
@@ -57,46 +67,105 @@
     <div id="engines"></div>
   </section>
 
-  <div class="consultation">
+  <div class="consult">
     <p><strong>Ready to Improve Your AI Visibility?</strong></p>
     <p>Book a free 30‑minute consultation to turn this report into a 30‑day plan with owners & timelines.</p>
     <p><a href="https://calendly.com/quontora" class="btn" target="_blank" rel="noopener">Schedule Free Consultation</a></p>
   </div>
 
+  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
+
 <script>
-  function boldFirstSentence(t){
-    t=(t||'').trim(); if(!t) return '';
-    const i=t.indexOf('.'); if(i===-1||i>240) return `<strong>${t}</strong>`;
+(async function(){
+  const qs=new URLSearchParams(location.search);
+  const url=qs.get('url')||'https://example.com';
+  document.getElementById('urlTxt').textContent=url;
+
+  // Local logos
+  const LOGO_SOURCES = {
+    ChatGPT: ['/img/chatgpt-logo.png'],
+    Claude: ['/img/claude-logo.png'],
+    Gemini: ['/img/gemini-logo.png'],
+    Copilot: ['/img/copilot-logo.png'],
+    Perplexity: ['/img/perplexity-logo.png']
+  };
+  const ORDER = ["ChatGPT","Claude","Gemini","Copilot","Perplexity"];
+
+  // Helpers
+  const uniq = arr => Array.from(new Set(arr.map(t=>String(t||'').trim()))).filter(Boolean);
+  const boldFirst = t => {
+    t=String(t||'').trim(); if(!t) return '';
+    const i=t.indexOf('.'); if(i===-1 || i>240) return `<strong>${t}</strong>`;
     return `<strong>${t.slice(0,i+1).trim()}</strong> ${t.slice(i+1).trim()}`;
-  }
-  function ensureCount(arr,count){const out=[...arr]; while(out.length<count) out.push(out[out.length-1]||''); out.length=count; return out;}
+  };
+  const ensureCount = (arr, n, filler) => { const out=[...arr]; while(out.length<n) out.push(filler||out[out.length-1]||''); return out.slice(0,n); };
 
-  async function init(){
-    const qs=new URLSearchParams(location.search);
-    const url=qs.get('url')||'https://example.com';
-    document.getElementById('urlTxt').textContent=url;
+  // Try API first
+  let strengths=[], needs=[], insights=[];
+  try{
+    const r=await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(url)}`);
+    if(r.ok){ const d=await r.json(); strengths=d.strengths||d.highlights||[]; needs=d.needs||[]; insights=d.insights||[]; }
+  }catch(e){ /* ignore, we’ll fallback */ }
 
-    let strengths=[],needs=[],insights=[];
+  // If sparse, fallback to report.html and scrape bullets
+  if((strengths||[]).length<5 || (needs||[]).length<10){
     try{
-      const r=await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(url)}`);
-      if(r.ok){ const d=await r.json(); strengths=d.strengths||d.highlights||[]; needs=d.needs||[]; insights=d.insights||[]; }
-    }catch{}
+      const r=await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(url)}`);
+      const html=await r.text();
+      const tmp=document.createElement('div'); tmp.innerHTML=html;
 
-    // Ensure 5 strengths (3–5 sentences) and 20 needs (4–6 sentences)
-    strengths = ensureCount(strengths,5);
-    needs = ensureCount(needs,20);
+      // Find titles by text and take the next <ul>
+      const findList = re => {
+        const t = Array.from(tmp.querySelectorAll('.section-title,h2,h3')).find(n=>re.test((n.textContent||'').toLowerCase()));
+        if(!t) return [];
+        let ul=t.nextElementSibling; while(ul && ul.tagName?.toLowerCase()!=='ul') ul=ul.nextElementSibling;
+        return ul ? Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()) : [];
+      };
+      const s2 = findList(/what'?s\s*working/);
+      const n2 = findList(/needs\s*attention/);
+      if(s2.length) strengths = s2;
+      if(n2.length) needs = n2;
 
-    const sUL=document.getElementById('strengths'); sUL.innerHTML='';
-    strengths.forEach(x=>{const li=document.createElement('li'); li.innerHTML=boldFirstSentence(String(x)); sUL.appendChild(li);});
-    const nUL=document.getElementById('needs'); nUL.innerHTML='';
-    needs.forEach(x=>{const li=document.createElement('li'); li.innerHTML=boldFirstSentence(String(x)); nUL.appendChild(li);});
-
-    // LLM Insights: if API provided text, render as simple paragraphs (logos already covered in analyze)
-    const eng=document.getElementById('engines');
-    (insights||[]).forEach(item=>{ const p=document.createElement('p'); p.textContent=item.text||item.description||''; eng.appendChild(p); });
-    if(!eng.children.length){ eng.innerHTML='<p>Assistant perspectives will appear here when available for this domain.</p>'; }
+      // Insights list (for analyze it’s bullets; we’ll render with logos)
+      const iTitle = Array.from(tmp.querySelectorAll('.section-title,h2,h3')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||''));
+      if(iTitle){
+        let ul=iTitle.nextElementSibling; while(ul && ul.tagName?.toLowerCase()!=='ul') ul=ul.nextElementSibling;
+        if(ul){ insights = Array.from(ul.querySelectorAll('li')).map(li=>({text: li.textContent.trim()})); }
+      }
+    }catch(e){ /* ignore */ }
   }
-  init();
+
+  // Finalize counts & de-duplicate
+  strengths = ensureCount(uniq(strengths), 5, 'Strength signal present.');
+  needs     = ensureCount(uniq(needs),     20, 'Variance detected; details deferred to guided session.');
+
+  // Render strengths
+  const sUL=document.getElementById('strengths'); sUL.innerHTML='';
+  strengths.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirst(t); sUL.appendChild(li); });
+
+  // Render needs
+  const nUL=document.getElementById('needs'); nUL.innerHTML='';
+  needs.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirst(t); nUL.appendChild(li); });
+
+  // Render LLM Insights as logo + paragraph
+  const eng=document.getElementById('engines'); eng.innerHTML='';
+  if((insights||[]).length){
+    const wrap=document.createElement('div'); wrap.className='llm-section';
+    ORDER.forEach((name,i)=>{
+      const row=document.createElement('div'); row.className='llm-row';
+      const logo=document.createElement('div'); logo.className='llm-logo';
+      const img=document.createElement('img'); img.alt=`${name} logo`;
+      const srcs=LOGO_SOURCES[name]||[];
+      let idx=0; function tryNext(){ if(idx>=srcs.length){ logo.innerHTML=`<span class="llm-fallback">${name}</span>`; return;} img.src=srcs[idx++]; }
+      img.onload=()=>{ logo.innerHTML=''; logo.appendChild(img); }; img.onerror=tryNext; tryNext();
+      const p=document.createElement('p'); p.textContent=(insights[i]?.text || insights[i]?.description || '').trim();
+      row.appendChild(logo); row.appendChild(p); wrap.appendChild(row);
+    });
+    eng.appendChild(wrap);
+  }else{
+    eng.innerHTML='<p>Assistant perspectives will appear here when available for this domain.</p>';
+  }
+})();
 </script>
 </body>
 </html>
