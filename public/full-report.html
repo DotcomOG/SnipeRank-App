@@ -1,4 +1,12 @@
-<!-- full-report.html — Last updated: Aug 11, 2025 - Fixed API integration -->
+<!--
+ Version: 1.1.1
+ Last Updated: Aug 11, 2025
+ Changes:
+ - Updated header to match analyze.html style with gradient logo
+ - Added "Powered by quontora" and "Analysis for: [URL]" info row
+ - Maintained LLM logos in AI Engine Insights section
+ - Fixed API endpoint to use working score API
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,16 +14,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Full AI SEO Report – SnipeRank</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Header styles matching analyze.html */
+    h1 {
+      font-size: 4rem;
+      font-weight: 700;
+      margin: 0 0 0.25em 0;
+      line-height: 1;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #000 0%, #3182CE 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .info-row {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0.25rem auto 1rem;
+      max-width: 48rem;
+    }
+    
+    .powered-by, .for-url {
+      color: #666;
+      font-size: 0.95rem;
+    }
+    
+    .powered-by a {
+      color: #3182CE;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    
+    .for-url strong {
+      color: #000;
+    }
+    
+    /* LLM row styles */
+    .llm-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px dashed #e5e5e5;
+    }
+    .llm-row:last-child {
+      border-bottom: none;
+    }
+    .llm-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      height: 32px;
+    }
+    .llm-logo img {
+      height: 28px;
+      width: auto;
+      object-fit: contain;
+    }
+    .llm-text {
+      flex: 1;
+      line-height: 1.6;
+    }
+  </style>
 </head>
 <body class="bg-white text-black font-sans">
 
   <header class="text-center py-8">
-    <h1 class="text-4xl font-bold">SnipeRank</h1>
+    <h1>SnipeRank</h1>
     <h2 class="text-xl font-medium mt-1">Full AI SEO Analysis Report</h2>
+    
+    <div class="info-row">
+      <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+      <div class="for-url">Analysis for: <strong id="header-url">—</strong></div>
+    </div>
   </header>
 
   <main class="max-w-4xl mx-auto px-6 py-8 space-y-6">
-    <div id="fullResultUrl" class="text-xl font-semibold text-center"></div>
     <div id="fullScore" class="text-center text-2xl font-bold my-4"></div>
     
     <!-- Loading indicator -->
@@ -35,8 +113,8 @@
       </section>
 
       <section>
-        <h2 class="text-xl font-bold mt-8 mb-2">AI Engine Insights</h2>
-        <ul id="fullEngineInsights" class="list-disc list-inside space-y-3"></ul>
+        <h2 class="text-xl font-bold mt-8 mb-4">AI Engine Insights</h2>
+        <div id="fullEngineInsights" class="space-y-2"></div>
       </section>
     </div>
 
@@ -55,6 +133,37 @@
   </main>
 
   <script>
+    // Local LLM logos from /img directory
+    const LOGO_SOURCES = {
+      ChatGPT: '/img/chatgpt-logo.png',
+      Claude: '/img/claude-logo.png',
+      Gemini: '/img/gemini-logo.png',
+      Copilot: '/img/copilot-logo.png',
+      Perplexity: '/img/perplexity-logo.svg'
+    };
+
+    function createEngineInsightRow(engine, text) {
+      const row = document.createElement('div');
+      row.className = 'llm-row';
+      
+      const logoDiv = document.createElement('div');
+      logoDiv.className = 'llm-logo';
+      
+      const img = document.createElement('img');
+      img.src = LOGO_SOURCES[engine] || LOGO_SOURCES['ChatGPT'];
+      img.alt = `${engine} logo`;
+      logoDiv.appendChild(img);
+      
+      const textDiv = document.createElement('div');
+      textDiv.className = 'llm-text';
+      textDiv.textContent = text;
+      
+      row.appendChild(logoDiv);
+      row.appendChild(textDiv);
+      
+      return row;
+    }
+
     async function runFullReport() {
       const params = new URLSearchParams(window.location.search);
       const url = params.get("url");
@@ -71,7 +180,7 @@
       document.getElementById("name").value = decodeURIComponent(name);
       document.getElementById("email").value = decodeURIComponent(email);
       document.getElementById("hiddenUrl").value = decodeURIComponent(url);
-      document.getElementById("fullResultUrl").textContent = `Analysis for: ${decodeURIComponent(url)}`;
+      document.getElementById("header-url").textContent = decodeURIComponent(url);
 
       try {
         // Try the score API first (which we know works)
@@ -117,26 +226,26 @@
             document.getElementById("fullOpportunities").appendChild(li);
           });
           
-          // Add engine insights
+          // Add engine insights with logos
           if (scoreData.insights && scoreData.insights.length > 0) {
+            const container = document.getElementById("fullEngineInsights");
             scoreData.insights.forEach(insight => {
-              const li = document.createElement("li");
-              li.textContent = `${insight.engine}: ${insight.text}`;
-              document.getElementById("fullEngineInsights").appendChild(li);
+              const row = createEngineInsightRow(insight.engine, insight.text);
+              container.appendChild(row);
             });
           } else {
-            // Default insights
+            // Default insights with logos
             const insights = [
-              "ChatGPT: Your content structure supports AI extraction but could benefit from more FAQ sections",
-              "Claude: Clear narrative flow detected, consider adding more structured data markup",
-              "Gemini: Schema implementation would improve entity recognition",
-              "Copilot: Task-oriented content performs well, add more how-to sections",
-              "Perplexity: Source attribution is clear, consider adding more definitive statements"
+              { engine: 'ChatGPT', text: 'Your content structure supports AI extraction but could benefit from more FAQ sections' },
+              { engine: 'Claude', text: 'Clear narrative flow detected, consider adding more structured data markup' },
+              { engine: 'Gemini', text: 'Schema implementation would improve entity recognition' },
+              { engine: 'Copilot', text: 'Task-oriented content performs well, add more how-to sections' },
+              { engine: 'Perplexity', text: 'Source attribution is clear, consider adding more definitive statements' }
             ];
+            const container = document.getElementById("fullEngineInsights");
             insights.forEach(item => {
-              const li = document.createElement("li");
-              li.textContent = item;
-              document.getElementById("fullEngineInsights").appendChild(li);
+              const row = createEngineInsightRow(item.engine, item.text);
+              container.appendChild(row);
             });
           }
           
