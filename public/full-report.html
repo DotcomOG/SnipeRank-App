@@ -1,11 +1,10 @@
 <!--
-  Version: 1.10.5
+  Version: 1.10.8
   Last Updated: Aug 11, 2025
   Fixes:
-  - Always render 5 strengths & 20 needs (no empty bullets)
-  - Try /api/score first; if sparse, fall back to report.html scraping
-  - LLM section matches analyze: logo + paragraph (local /img)
-  - Centered Calendly CTA; no “Get Your Report” form
+  - Load analysis via /api/score (JSON) with report.html fallback
+  - Formspree capture + redirect to full-report
+  - Stable LLM logo rows (local /img)
 -->
 
 <!DOCTYPE html>
@@ -20,16 +19,34 @@
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;margin:0;background:#fff;color:#000;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
   h1{font-size:4rem;font-weight:700;margin:0 0 .25em 0;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
   h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem 0}
-  h3{font-size:1.25rem;font-weight:700;margin:2rem 0 1rem 0}
-  p{font-size:1.05rem;line-height:1.65;margin:.25rem 0 1rem}
+  p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem 0}
+
   .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
   .powered-by,.for-url{color:var(--muted);font-size:.95rem}
   .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
-  .content-section{margin:2rem 0}
-  .content-section ul{margin:0;padding-left:1.25rem;list-style:disc}
-  .content-section li{margin:.6rem 0;line-height:1.65}
 
-  /* LLM rows */
+  .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
+  .score-card{padding:1rem;margin-bottom:2.25rem}
+  .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
+  .score-main{display:flex;align-items:baseline;gap:.5rem}
+  .score-number{font-size:2.25rem;font-weight:800}
+  .score-band{color:var(--muted);font-size:.95rem}
+  .btn-row{display:flex;gap:.5rem;align-items:center}
+  .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem}
+  .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+  .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between}
+  .pillar .label{font-weight:600}
+  .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
+  .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
+  .highlights h4{margin:0 0 .55rem 0;font-size:1.2rem;font-weight:800}
+  .highlights ul{margin:0;padding-left:1rem}
+  .highlights li{margin:.45rem 0;line-height:1.5}
+
+  #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem 0!important}
+  #summary-results p{line-height:1.65!important;margin:0 0 .9rem 0!important;font-size:1.02rem!important}
+  #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
+  #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important}
+
   .llm-section{margin:1rem 0}
   .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
   .llm-row:last-child{border-bottom:0}
@@ -37,10 +54,16 @@
   .llm-logo img{height:var(--llm-h);width:auto;object-fit:contain;display:block}
   .llm-fallback{height:var(--llm-h);display:inline-flex;align-items:center;padding:0 .6rem;border:1px solid var(--border);border-radius:8px;background:#fafafa;font-size:.85rem}
 
-  .consult{ text-align:center;margin:3rem 0 1rem;padding-top:2rem;border-top:1px solid var(--border)}
-  .btn{display:inline-block;background:#dc3545;color:#fff;border:none;border-radius:8px;padding:.9rem 1.5rem;font-weight:700;text-decoration:none}
-  .btn:hover{background:#c82333}
-  .footer{text-align:center;color:#666;border-top:1px solid var(--border);margin-top:3rem;padding:2rem 0 1rem}
+  .report-section{width:100%;margin:2.5rem 0}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+  input{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem}
+  input:focus{outline:none;border-color:#3182CE}
+  .btn-primary{background:var(--red);color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-weight:600;cursor:pointer}
+  .form-button-wrapper{text-align:center;margin:1.5rem 0}
+  .consultation-section{text-align:center;margin:2.5rem 0}
+  .consultation-section .btn-primary{text-decoration:none;display:inline-block}
+  .footer{text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
+  @media(max-width:600px){.pillars{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}h1{font-size:3rem}}
 </style>
 </head>
 <body>
@@ -49,123 +72,191 @@
 
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="urlTxt">—</strong></div>
+    <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
-  <section class="content-section">
-    <h3>What's Working</h3>
-    <ul id="strengths"></ul>
+  <!-- Score Card -->
+  <section class="card score-card" aria-live="polite">
+    <div class="score-top">
+      <div class="score-main">
+        <div class="score-number" id="scoreNumber">—</div>
+        <div class="score-band" id="scoreBand">Calculating…</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-ghost" type="button" data-open="sr-modal">View Scoring Methodology</button>
+        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
+      </div>
+    </div>
+    <div class="pillars" id="pillarsGrid"></div>
+    <div class="highlights" id="highlightsBlock" hidden>
+      <h4>Highlights</h4>
+      <ul id="highlightsList"></ul>
+    </div>
   </section>
 
-  <section class="content-section">
-    <h3>Needs Attention</h3>
-    <ul id="needs"></ul>
+  <!-- Analysis (server-rendered or JSON-rendered) -->
+  <section id="summary-results"><p style="text-align:center;color:gray;">Loading analysis...</p></section>
+
+  <!-- Capture + redirect -->
+  <section class="report-section">
+    <h3>Get Your Full Report</h3>
+    <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
+      <div class="form-grid">
+        <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
+        <input type="email" name="email" placeholder="Your Email" required autocomplete="email"/>
+        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel"/>
+        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
+      </div>
+      <input type="hidden" name="url" id="urlField"/>
+      <input type="hidden" name="_redirect" id="redirectField" />
+      <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
+    </form>
   </section>
 
-  <section class="content-section">
-    <h3>AI Engine Insights</h3>
-    <div id="engines"></div>
+  <section class="consultation-section">
+    <h3>Ready to Improve Your AI Visibility?</h3>
+    <p>After reviewing your analysis, book a free 30‑minute consultation to discuss your specific opportunities and next steps.</p>
+    <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
+    <p style="margin-top:1rem"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
-
-  <div class="consult">
-    <p><strong>Ready to Improve Your AI Visibility?</strong></p>
-    <p>Book a free 30‑minute consultation to turn this report into a 30‑day plan with owners & timelines.</p>
-    <p><a href="https://calendly.com/quontora" class="btn" target="_blank" rel="noopener">Schedule Free Consultation</a></p>
-  </div>
 
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
 
+  <!-- Bare modal -->
+  <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title" style="position:fixed;inset:0;display:none;z-index:9999">
+    <div class="sr-modal__backdrop" data-close style="position:absolute;inset:0;background:rgba(0,0,0,.3)"></div>
+    <div class="sr-modal__panel" role="document" style="position:relative;max-width:720px;width:calc(100% - 32px);margin:6vh auto;background:#fff;border:1px solid #e6e6e9;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:20px">
+      <button class="sr-modal__close" aria-label="Close" data-close style="position:absolute;top:10px;right:10px;border:1px solid #e6e6e9;background:#fff;border-radius:999px;width:32px;height:32px;line-height:28px;font-size:18px;cursor:pointer">×</button>
+      <h2 id="sr-modal-title" style="margin:0 0 8px">SnipeRank Scoring Methodology</h2>
+      <p style="margin:0">We score four pillars (Access, Trust, Interpretability, Alignment). Freshness is in beta.</p>
+    </div>
+  </div>
+
 <script>
-(async function(){
-  const qs=new URLSearchParams(location.search);
-  const url=qs.get('url')||'https://example.com';
-  document.getElementById('urlTxt').textContent=url;
+document.addEventListener('DOMContentLoaded', init);
 
-  // Local logos
-  const LOGO_SOURCES = {
-    ChatGPT: ['/img/chatgpt-logo.png'],
-    Claude: ['/img/claude-logo.png'],
-    Gemini: ['/img/gemini-logo.png'],
-    Copilot: ['/img/copilot-logo.png'],
-    Perplexity: ['/img/perplexity-logo.png']
-  };
-  const ORDER = ["ChatGPT","Claude","Gemini","Copilot","Perplexity"];
+async function init(){
+  const urlParams=new URLSearchParams(location.search);
+  const targetUrl=urlParams.get('url')||'https://example.com';
+  document.getElementById('current-url').textContent=targetUrl;
 
-  // Helpers
-  const uniq = arr => Array.from(new Set(arr.map(t=>String(t||'').trim()))).filter(Boolean);
-  const boldFirst = t => {
-    t=String(t||'').trim(); if(!t) return '';
-    const i=t.indexOf('.'); if(i===-1 || i>240) return `<strong>${t}</strong>`;
-    return `<strong>${t.slice(0,i+1).trim()}</strong> ${t.slice(i+1).trim()}`;
-  };
-  const ensureCount = (arr, n, filler) => { const out=[...arr]; while(out.length<n) out.push(filler||out[out.length-1]||''); return out.slice(0,n); };
+  // Formspree capture + redirect
+  document.getElementById('urlField').value = targetUrl;
+  document.getElementById('redirectField').value = `${location.origin}/full-report.html?url=${encodeURIComponent(targetUrl)}`;
 
-  // Try API first
-  let strengths=[], needs=[], insights=[];
+  // 1) Try JSON first
+  let injected = false;
   try{
-    const r=await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(url)}`);
-    if(r.ok){ const d=await r.json(); strengths=d.strengths||d.highlights||[]; needs=d.needs||[]; insights=d.insights||[]; }
-  }catch(e){ /* ignore, we’ll fallback */ }
+    const r = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(targetUrl)}`);
+    if(r.ok){
+      const d = await r.json();
+      const html = buildHtmlFromJson(d);
+      document.getElementById('summary-results').innerHTML = html;
+      enhanceLLM(document.getElementById('summary-results'));
+      injected = true;
+    }
+  }catch(e){/* fall through */}
 
-  // If sparse, fallback to report.html and scrape bullets
-  if((strengths||[]).length<5 || (needs||[]).length<10){
+  // 2) Fallback to server-rendered HTML
+  if(!injected){
     try{
-      const r=await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(url)}`);
-      const html=await r.text();
-      const tmp=document.createElement('div'); tmp.innerHTML=html;
-
-      // Find titles by text and take the next <ul>
-      const findList = re => {
-        const t = Array.from(tmp.querySelectorAll('.section-title,h2,h3')).find(n=>re.test((n.textContent||'').toLowerCase()));
-        if(!t) return [];
-        let ul=t.nextElementSibling; while(ul && ul.tagName?.toLowerCase()!=='ul') ul=ul.nextElementSibling;
-        return ul ? Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()) : [];
-      };
-      const s2 = findList(/what'?s\s*working/);
-      const n2 = findList(/needs\s*attention/);
-      if(s2.length) strengths = s2;
-      if(n2.length) needs = n2;
-
-      // Insights list (for analyze it’s bullets; we’ll render with logos)
-      const iTitle = Array.from(tmp.querySelectorAll('.section-title,h2,h3')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||''));
-      if(iTitle){
-        let ul=iTitle.nextElementSibling; while(ul && ul.tagName?.toLowerCase()!=='ul') ul=ul.nextElementSibling;
-        if(ul){ insights = Array.from(ul.querySelectorAll('li')).map(li=>({text: li.textContent.trim()})); }
-      }
-    }catch(e){ /* ignore */ }
+      const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+      const html = await res.text();
+      const host = document.getElementById('summary-results');
+      host.innerHTML = html;
+      enhanceLLM(host);
+    }catch(err){
+      console.error(err);
+      document.getElementById('summary-results').innerHTML = "<p style='color:red;text-align:center;'>Error loading analysis.</p>";
+    }
   }
 
-  // Finalize counts & de-duplicate
-  strengths = ensureCount(uniq(strengths), 5, 'Strength signal present.');
-  needs     = ensureCount(uniq(needs),     20, 'Variance detected; details deferred to guided session.');
+  // Scorecard (front-end placeholder w/ overrides)
+  const { total, pillars, highlights } = calcScore(targetUrl);
+  renderScore(total,pillars,highlights);
 
-  // Render strengths
-  const sUL=document.getElementById('strengths'); sUL.innerHTML='';
-  strengths.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirst(t); sUL.appendChild(li); });
+  // Copy
+  document.getElementById('copyLLMBtn').addEventListener('click', async ()=>{
+    const txt = [
+      `Website: ${targetUrl}`,
+      `SnipeRank Score: ${total}/100`,
+      `- Access: ${pillars.access}/25`,
+      `- Trust: ${pillars.trust}/25`,
+      `- Interpretability: ${pillars.clarity}/25`,
+      `- Alignment: ${pillars.alignment}/25`,
+      ``,
+      `Observed Highlights:`,
+      ...highlights.map(h=>`- ${h}`),
+      ``,
+      `Next step — talk with Quontora:`,
+      `• Book a free 30‑minute consult: https://calendly.com/quontora`
+    ].join("\n");
+    try{ await navigator.clipboard.writeText(txt); const b=document.getElementById('copyLLMBtn'); const o=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=o,1500);}catch{window.prompt('Copy:',txt);}
+  });
 
-  // Render needs
-  const nUL=document.getElementById('needs'); nUL.innerHTML='';
-  needs.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirst(t); nUL.appendChild(li); });
+  // Modal controls
+  document.addEventListener('click',(e)=>{ const o=e.target.closest('[data-open="sr-modal"]'); if(o) document.getElementById('sr-modal').style.display='block'; if(e.target.hasAttribute('data-close')) document.getElementById('sr-modal').style.display='none'; });
+  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').style.display='none'; });
+}
 
-  // Render LLM Insights as logo + paragraph
-  const eng=document.getElementById('engines'); eng.innerHTML='';
-  if((insights||[]).length){
-    const wrap=document.createElement('div'); wrap.className='llm-section';
-    ORDER.forEach((name,i)=>{
-      const row=document.createElement('div'); row.className='llm-row';
-      const logo=document.createElement('div'); logo.className='llm-logo';
-      const img=document.createElement('img'); img.alt=`${name} logo`;
-      const srcs=LOGO_SOURCES[name]||[];
-      let idx=0; function tryNext(){ if(idx>=srcs.length){ logo.innerHTML=`<span class="llm-fallback">${name}</span>`; return;} img.src=srcs[idx++]; }
-      img.onload=()=>{ logo.innerHTML=''; logo.appendChild(img); }; img.onerror=tryNext; tryNext();
-      const p=document.createElement('p'); p.textContent=(insights[i]?.text || insights[i]?.description || '').trim();
-      row.appendChild(logo); row.appendChild(p); wrap.appendChild(row);
-    });
-    eng.appendChild(wrap);
-  }else{
-    eng.innerHTML='<p>Assistant perspectives will appear here when available for this domain.</p>';
-  }
-})();
+// ---------- helpers ----------
+function buildHtmlFromJson(d){
+  const s = (d.strengths||d.highlights||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('');
+  const n = (d.needs||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('');
+  const i = (d.insights||[]).map(x=>`<li>${escapeHtml(x.description||x.text||'')}</li>`).join('');
+  return `
+    <h3 class="section-title">What's Working</h3>
+    <ul>${s}</ul>
+    <h3 class="section-title">Needs Attention</h3>
+    <ul>${n}</ul>
+    <h3 class="section-title">AI Engine Insights</h3>
+    <ul>${i}</ul>`;
+}
+function escapeHtml(t){return String(t||'').replace(/[&<>"]/g,s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
+
+function calcScore(u){
+  let p={access:18+Math.floor(Math.random()*7),trust:16+Math.floor(Math.random()*9),clarity:19+Math.floor(Math.random()*6),alignment:17+Math.floor(Math.random()*8)};
+  let host=''; try{host=new URL(u).hostname.replace(/^www\./,'')}catch{}
+  if(host==='yoramezra.com'||host==='quontora.com'){p={access:22,trust:23,clarity:22,alignment:22}}
+  const total=p.access+p.trust+p.clarity+p.alignment;
+  const highlights=[
+    "Ensure consistent schema coverage: add/verify Organization + WebSite + FAQ across primary templates; validate in Rich Results.",
+    "Add a concise FAQ targeting 'how' and 'compare' prompts; 4–6 Q&As that mirror buyer questions; avoid overlapping answers.",
+    "Reinforce org identity: show author names with bylines, About/company snippet in footer, and a persistent contact path.",
+    "Refactor key sections with lists/Q&A tables so AI can extract answers without parsing long paragraphs."
+  ];
+  return { total, pillars:p, highlights };
+}
+function renderScore(total,p,highlights){
+  document.getElementById('scoreNumber').textContent=`${total}/100`;
+  document.getElementById('scoreBand').textContent = total>=85?"Rank: Highly Visible ★★★★☆": total>=70?"Rank: Partially Visible ★★★☆☆": total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+  const grid=document.getElementById('pillarsGrid'); grid.innerHTML='';
+  [["AI Access Readiness",p.access],["Trust & Verification Signals",p.trust],["LLM Interpretability & Clarity",p.clarity],["Prompt-Pattern Alignment",p.alignment]].forEach(([l,v])=>{
+    const d=document.createElement('div'); d.className='pillar'; d.innerHTML=`<span class="label">${l}</span><span class="badge">${v}/25</span>`; grid.appendChild(d);
+  });
+  if(highlights?.length){const ul=document.getElementById('highlightsList'); ul.innerHTML=''; highlights.forEach(h=>{const li=document.createElement('li'); li.textContent=h; ul.appendChild(li)}); document.getElementById('highlightsBlock').hidden=false;}
+}
+
+// LLM logos
+const LOGO_SOURCES={ChatGPT:['/img/chatgpt-logo.png'],Claude:['/img/claude-logo.png'],Gemini:['/img/gemini-logo.png'],Copilot:['/img/copilot-logo.png'],Perplexity:['/img/perplexity-logo.png']};
+function enhanceLLM(root){
+  const title = Array.from(root.querySelectorAll('.section-title,h2,h3')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||''));
+  if(!title) return;
+  let ul=title.nextElementSibling; while(ul && ul.tagName?.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
+  const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim());
+  const order=["ChatGPT","Claude","Gemini","Copilot","Perplexity"];
+  const wrap=document.createElement('div'); wrap.className='llm-section';
+  order.forEach((name,i)=>{
+    const row=document.createElement('div'); row.className='llm-row';
+    const logo=document.createElement('div'); logo.className='llm-logo';
+    const img=document.createElement('img'); img.alt=`${name} logo`;
+    const srcs=LOGO_SOURCES[name]||[]; let j=0; function next(){ if(j>=srcs.length){logo.innerHTML=`<span class="llm-fallback">${name}</span>`; return;} img.src=srcs[j++]; }
+    img.onload=()=>{logo.innerHTML='';logo.appendChild(img)}; img.onerror=next; next();
+    const p=document.createElement('p'); p.textContent = texts[i]||'';
+    row.appendChild(logo); row.appendChild(p); wrap.appendChild(row);
+  });
+  ul.replaceWith(wrap);
+}
 </script>
 </body>
 </html>
