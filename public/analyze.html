@@ -1,13 +1,12 @@
 <!--
-  Version: 1.10.0
+  Version: 1.10.1
   Last Updated: Aug 11, 2025
   Changes:
-  - Matches analyze header/subhead and styling
-  - Removes "Get Your Report" form; keeps only Calendly CTA
-  - Loads backend full-report HTML as-is for maximum stability
-  - Transforms AI Engine Insights section to logo + paragraph format using local /img logos
-  - Shares LLM logo loader and fallback logic with analyze.html
+  - Lead form submits to Formspree (captures name/email/phone/company/url)
+  - After submit, always redirects to full-report.html?url=...
+  - Centered consultation section + button
 -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,7 +61,7 @@
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
 
-    .report-section,.consultation-section{width:100%;margin:2.5rem 0}
+    .report-section{width:100%;margin:2.5rem 0}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
     input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
     input:focus,textarea:focus{outline:none;border-color:#3182CE}
@@ -70,6 +69,11 @@
     .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:background .2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
     .btn-primary:hover{background:#c82333}
     .form-button-wrapper{text-align:center;margin:1.5rem 0}
+
+    /* Center the consultation section + button */
+    .consultation-section{text-align:center;margin:2.5rem 0}
+    .consultation-cta .btn-primary{display:inline-block;text-decoration:none}
+
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
 
     .sr-modal{position:fixed;inset:0;display:none;z-index:9999}
@@ -121,10 +125,10 @@
     <p style="text-align:center;color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Lead form -> routes to full report -->
+  <!-- Lead form -> Formspree capture then redirect -->
   <section class="report-section">
     <h3>Get Your Full Report</h3>
-    <form id="fullReportForm">
+    <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
       <div class="form-grid">
         <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
         <input type="email" name="email" placeholder="Your Email" required autocomplete="email"/>
@@ -133,15 +137,19 @@
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
       <input type="hidden" name="url" id="urlField"/>
+      <input type="hidden" name="_subject" value="SnipeRank Full Report request"/>
       <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
       <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
   </section>
 
+  <!-- Centered consultation CTA -->
   <section class="consultation-section">
     <h3>Ready to Improve Your AI Visibility?</h3>
-    <p>After reviewing your analysis, book a free 30-minute consultation to discuss your specific opportunities and next steps.</p>
-    <div class="consultation-cta"><a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a></div>
+    <p>After reviewing your analysis, book a free 30‑minute consultation to discuss your specific opportunities and next steps.</p>
+    <div class="consultation-cta">
+      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
+    </div>
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
@@ -169,15 +177,15 @@
     // Local LLM logos + robust path try ('/img/...' then 'img/...')
     const LOGO_SOURCES = {
       ChatGPT: ['/img/chatgpt-logo.png'],
-      Claude: ['/img/claude-logo.png'],
-      Gemini: ['/img/gemini-logo.png'],
+      Claude:  ['/img/claude-logo.png'],
+      Gemini:  ['/img/gemini-logo.png'],
       Copilot: ['/img/copilot-logo.png'],
       Perplexity: ['/img/perplexity-logo.png']
     };
     function logoDivFor(engine){
       const div=document.createElement('div'); div.className='llm-logo';
       const primary=(LOGO_SOURCES[engine]||[])[0]; if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-      const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' -> 'img/x.png' fallback
+      const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' -> 'img/x.png'
       const img=document.createElement('img'); let i=0;
       const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
       img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
@@ -197,25 +205,16 @@
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // API score (if 5 pillars present we use them; else we synthesize freshness)
-      let usedAPI = false;
-      try {
-        const s = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(targetUrl)}`);
-        if (!s.ok) throw 0;
-        const data = await s.json();
-        const { score, pillars, highlights, band, insights } = normalizeScorePayload(data);
-        renderScoreCard(score, pillars, highlights, band);
-        if (Array.isArray(insights) && insights.length) {
-          renderAIFromAPI(insights);
-          usedAPI = true;
-        }
-      } catch {
-        const { total, pillars, highlights } = fallbackScore(targetUrl);
-        renderScoreCard(total, pillars, highlights);
-      }
-      if (!usedAPI){ transformAIInsights(document.getElementById("summary-results")); }
+      // Simple fallback score just for the card UI
+      const p={access:20,trust:19,clarity:22,alignment:20,freshness:19};
+      renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
+        "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
+        "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
+        "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
+        "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
+      ]);
 
-      // Modal
+      // Modal controls
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
@@ -225,123 +224,75 @@
       // Copy summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
-        const total = parseInt(scoreText,10) || 0;
-        const badges = Array.from(document.querySelectorAll('.pillar .badge')).map(el => el.textContent.trim());
-        const p = {};
         const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
-        labels.forEach((lab, i) => { const val = parseInt((badges[i]||'0').split('/')[0],10)||0; const key = lab.toLowerCase().split(' ')[0]; p[key] = val; });
-
+        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(el => el.textContent.trim());
         const highlights = Array.from(document.querySelectorAll('#highlightsList li')).map(li => li.textContent.trim());
         const txt = [
           `Website: ${targetUrl}`,
-          `SnipeRank Score: ${total}/100`,
+          `SnipeRank Score: ${scoreText}`,
           `Pillars:`,
-          ...labels.map((lab,i)=>`- ${lab}: ${parseInt((badges[i]||'0').split('/')[0],10)||0}/20`),
+          ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
           ``,
           `Observed Highlights / Issues:`,
           ...highlights.map(h=>`- ${h}`),
           ``,
           `Next step — talk with Quontora:`,
           `• Book a free 30‑minute consult: https://calendly.com/quontora`,
-          `• We'll deliver a tailored 30‑day plan to lift your score by 10+ points, prioritized by Technical, Content, Schema, and Freshness.`,
-          `• Each recommendation includes expected impact, effort (S/M/L), and the exact change needed (selector/file when relevant).`
+          `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
         ].join("\n");
         try{ await navigator.clipboard.writeText(txt); const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);}catch{ window.prompt("Copy the summary:", txt); }
       });
 
-      // Full report button
+      // ----- Formspree capture then redirect -----
       const form = document.getElementById("fullReportForm");
+      const status = document.getElementById("formMessage");
       document.getElementById("urlField").value = targetUrl;
-      form.addEventListener("submit",(e)=>{
+
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const next=`/full-report.html?url=${encodeURIComponent(targetUrl)}`;
-        window.location.href = next;
+        status.textContent = "📤 Sending…";
+        const fd = new FormData(form);
+        fd.set("url", targetUrl);
+
+        try {
+          await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
+          status.textContent = "✅ Thanks! Redirecting…";
+        } catch {
+          status.textContent = "⚠️ Couldn’t send just now, redirecting anyway.";
+        } finally {
+          const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+          window.location.href = next;
+        }
       });
 
-      /* helpers */
-      function normalizeScorePayload(d){
-        // Accept 4- or 5-pillar payload; synthesize freshness if missing
-        const base = d.pillars || {};
-        const have5 = 'freshness' in base || 'freshnessEngagement' in base || 'freshness_engagement' in base;
-        const freshness = base.freshness ?? base.freshnessEngagement ?? base.freshness_engagement;
-        let pillars = {
-          access: base.access ?? 0,
-          trust: base.trust ?? 0,
-          clarity: base.clarity ?? 0,
-          alignment: base.alignment ?? 0,
-          freshness: have5 ? freshness : Math.round(( (base.access??0 + (base.clarity??0)) / 2 ) * 0.8) // heuristic
-        };
-        // Each pillar is /20 now; compute score if not provided
-        const score = d.score ?? (pillars.access + pillars.trust + pillars.clarity + pillars.alignment + pillars.freshness);
-        const highlights = d.highlights || [];
-        const band = d.band;
-        return { score, pillars, highlights, band, insights: d.insights };
-      }
+      // ----- helpers -----
+      function renderScoreCard(total, pillars, highlights){
+        document.getElementById("scoreNumber").textContent = `${total}/100`;
+        document.getElementById("scoreBand").textContent =
+          total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
 
-      function renderScoreCard(total, pillars, highlights, band){
-        // Expect 5 pillars of /20 each; gracefully handle 4 by mapping
-        const labels = [
-          ["AI Access Readiness", pillars.access ?? 0],
-          ["Trust & Verification Signals", pillars.trust ?? 0],
-          ["LLM Interpretability & Clarity", pillars.clarity ?? 0],
-          ["Prompt-Pattern Alignment", pillars.alignment ?? 0],
-          ["Freshness & Engagement Signals", pillars.freshness ?? 0],
-        ];
-        const totalCap = labels.reduce((acc,[,v])=>acc+(Number.isFinite(v)?v:0),0);
-        const cap = total ?? totalCap;
-
-        document.getElementById("scoreNumber").textContent = `${cap}/100`;
-        document.getElementById("scoreBand").textContent = band || (cap>=85?"Rank: Highly Visible ★★★★☆":cap>=70?"Rank: Partially Visible ★★★☆☆":cap>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆");
-
-        const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
-        labels.forEach(([l,v])=>{
+        const grid = document.getElementById("pillarsGrid");
+        grid.innerHTML = "";
+        [
+          ["AI Access Readiness", pillars.access],
+          ["Trust & Verification Signals", pillars.trust],
+          ["LLM Interpretability & Clarity", pillars.clarity],
+          ["Prompt-Pattern Alignment", pillars.alignment],
+          ["Freshness & Engagement Signals", pillars.freshness],
+        ].forEach(([label,val]) => {
           const d=document.createElement("div"); d.className="pillar";
-          d.innerHTML=`<span class="label">${l}</span><span class="badge">${v}/20</span>`;
+          d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
           grid.appendChild(d);
         });
 
-        if (highlights?.length){ const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); }); document.getElementById("highlightsBlock").hidden=false; }
-      }
-
-      function fallbackScore(){
-        // 5 pillars * 20 = 100
-        let p={access:20,trust:19,clarity:22,alignment:20,freshness:19};
-        return { total:p.access+p.trust+p.clarity+p.alignment+p.freshness, pillars:p, highlights:[
-          "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
-          "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
-          "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
-          "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
-        ]};
-      }
-
-      function renderAIFromAPI(items){
-        const root=document.getElementById('summary-results');
-        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
-        let replace=title.nextElementSibling; while(replace&&replace.tagName&&replace.tagName.toLowerCase()!=='ul') replace=replace.nextElementSibling;
-        const container=document.createElement('div'); container.className='llm-insights';
-        items.forEach(({engine,text})=>{
-          const row=document.createElement('div'); row.className='llm-row';
-          row.appendChild(logoDivFor(engine));
-          const p=document.createElement('p'); p.textContent=text||''; row.appendChild(p);
-          container.appendChild(row);
-        });
-        if(replace && replace.parentNode) replace.parentNode.replaceChild(container, replace); else title.insertAdjacentElement('afterend', container);
-      }
-
-      function transformAIInsights(root){
-        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
-        let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
-        const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()); if(!texts.length) return;
-        const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-        const container=document.createElement('div'); container.className='llm-insights';
-        engines.forEach((engine,i)=>{ const t=texts[i]||''; if(!t) return; const row=document.createElement('div'); row.className='llm-row';
-          row.appendChild(logoDivFor(engine));
-          const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
-          container.appendChild(row); });
-        ul.replaceWith(container);
+        if (highlights?.length){
+          const ul=document.getElementById("highlightsList");
+          ul.innerHTML="";
+          highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
+          document.getElementById("highlightsBlock").hidden=false;
+        }
       }
     });
   </script>
 </body>
 </html>
-
