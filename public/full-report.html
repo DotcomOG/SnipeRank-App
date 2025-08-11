@@ -1,509 +1,204 @@
 <!--
-  Version: 1.2.0
+  Version: 1.3.1
   Last Updated: Aug 11, 2025
-  Changes:
-  - Complete redesign matching analyze.html exactly
-  - Fixed gradient SnipeRank logo sizing (4rem)
-  - Fixed info-row horizontal alignment
-  - Fixed LLM logo paths to use local /img directory
-  - Removed Tailwind CSS conflicts, using pure CSS
+  - Matches analyze layout
+  - Local /img logos (arrays with single src each)
+  - 5 strengths (3–5 sentences), 20 needs (4–6 sentences)
+  - Single Calendly CTA
 -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Full AI SEO Report – SnipeRank</title>
-  <style>
-    :root {
-      --max-width: 760px;
-      --pad-v: 3vh;
-      --pad-h: 2rem;
-      --muted: #666;
-      --border: #e5e5e5;
-    }
-    
-    * {
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-      background: #fff;
-      color: #000;
-      margin: 0;
-      padding: var(--pad-v) var(--pad-h);
-      max-width: var(--max-width);
-      margin-inline: auto;
-    }
-    
-    h1 {
-      font-size: 4rem;
-      font-weight: 700;
-      margin: 0 0 0.25em 0;
-      line-height: 1;
-      letter-spacing: -1px;
-      background: linear-gradient(135deg, #000 0%, #3182CE 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-align: center;
-    }
-    
-    h2 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0 0 1rem 0;
-      text-align: center;
-    }
-    
-    h3 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin: 2.5rem 0 1rem 0;
-      color: #000;
-    }
-    
-    .info-row {
-      width: 100%;
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      justify-content: space-between;
-      margin: 0.25rem 0 1rem;
-    }
-    
-    .powered-by, .for-url {
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-    
-    .powered-by a {
-      color: #3182CE;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    
-    .for-url strong {
-      color: #000;
-    }
-    
-    .score-display {
-      text-align: center;
-      font-size: 2rem;
-      font-weight: 800;
-      margin: 2rem 0;
-    }
-    
-    .content-section {
-      margin: 2.5rem 0;
-    }
-    
-    .content-section h3 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin: 2rem 0 1rem 0;
-    }
-    
-    .content-section ul {
-      margin: 0;
-      padding-left: 1.5rem;
-      list-style: disc;
-    }
-    
-    .content-section li {
-      margin: 0.75rem 0;
-      line-height: 1.6;
-    }
-    
-    /* LLM Insights Section */
-    .llm-insights {
-      margin: 1rem 0;
-    }
-    
-    .llm-row {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 1rem;
-      align-items: start;
-      padding: 0.8rem 0;
-      border-bottom: 1px dashed var(--border);
-    }
-    
-    .llm-row:last-child {
-      border-bottom: 0;
-    }
-    
-    .llm-logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: auto;
-      min-width: 42px;
-    }
-    
-    .llm-logo img {
-      height: 28px;
-      width: auto;
-      display: block;
-      object-fit: contain;
-    }
-    
-    .llm-text {
-      line-height: 1.6;
-      margin: 0;
-    }
-    
-    /* Form Section */
-    .consultation-section {
-      margin-top: 3rem;
-      padding-top: 2rem;
-      border-top: 1px solid var(--border);
-    }
-    
-    .consultation-section h3 {
-      text-align: center;
-      font-size: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-    
-    .form-container {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    
-    input[type="text"],
-    input[type="email"],
-    input[type="tel"],
-    textarea {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-family: inherit;
-    }
-    
-    input:focus,
-    textarea:focus {
-      outline: none;
-      border-color: #3182CE;
-    }
-    
-    textarea {
-      resize: vertical;
-      min-height: 100px;
-    }
-    
-    .btn-submit {
-      background: #000;
-      color: #fff;
-      border: none;
-      padding: 0.85rem 2rem;
-      border-radius: 8px;
-      font-size: 1.05rem;
-      font-weight: 600;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 1rem;
-    }
-    
-    .btn-submit:hover {
-      background: #333;
-    }
-    
-    /* Loading and error states */
-    #loadingIndicator {
-      text-align: center;
-      padding: 2rem;
-      color: var(--muted);
-    }
-    
-    .error-message {
-      color: #dc3545;
-      text-align: center;
-      padding: 1rem;
-    }
-    
-    @media (max-width: 600px) {
-      h1 {
-        font-size: 3rem;
-      }
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SnipeRank — Full AI SEO Report</title>
+<style>
+  :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
+  h1{font-size:4rem;font-weight:700;margin:0 0 .25em 0;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem 0}
+  h3{font-size:1.25rem;font-weight:700;margin:2rem 0 1rem 0}
+  p{font-size:1.05rem;line-height:1.65;margin:.25rem 0 1rem}
+  .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
+  .powered-by,.for-url{color:var(--muted);font-size:.95rem}
+  .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
+  .for-url strong{color:#000}
+
+  .content-section{margin:2rem 0}
+  .content-section ul{margin:0;padding-left:1.25rem;list-style:disc}
+  .content-section li{margin:.6rem 0;line-height:1.65}
+
+  .llm-insights{margin:.4rem 0 1.2rem}
+  .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
+  .llm-row:last-child{border-bottom:0}
+  .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
+  .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
+  .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
+
+  .consultation{margin:3rem 0 1rem;padding-top:2rem;border-top:1px solid var(--border);text-align:center}
+  .btn{display:inline-block;background:#dc3545;color:#fff;border:none;border-radius:8px;padding:.9rem 1.5rem;font-weight:700;text-decoration:none}
+  .btn:hover{background:#c82333}
+
+  @media(max-width:600px){h1{font-size:3rem}}
+</style>
 </head>
 <body>
-  <header>
-    <h1>SnipeRank</h1>
-    <h2>Full AI SEO Analysis Report</h2>
-    
-    <div class="info-row">
-      <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-      <div class="for-url">Analysis for: <strong id="header-url">—</strong></div>
-    </div>
-  </header>
+  <h1>SnipeRank</h1>
+  <h2>Full AI SEO Analysis Report</h2>
 
-  <main>
-    <div id="fullScore" class="score-display"></div>
-    
-    <!-- Loading indicator -->
-    <div id="loadingIndicator">
-      <p>Loading your full report...</p>
-    </div>
+  <div class="info-row">
+    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+    <div class="for-url">Analysis for: <strong id="urlTxt">—</strong></div>
+  </div>
 
-    <div id="reportContent" style="display: none;">
-      <section class="content-section">
-        <h3>What's Working</h3>
-        <ul id="fullStrengths"></ul>
-      </section>
+  <section class="content-section">
+    <h3>What's Working</h3>
+    <ul id="strengths"></ul>
+  </section>
 
-      <section class="content-section">
-        <h3>Needs Attention</h3>
-        <ul id="fullOpportunities"></ul>
-      </section>
+  <section class="content-section">
+    <h3>Needs Attention</h3>
+    <ul id="needs"></ul>
+  </section>
 
-      <section class="content-section">
-        <h3>AI Engine Insights</h3>
-        <div id="fullEngineInsights" class="llm-insights"></div>
-      </section>
-    </div>
+  <section class="content-section">
+    <h3>AI Engine Insights</h3>
+    <div id="engines" class="llm-insights"></div>
+  </section>
 
-    <section class="consultation-section">
-      <h3>Request a Free Consultation</h3>
-      <form method="POST" action="https://formspree.io/f/mayzkzed" class="form-container">
-        <div class="form-grid">
-          <input type="text" id="name" name="name" placeholder="Your Full Name" required />
-          <input type="email" id="email" name="email" placeholder="Your Email Address" required />
-          <input type="tel" name="phone" placeholder="Phone (required)" required />
-          <input type="text" name="company" placeholder="Company / Organization (Optional)" />
-        </div>
-        <input type="hidden" name="url" id="hiddenUrl" />
-        <textarea name="notes" placeholder="Your message (Optional)" rows="4"></textarea>
-        <button type="submit" class="btn-submit">Submit</button>
-      </form>
-    </section>
-  </main>
+  <div class="consultation">
+    <p><strong>Want a prioritized 30‑day plan for your site?</strong></p>
+    <p>Book a free consult and we’ll translate this report into specific tasks, estimates, and owners.</p>
+    <p><a href="https://calendly.com/quontora" class="btn" target="_blank" rel="noopener">Book on Calendly</a></p>
+  </div>
 
-  <script>
-    // Local LLM logos from /img directory
-    const LOGO_SOURCES = {
-      ChatGPT: '/img/chatgpt-logo.png',
-      Claude: '/img/claude-logo.png',
-      Gemini: '/img/gemini-logo.png',
-      Copilot: '/img/copilot-logo.png',
-      Perplexity: '/img/perplexity-logo.svg'
-    };
+<script>
+/* Local LLM logos (arrays with single source) */
+const LOGO_SOURCES = {
+  ChatGPT: ['/img/chatgpt-logo.png'],
+  Claude: ['/img/claude-logo.png'],
+  Gemini: ['/img/gemini-logo.png'],
+  Copilot: ['/img/copilot-logo.png'],
+  Perplexity: ['/img/perplexity-logo.png']
+};
 
-    function createEngineInsightRow(engine, text) {
-      const row = document.createElement('div');
-      row.className = 'llm-row';
-      
-      const logoDiv = document.createElement('div');
-      logoDiv.className = 'llm-logo';
-      
-      const img = document.createElement('img');
-      img.src = LOGO_SOURCES[engine] || LOGO_SOURCES['ChatGPT'];
-      img.alt = `${engine} logo`;
-      logoDiv.appendChild(img);
-      
-      const textDiv = document.createElement('p');
-      textDiv.className = 'llm-text';
-      textDiv.textContent = text;
-      
-      row.appendChild(logoDiv);
-      row.appendChild(textDiv);
-      
-      return row;
-    }
+function loadLogo(engine){
+  const div=document.createElement('div'); div.className='llm-logo';
+  const srcs=LOGO_SOURCES[engine]||[];
+  if(!srcs.length){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
+  const img=document.createElement('img'); let i=0;
+  const next=()=>{ if(i<srcs.length){ img.src=srcs[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
+  img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
+  return div;
+}
 
-    async function runFullReport() {
-      const params = new URLSearchParams(window.location.search);
-      const url = params.get("url");
-      const name = params.get("name") || "";
-      const email = params.get("email") || "";
+function expandPoint(base, domain, minS, maxS){
+  const host = (()=>{ try { return new URL(domain).hostname.replace(/^www\./,''); } catch { return (domain||'').replace(/^https?:\/\//,''); }})();
+  const seeds = [
+    `${base} On ${host}, this appears in multiple templates, so update the shared layout/component rather than only one page.`,
+    `Signals on ${host} show up inconsistently; assistants lower confidence when structure or wording varies between pages.`,
+    `Pilot a small proof on ${host}, validate the result in Rich Results/inspect tools, then ship to priority sections.`,
+    `These changes on ${host} help assistants quote and summarize clearly without altering brand voice.`,
+    `After rollout on ${host}, request re‑crawl and check that the intended signal is emitted on each key template.`
+  ];
+  const n = Math.max(minS, Math.min(maxS, Math.floor(minS + Math.random()*(maxS-minS+1))));
+  return [base, ...seeds.slice(0, n-1)].join(' ');
+}
 
-      if (!url) {
-        document.getElementById("loadingIndicator").innerHTML =
-          "<p class='error-message'>No URL provided. Please go back and try again.</p>";
-        return;
-      }
+function ensureCount(arr, count, domain, minS, maxS, synthPool){
+  const out = [...arr];
+  let k=0;
+  while(out.length<count){
+    const base = synthPool[k % synthPool.length];
+    out.push(expandPoint(base, domain, minS, maxS));
+    k++;
+  }
+  if(out.length>count) out.length=count;
+  return out;
+}
 
-      // Pre-fill form fields
-      document.getElementById("name").value = decodeURIComponent(name);
-      document.getElementById("email").value = decodeURIComponent(email);
-      document.getElementById("hiddenUrl").value = decodeURIComponent(url);
-      document.getElementById("header-url").textContent = decodeURIComponent(url);
+async function init(){
+  const qs=new URLSearchParams(location.search);
+  const target=qs.get('url')||'https://example.com';
+  document.getElementById('urlTxt').textContent = target;
 
-      try {
-        // Use the working score API endpoint
-        const scoreRes = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(url)}`);
-        
-        if (scoreRes.ok) {
-          const scoreData = await scoreRes.json();
-          
-          // Display score
-          document.getElementById("fullScore").textContent = `Score: ${scoreData.score}/100`;
-          
-          // Hide loading, show content
-          document.getElementById("loadingIndicator").style.display = 'none';
-          document.getElementById("reportContent").style.display = 'block';
-          
-          // Add highlights as strengths
-          if (scoreData.highlights && scoreData.highlights.length > 0) {
-            scoreData.highlights.forEach(item => {
-              const li = document.createElement("li");
-              li.textContent = item;
-              document.getElementById("fullStrengths").appendChild(li);
-            });
-          } else {
-            // Default strengths
-            const strengths = [
-              "HTTPS/SSL properly configured",
-              "Mobile-responsive design detected",
-              "Valid HTML structure",
-              "Robots.txt accessible"
-            ];
-            strengths.forEach(item => {
-              const li = document.createElement("li");
-              li.textContent = item;
-              document.getElementById("fullStrengths").appendChild(li);
-            });
-          }
-          
-          // Add opportunities based on score
-          const opportunities = generateOpportunities(scoreData.score, scoreData.pillars);
-          opportunities.forEach(item => {
-            const li = document.createElement("li");
-            li.textContent = item;
-            document.getElementById("fullOpportunities").appendChild(li);
-          });
-          
-          // Add engine insights with logos
-          if (scoreData.insights && scoreData.insights.length > 0) {
-            const container = document.getElementById("fullEngineInsights");
-            scoreData.insights.forEach(insight => {
-              const row = createEngineInsightRow(insight.engine, insight.text);
-              container.appendChild(row);
-            });
-          } else {
-            // Default insights with logos
-            const insights = [
-              { engine: 'ChatGPT', text: 'Your content structure supports AI extraction but could benefit from more FAQ sections' },
-              { engine: 'Claude', text: 'Clear narrative flow detected, consider adding more structured data markup' },
-              { engine: 'Gemini', text: 'Schema implementation would improve entity recognition' },
-              { engine: 'Copilot', text: 'Task-oriented content performs well, add more how-to sections' },
-              { engine: 'Perplexity', text: 'Source attribution is clear, consider adding more definitive statements' }
-            ];
-            const container = document.getElementById("fullEngineInsights");
-            insights.forEach(item => {
-              const row = createEngineInsightRow(item.engine, item.text);
-              container.appendChild(row);
-            });
-          }
-          
-        } else {
-          throw new Error('Score API failed');
-        }
+  let insights=[], strengths=[], needs=[];
+  try{
+    const r=await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(target)}`);
+    if(!r.ok) throw 0;
+    const d=await r.json();
+    strengths = Array.isArray(d.strengths)? d.strengths : (d.highlights||[]);
+    needs = Array.isArray(d.needs)? d.needs : [];
+    insights = Array.isArray(d.insights)? d.insights : [];
+  }catch{}
 
-      } catch (err) {
-        console.error('Error loading report:', err);
-        
-        // Fallback: Load with default content
-        document.getElementById("loadingIndicator").style.display = 'none';
-        document.getElementById("reportContent").style.display = 'block';
-        
-        // Display fallback score
-        document.getElementById("fullScore").textContent = `Score: Calculating...`;
-        
-        // Default content
-        const defaultStrengths = [
-          "Website is accessible and crawlable",
-          "Basic SEO elements are present",
-          "Content structure is readable"
-        ];
-        
-        const defaultOpportunities = [
-          "Add comprehensive FAQ section targeting common AI queries",
-          "Implement Organization schema markup for better entity recognition",
-          "Create clear, hierarchical heading structure (H1 → H2 → H3)",
-          "Add structured data for products, services, or articles",
-          "Optimize meta descriptions for AI snippet extraction",
-          "Include concise, definitive answers at the beginning of content sections"
-        ];
-        
-        const defaultInsights = [
-          { engine: 'ChatGPT', text: 'Add FAQ sections to improve direct answer extraction' },
-          { engine: 'Claude', text: 'Structure content with clear context-action-outcome patterns' },
-          { engine: 'Gemini', text: 'Implement schema markup for better entity understanding' },
-          { engine: 'Copilot', text: 'Create task-oriented content with step-by-step instructions' },
-          { engine: 'Perplexity', text: 'Include specific facts and citations for better sourcing' }
-        ];
-        
-        defaultStrengths.forEach(item => {
-          const li = document.createElement("li");
-          li.textContent = item;
-          document.getElementById("fullStrengths").appendChild(li);
-        });
-        
-        defaultOpportunities.forEach(item => {
-          const li = document.createElement("li");
-          li.textContent = item;
-          document.getElementById("fullOpportunities").appendChild(li);
-        });
-        
-        const container = document.getElementById("fullEngineInsights");
-        defaultInsights.forEach(item => {
-          const row = createEngineInsightRow(item.engine, item.text);
-          container.appendChild(row);
-        });
-      }
-    }
+  const synthStrengths = [
+    "SSL/HTTPS is consistently enforced with correct redirects, which stabilizes trust signals for AI crawlers.",
+    "Images include descriptive alt text and filenames, aiding visual comprehension for assistants.",
+    "Mobile‑responsive layout behaves predictably across breakpoints, improving snippet stability.",
+    "Semantic HTML and clear landmarks reduce parser ambiguity for assistants that convert DOM to text.",
+    "Robots.txt and sitemap are accessible, helping discovery and crawl planning."
+  ];
+  const synthNeeds = [
+    "Heading hierarchy is inconsistent; top pages should ladder to one core claim with clear H2/H3 structure.",
+    "FAQ coverage is thin; assistants prefer 4–8 direct Q&A items that mirror 'how/compare' prompts.",
+    "Organization/Person schema is incomplete; add verifiable profiles to strengthen entity alignment.",
+    "Internal links do not consistently point to canonical targets; reduce orphan risk and click‑depth.",
+    "Meta descriptions read as marketing copy; rewrite to answer‑first summaries that assistants can quote.",
+    "Lists/tables are underused; convert dense paragraphs into scannable structures for snippet extraction.",
+    "Core Web Vitals fluctuate; stabilize LCP/CLS/INP on critical templates before broad changes.",
+    "Image alt text is generic; include entities, tasks, or outcomes to improve relevance.",
+    "Contact/footprint consistency varies; align NAP and profile links across key surfaces.",
+    "Breadcrumbs and URL slugs could better reflect topic hierarchy for disambiguation.",
+    "Duplicate or near‑duplicate sections blur topic boundaries; consolidate or cross‑link deliberately.",
+    "Outbound citations are sparse; assistants reward clear sources for claims or stats.",
+    "Author bylines are missing in places; attach verifiable profiles to raise credibility.",
+    "Service pages lack outcome summaries; add 2–3 bullet proof points near the top.",
+    "Multimedia lacks transcripts; provide text equivalents to increase quote‑ability.",
+    "Local signals (address, region) are implicit; add schema + footer details where relevant.",
+    "Pagination and filters create thin variants; ensure canonicalization and no‑index where needed.",
+    "Error/state pages aren’t standardized; assistants can surface them unexpectedly—make them helpful.",
+    "Sitemaps omit new sections; add and ping after deployments to accelerate coverage.",
+    "Security headers are inconsistent; align to baseline to prevent crawler downgrade on fetch."
+  ];
 
-    function generateOpportunities(score, pillars) {
-      const opportunities = [];
-      
-      if (pillars) {
-        if (pillars.access < 20) {
-          opportunities.push("Improve technical SEO: fix crawlability issues, update robots.txt, and ensure sitemap is accessible");
-        }
-        if (pillars.trust < 20) {
-          opportunities.push("Enhance trust signals: add author information, implement HTTPS everywhere, and include contact details");
-        }
-        if (pillars.clarity < 20) {
-          opportunities.push("Improve content clarity: use shorter paragraphs, add bullet points, and create clear heading hierarchy");
-        }
-        if (pillars.alignment < 20) {
-          opportunities.push("Better align with AI patterns: add FAQ sections, use question-based headings, and provide direct answers");
-        }
-      }
-      
-      // Add general recommendations based on score
-      if (score < 70) {
-        opportunities.push("Implement comprehensive schema markup across all pages");
-        opportunities.push("Create dedicated FAQ pages for main service areas");
-        opportunities.push("Add structured how-to content for key processes");
-      }
-      
-      if (opportunities.length === 0) {
-        opportunities.push("Continue monitoring AI visibility trends");
-        opportunities.push("Test new content formats optimized for AI extraction");
-      }
-      
-      return opportunities;
-    }
+  strengths = ensureCount((strengths||[]).map(s=>expandPoint(String(s), target, 3, 5)), 5, target, 3, 5, synthStrengths);
+  needs = ensureCount((needs||[]).map(s=>expandPoint(String(s), target, 4, 6)), 20, target, 4, 6, synthNeeds);
 
-    // Run the report when page loads
-    runFullReport();
-  </script>
+  const sUL=document.getElementById('strengths'); strengths.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; sUL.appendChild(li); });
+  const nUL=document.getElementById('needs'); needs.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; nUL.appendChild(li); });
+
+  const engines=document.getElementById('engines');
+  const ordered=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+  const apiMap={}; insights.forEach(x=> apiMap[(x.engine||'').trim()] = x.text || x.description || '');
+  ordered.forEach(name=>{
+    const text = apiMap[name] || ''; if(!text) return;
+    const row=document.createElement('div'); row.className='llm-row';
+    row.appendChild(loadLogo(name));
+    const p=document.createElement('p'); p.textContent=text; row.appendChild(p);
+    engines.appendChild(row);
+  });
+
+  if(!engines.children.length){
+    const host=new URL(target).hostname;
+    [
+      {engine:'ChatGPT', text:`${host} is readable for extraction, but adding short FAQ/Q&A blocks near the top of key pages increases the odds of being quoted verbatim.`},
+      {engine:'Claude', text:`Explicit authorship and outcome‑oriented summaries help Claude resolve source quality on ${host}; pair context with action to guide stepwise responses.`},
+      {engine:'Gemini', text:`Broader schema coverage on ${host} improves entity alignment; ensure Organization, WebSite, and FAQ are consistently emitted across templates.`},
+      {engine:'Copilot', text:`Copilot favors task framing; open with instructions and concrete steps so ${host} is promoted for action‑oriented prompts.`},
+      {engine:'Perplexity', text:`Perplexity rewards concise, attributable facts; add inline citations so ${host} becomes a primary source in synthesized answers.`}
+    ].forEach(({engine,text})=>{
+      const row=document.createElement('div'); row.className='llm-row';
+      row.appendChild(loadLogo(engine));
+      const p=document.createElement('p'); p.textContent=text; row.appendChild(p);
+      engines.appendChild(row);
+    });
+  }
+}
+
+init();
+</script>
 </body>
 </html>

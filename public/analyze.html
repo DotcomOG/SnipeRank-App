@@ -1,11 +1,9 @@
 <!--
-  Version: 1.9.25
-  Last Updated: Aug 10, 2025
+  Version: 1.9.27
+  Last Updated: Aug 11, 2025
   Changes:
-  - Fixed Copilot and Perplexity logos with Icons8 and Seeklogo CDNs
-  - Multiple fallback sources for each LLM logo
-  - Consistent 28px height for all logos
-  - Text badge fallback if all image sources fail
+  - Use local LLM logos from /img (arrays with single src each)
+  - Keeps prior layout/scorecard/modal and “View Full Report Now” form
 -->
 
 <!DOCTYPE html>
@@ -15,150 +13,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SnipeRank — AI SEO Analysis Results</title>
   <style>
-    :root {
-      --max-width: 760px;
-      --pad-v: 3vh;
-      --pad-h: 2rem;
-      --muted: #666;
-      --border: #e5e5e5;
-      --red-primary: #dc3545;
-      --red-hover: #c82333;
-
-      --sr-radius: 16px;
-      --sr-border: #e6e6e9;
-      --sr-shadow: 0 10px 30px rgba(0,0,0,.12);
-      --sr-text: #111;
-      --sr-muted: #5b5b66;
-      --sr-bg: #fff;
-      --sr-pill-bg: #fafafb;
-      --sr-gap: 16px;
-
-      --llm-logo-h: 28px;
+    :root{
+      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
+      --muted:#666; --border:#e5e5e5;
+      --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
+      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
     }
-    * { box-sizing: border-box; }
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
+    h1{font-size:4rem;font-weight:700;margin:0 0 .25em 0;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem 0}
+    p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem 0}
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-      background: #fff; color: #000; margin: 0;
-      padding: var(--pad-v) var(--pad-h);
-      max-width: var(--max-width); margin-inline: auto;
-      display: flex; flex-direction: column; align-items: flex-start;
-    }
+    .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
+    .powered-by,.for-url{color:var(--muted);font-size:.95rem}
+    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
+    .for-url strong{color:#000}
 
-    h1 {
-      font-size: 4rem; font-weight: 700; margin: 0 0 .25em 0; line-height: 1; letter-spacing: -1px;
-      background: linear-gradient(135deg, #000 0%, #3182CE 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    h2 { font-size: 1.6rem; font-weight: 700; margin: 0 0 1rem 0; }
-    h3 { font-size: 1.4rem; font-weight: 700; margin: 2.5rem 0 1rem 0; color: #000; }
-    p { font-size: 1.075rem; line-height: 1.65; margin: 0 0 1rem 0; }
+    .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
+    .score-card{padding:1rem;margin-bottom:2.25rem}
+    .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
+    .score-main{display:flex;align-items:baseline;gap:.5rem}
+    .score-number{font-size:2.25rem;font-weight:800}
+    .score-band{color:var(--muted);font-size:.95rem}
+    .btn-row{display:flex;gap:.5rem;align-items:center}
+    .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
+    .btn-ghost:hover{background:#f2f2f2}
+    .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+    .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
+    .pillar .label{font-weight:600}
+    .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
+    .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
+    .highlights h4{margin:0 0 .55rem 0;font-size:1.2rem;font-weight:800}
+    .highlights ul{margin:0;padding-left:1rem}
+    .highlights li{margin:.45rem 0;line-height:1.5}
 
-    /* Score card */
-    .info-row { width:100%; display:flex; gap:1rem; align-items:center; justify-content:space-between; margin:.25rem 0 1rem; }
-    .powered-by, .for-url { color: var(--muted); font-size:.95rem; }
-    .powered-by a { color:#3182CE; text-decoration:none; font-weight:600; }
-    .for-url strong { color:#000; }
+    #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem 0!important}
+    #summary-results p{line-height:1.65!important;margin:0 0 .9rem 0!important;font-size:1.02rem!important}
+    #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
+    #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important}
 
-    .card { width:100%; border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); background:#fff; }
-    .score-card { padding:1rem; margin-bottom:2.25rem; }
-    .score-top { display:flex; align-items:center; gap:.75rem; justify-content:space-between; flex-wrap:wrap; }
-    .score-main { display:flex; align-items:baseline; gap:.5rem; }
-    .score-number { font-size:2.25rem; font-weight:800; }
-    .score-band { color:var(--muted); font-size:.95rem; }
-    .btn-row { display:flex; gap:.5rem; align-items:center; }
-    .btn-ghost{ border:1px solid #111; background:#fff; color:#111; padding:.55rem .9rem; border-radius:8px; cursor:pointer; font-weight:700; font-size:.95rem; transition:.2s; }
-    .btn-ghost:hover{ background:#f2f2f2; }
+    /* LLM logos (logo + paragraph) */
+    .llm-insights{margin:.4rem 0 1.2rem}
+    .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
+    .llm-row:last-child{border-bottom:0}
+    .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
+    .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
+    .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
 
-    .pillars{ display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-top:.75rem; }
-    .pillar{ border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem; display:flex; align-items:center; justify-content:space-between; font-size:.98rem; background:#fff; }
-    .pillar .label{ font-weight:600; }
-    .badge{ font-weight:700; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border); font-size:.85rem; background:#fafafa; }
-
-    .highlights{ margin-top:.9rem; padding-top:.9rem; border-top:1px dashed var(--border); }
-    .highlights h4{ margin:0 0 .55rem 0; font-size:1.2rem; font-weight:800; }
-    .highlights ul{ margin:0; padding-left:1rem; }
-    .highlights li{ margin:.45rem 0; line-height:1.5; }
-
-    /* Server-rendered sections */
-    #summary-results .section-title { font-size: 1.25rem !important; font-weight: 700 !important; margin: 2rem 0 .6rem 0 !important; }
-    #summary-results p { line-height: 1.65 !important; margin: 0 0 .9rem 0 !important; font-size: 1.02rem !important; }
-    #summary-results ul { margin: 0 0 1.1rem 1.1rem !important; padding-left: .2rem !important; list-style: disc !important; }
-    #summary-results li { line-height: 1.6 !important; margin: .55rem 0 !important; font-size: 1.02rem !important; }
-
-    /* LLM Insights */
-    .llm-insights { margin: .4rem 0 1.2rem; }
-    .llm-row {
-      display: grid; grid-template-columns: auto 1fr;
-      gap: .8rem 1rem; align-items: start; padding: .8rem 0;
-      border-bottom: 1px dashed var(--border);
-    }
-    .llm-row:last-child { border-bottom: 0; }
-    .llm-logo {
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      width:auto;
-      min-width: 42px;
-      height: 32px;
-    }
-    .llm-logo img {
-      height: 28px;
-      width: auto;
-      display:block;
-      object-fit: contain;
-      max-width: 100px;
-    }
-    .llm-fallback {
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      height: 28px;
-      padding: 0 .75rem;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size:.85rem;
-      font-weight: 600;
-      color: #333;
-      background: #f8f9fa;
-    }
-
-    /* Form */
-    .report-section, .consultation-section { width:100%; margin:2.5rem 0; }
-    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
-    input[type="text"], input[type="email"], input[type="tel"], textarea {
-      width:100%; padding:.75rem 1rem; border:1px solid #ddd; border-radius:8px; font-size:1rem; font-family:inherit; transition:border-color .2s;
-    }
-    input:focus, textarea:focus { outline:none; border-color:#3182CE; }
-    textarea { resize:vertical; min-height:100px; }
-    .btn-primary { background:var(--red-primary); color:#fff; border:none; padding:.85rem 2rem; border-radius:8px; font-size:1.05rem; font-weight:600; cursor:pointer; transition:background .2s; display:inline-block; text-decoration:none; text-align:center; margin:1rem 0; }
-    .btn-primary:hover { background:var(--red-hover); }
-    .form-button-wrapper { text-align:center; margin:1.5rem 0; }
-    .consultation-cta { text-align:center; margin:1.5rem 0; }
-    .consultation-note { background:#f8f9fa; padding:1rem; border-radius:8px; margin-top:1.5rem; font-size:.95rem; }
-
-    /* Footer */
-    .footer { width:100%; text-align:center; padding:2rem 0 1rem; margin-top:3rem; border-top:1px solid var(--border); color:var(--muted); font-size:.9rem; }
+    .report-section,.consultation-section{width:100%;margin:2.5rem 0}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
+    input:focus,textarea:focus{outline:none;border-color:#3182CE}
+    textarea{resize:vertical;min-height:100px}
+    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:background .2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
+    .btn-primary:hover{background:#c82333}
+    .form-button-wrapper{text-align:center;margin:1.5rem 0}
+    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
 
     /* Modal */
-    .sr-modal{ position:fixed; inset:0; display:none; z-index:9999; }
-    .sr-modal[aria-hidden="false"]{ display:block; }
-    .sr-modal__backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.3); }
-    .sr-modal__panel{ position:relative; max-width:720px; width:calc(100% - 32px); margin:6vh auto; background:var(--sr-bg); color:var(--sr-text); border:1px solid var(--sr-border); border-radius:var(--sr-radius); box-shadow:var(--sr-shadow); padding:20px; max-height:90vh; overflow-y:auto; }
-    .sr-modal__close{ position:absolute; top:10px; right:10px; border:1px solid var(--sr-border); background:#fff; border-radius:999px; width:32px; height:32px; line-height:28px; font-size:18px; cursor:pointer; text-align:center; }
-    .sr-modal__header h2{ margin:0 0 4px; font-size:18px; font-weight:700; }
-    .sr-modal__sub{ margin:0 0 12px; color:var(--sr-muted); font-size:14px; line-height:1.35; }
-    .sr-pill{ background:var(--sr-pill-bg); border: 1px solid var(--sr-border); border-radius:12px; padding:12px 14px; margin-bottom:var(--sr-gap); }
-    .sr-pill__title{ margin:0 0 6px; font-size:15px; font-weight:700; }
-    .sr-list{ margin:0; padding-left:18px; }
-    .sr-list li{ margin:6px 0; line-height:1.35; }
-    .sr-modal__fineprint{ margin-top:8px; color:var(--sr-muted); font-size:12px; line-height:1.3; border-top:1px dashed var(--sr-border); padding-top:10px; }
+    .sr-modal{position:fixed;inset:0;display:none;z-index:9999}
+    .sr-modal[aria-hidden="false"]{display:block}
+    .sr-modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.3)}
+    .sr-modal__panel{position:relative;max-width:720px;width:calc(100% - 32px);margin:6vh auto;background:var(--sr-bg);color:var(--sr-text);border:1px solid var(--sr-border);border-radius:var(--sr-radius);box-shadow:var(--sr-shadow);padding:20px;max-height:90vh;overflow-y:auto}
+    .sr-modal__close{position:absolute;top:10px;right:10px;border:1px solid var(--sr-border);background:#fff;border-radius:999px;width:32px;height:32px;line-height:28px;font-size:18px;cursor:pointer;text-align:center}
+    .sr-modal__header h2{margin:0 0 4px;font-size:18px;font-weight:700}
+    .sr-modal__sub{margin:0 0 12px;color:var(--sr-muted);font-size:14px;line-height:1.35}
+    .sr-pill{background:var(--sr-pill-bg);border:1px solid var(--sr-border);border-radius:12px;padding:12px 14px;margin-bottom:var(--sr-gap)}
+    .sr-pill__title{margin:0 0 6px;font-size:15px;font-weight:700}
+    .sr-list{margin:0;padding-left:18px}
+    .sr-list li{margin:6px 0;line-height:1.35}
+    .sr-modal__fineprint{margin-top:8px;color:var(--sr-muted);font-size:12px;line-height:1.3;border-top:1px dashed var(--sr-border);padding-top:10px}
 
-    @media (max-width:600px){
-      .pillars{ grid-template-columns:1fr; }
-      .form-grid{ grid-template-columns:1fr; }
-      h1{ font-size:3rem; }
-    }
+    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -182,133 +109,69 @@
         <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
       </div>
     </div>
-
     <div class="pillars" id="pillarsGrid"></div>
-
     <div class="highlights" id="highlightsBlock" hidden>
       <h4>Highlights</h4>
       <ul id="highlightsList"></ul>
     </div>
   </section>
 
-  <!-- Backend HTML summary -->
+  <!-- Server-rendered body -->
   <section id="summary-results">
-    <p style="text-align:center; color:gray;">Loading analysis...</p>
+    <p style="text-align:center;color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Full Report Section -->
+  <!-- Lead form -> routes to full report -->
   <section class="report-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm">
       <div class="form-grid">
-        <input type="text" name="name" placeholder="Your Name" required autocomplete="name" />
-        <input type="email" name="email" placeholder="Your Email" required autocomplete="email" />
-        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel" />
-        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization" />
+        <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
+        <input type="email" name="email" placeholder="Your Email" required autocomplete="email"/>
+        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel"/>
+        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
-      <input type="hidden" name="url" id="urlField" />
-      <div class="form-button-wrapper">
-        <button type="submit" class="btn-primary">View Full Report Now</button>
-      </div>
-      <p id="formMessage" style="text-align:center; font-size:.95rem; color:gray;"></p>
+      <input type="hidden" name="url" id="urlField"/>
+      <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
+      <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
   </section>
 
-  <!-- Consultation Section -->
   <section class="consultation-section">
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30-minute consultation to discuss your specific opportunities and next steps.</p>
-    <div class="consultation-cta">
-      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
-    </div>
+    <div class="consultation-cta"><a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a></div>
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
-  <div class="footer">
-    © 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE; text-decoration:none;">quontora.com</a>. Last updated August 10.
-  </div>
+  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
 
-  <!-- Scoring Methodology Modal -->
+  <!-- Methodology Modal -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
       <button class="sr-modal__close" aria-label="Close" data-close>×</button>
-
       <header class="sr-modal__header">
         <h2 id="sr-modal-title">SnipeRank Scoring Methodology</h2>
         <p class="sr-modal__sub">Our proprietary model evaluates four pillars. Items below are representative checks used to guide recommendations.</p>
       </header>
-
-      <section class="sr-pill">
-        <h3 class="sr-pill__title">AI Access Readiness</h3>
-        <ul class="sr-list">
-          <li>robots.txt, meta directives, and sitemap crawlability.</li>
-          <li>Core Web Vitals thresholds & render stability (LCP/CLS/INP).</li>
-          <li>Internal link discoverability (click depth, orphan risk).</li>
-        </ul>
-      </section>
-
-      <section class="sr-pill">
-        <h3 class="sr-pill__title">Trust & Verification Signals</h3>
-        <ul class="sr-list">
-          <li>HTTPS/SSL health and redirect hygiene.</li>
-          <li>Organization/Person schema and verifiable profiles.</li>
-          <li>Contact/footprint consistency across key surfaces.</li>
-        </ul>
-      </section>
-
-      <section class="sr-pill">
-        <h3 class="sr-pill__title">LLM Interpretability & Clarity</h3>
-        <ul class="sr-list">
-          <li>Headings that ladder to one core claim.</li>
-          <li>Structured elements (lists/Q&A/tables) over dense paragraphs.</li>
-          <li>Entity disambiguation: names, dates, roles, locations.</li>
-        </ul>
-      </section>
-
-      <section class="sr-pill">
-        <h3 class="sr-pill__title">Prompt-Pattern Alignment</h3>
-        <ul class="sr-list">
-          <li>Answer-first summaries and "how/compare" FAQs.</li>
-          <li>Task framing suitable for AI snippets and summaries.</li>
-          <li>Schema coverage (FAQ, Article/BlogPosting, WebSite).</li>
-        </ul>
-      </section>
-
-      <footer class="sr-modal__fineprint">
-        Exact weights are confidential. Scores include small variance to reflect signal confidence.
-      </footer>
+      <section class="sr-pill"><h3 class="sr-pill__title">AI Access Readiness</h3><ul class="sr-list"><li>robots.txt, meta directives, and sitemap crawlability.</li><li>Core Web Vitals thresholds & render stability (LCP/CLS/INP).</li><li>Internal link discoverability (click depth, orphan risk).</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">Trust & Verification Signals</h3><ul class="sr-list"><li>HTTPS/SSL health and redirect hygiene.</li><li>Organization/Person schema and verifiable profiles.</li><li>Contact/footprint consistency across key surfaces.</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">LLM Interpretability & Clarity</h3><ul class="sr-list"><li>Headings that ladder to one core claim.</li><li>Structured elements (lists/Q&A/tables) over dense paragraphs.</li><li>Entity disambiguation: names, dates, roles, locations.</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">Prompt-Pattern Alignment</h3><ul class="sr-list"><li>Answer-first summaries and "how/compare" FAQs.</li><li>Task framing suitable for AI snippets and summaries.</li><li>Schema coverage (FAQ, Article/BlogPosting, WebSite).</li></ul></section>
+      <footer class="sr-modal__fineprint">Exact weights are confidential. Scores include small variance to reflect signal confidence.</footer>
     </div>
   </div>
 
   <script>
-    // Multiple CDN sources for actual LLM logos
+    // Replace the LOGO_SOURCES constant with local files (arrays as requested)
     const LOGO_SOURCES = {
-      ChatGPT: [
-        'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/openai/openai-original.svg',
-        'https://cdn.worldvectorlogo.com/logos/openai-2.svg',
-        'https://cdn.worldvectorlogo.com/logos/chatgpt-1.svg'
-      ],
-      Claude: [
-        'https://cdn.worldvectorlogo.com/logos/claude-ai.svg',
-        'https://avatars.githubusercontent.com/u/76263028?s=200&v=4', // Anthropic GitHub
-      ],
-      Gemini: [
-        'https://cdn.worldvectorlogo.com/logos/google-gemini.svg',
-        'https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06b.png'
-      ],
-      Copilot: [
-        // Base64 encoded colorful Copilot logo
-        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZDEiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgo8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMDA3OGQ0O3N0b3Atb3BhY2l0eToxIiAvPgo8c3RvcCBvZmZzZXQ9IjUwJSIgc3R5bGU9InN0b3AtY29sb3I6IzQwZTA5NztzdG9wLW9wYWNpdHk6MSIgLz4KPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojZmZiOTAwO3N0b3Atb3BhY2l0eToxIiAvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgcng9IjQiIGZpbGw9InVybCgjZ3JhZDEpIi8+CjxwYXRoIGQ9Ik0xMiA3VjEyTDE2IDE0VjlMMTIgN1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik04IDEwVjE1TDEyIDE3VjEyTDggMTBaIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC44Ii8+Cjwvc3ZnPg==',
-        'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png',
-        'https://avatars.githubusercontent.com/u/95479062?s=200&v=4' // GitHub Copilot org
-      ],
-      Perplexity: [
-        'https://www.perplexity.ai/favicon.ico',
-        'https://avatars.githubusercontent.com/u/128754471?s=200&v=4', // Perplexity GitHub
-        'https://cdn.worldvectorlogo.com/logos/perplexity-2.svg'
-      ]
+      ChatGPT: ['/img/chatgpt-logo.png'],
+      Claude: ['/img/claude-logo.png'],
+      Gemini: ['/img/gemini-logo.png'],
+      Copilot: ['/img/copilot-logo.png'],
+      Perplexity: ['/img/perplexity-logo.png']
     };
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -316,147 +179,47 @@
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Load backend HTML summary
+      // Load server-rendered sections
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
-        const html = await res.text();
-        document.getElementById("summary-results").innerHTML = html;
-      } catch (err) {
-        console.error("Error loading analysis:", err);
-        document.getElementById("summary-results").innerHTML =
-          "<p style='color:red; text-align:center;'>Error loading analysis. Please try again.</p>";
+        document.getElementById("summary-results").innerHTML = await res.text();
+      } catch {
+        document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // Real score + API-driven LLM insights
+      // Try API score; fallback to placeholder if unavailable.
       let usedAPI = false;
       try {
-        const sres = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(targetUrl)}`);
-        if (!sres.ok) throw new Error('score api not ok');
-        const data = await sres.json();
+        const s = await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(targetUrl)}`);
+        if (!s.ok) throw new Error('score api not ok');
+        const data = await s.json();
         renderScoreCard(data.score, data.pillars, data.highlights, data.band);
         if (Array.isArray(data.insights) && data.insights.length){
-          renderAIInsightsFromAPI(data.insights);
+          renderAIFromAPI(data.insights);
           usedAPI = true;
         }
-      } catch (e) {
-        console.warn('Score API failed, falling back:', e);
-        const { total, pillars, highlights } = calculateScoreFallback();
+      } catch(e){
+        const { total, pillars, highlights } = fallbackScore(targetUrl);
         renderScoreCard(total, pillars, highlights);
       }
+      if (!usedAPI){ transformAIInsights(document.getElementById("summary-results")); }
 
-      // If API didn't provide insights, transform server UL to logos
-      if (!usedAPI) {
-        try { transformAIInsights(document.getElementById("summary-results")); }
-        catch (e) { console.warn('LLM transform skipped:', e); }
-      }
-
-      // Modal controls
+      // Modal
       document.addEventListener('click', (e) => {
-        const open = e.target.closest('[data-open="sr-modal"]');
-        if (open){ document.getElementById('sr-modal').setAttribute('aria-hidden','false'); }
-        if (e.target.matches('[data-close]')) {
-          document.getElementById('sr-modal').setAttribute('aria-hidden','true');
-        }
+        if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
+        if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          const m = document.getElementById('sr-modal');
-          if (m && m.getAttribute('aria-hidden') === 'false'){ m.setAttribute('aria-hidden','true'); }
-        }
-      });
+      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // Copy Shareable Summary
+      // Copy summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
-        const total = parseInt(scoreText, 10) || 0;
-        const pvals = Array.from(document.querySelectorAll('.pillar .badge'))
-          .map(el => parseInt(el.textContent, 10) || 0);
-        const p = { access: pvals[0]||0, trust: pvals[1]||0, clarity: pvals[2]||0, alignment: pvals[3]||0 };
+        const total = parseInt(scoreText,10) || 0;
+        const pvals = Array.from(document.querySelectorAll('.pillar .badge')).map(el => parseInt(el.textContent,10)||0);
+        const p = { access:pvals[0]||0, trust:pvals[1]||0, clarity:pvals[2]||0, alignment:pvals[3]||0 };
         const highlights = Array.from(document.querySelectorAll('#highlightsList li')).map(li => li.textContent.trim());
-        const txt = buildShareableSummary(targetUrl, total, p, highlights);
-        try {
-          await navigator.clipboard.writeText(txt);
-          const btn = document.getElementById("copyLLMBtn");
-          const old = btn.textContent;
-          btn.textContent = "Copied!";
-          setTimeout(() => (btn.textContent = old), 1500);
-        } catch { window.prompt("Copy the summary:", txt); }
-      });
-
-      // Full Report form
-      const form = document.getElementById("fullReportForm");
-      if (form) {
-        const urlHidden = document.getElementById("urlField");
-        if (urlHidden) urlHidden.value = targetUrl;
-        form.addEventListener("submit", (e) => {
-          e.preventDefault();
-          const target = form.url?.value || targetUrl;
-          const reportUrl = `https://sniperank-app.vercel.app/full-report.html?url=${encodeURIComponent(target)}`;
-          window.location.href = reportUrl;
-        });
-      }
-
-      /* -------- Helpers -------- */
-
-      function renderScoreCard(total, pillars, highlights, bandOverride){
-        document.getElementById("scoreNumber").textContent = `${total}/100`;
-        document.getElementById("scoreBand").textContent = bandOverride || bandText(total);
-
-        const grid = document.getElementById("pillarsGrid");
-        grid.innerHTML = "";
-        [
-          ["AI Access Readiness", pillars.access],
-          ["Trust & Verification Signals", pillars.trust],
-          ["LLM Interpretability & Clarity", pillars.clarity],
-          ["Prompt-Pattern Alignment", pillars.alignment],
-        ].forEach(([label,val]) => {
-          const div = document.createElement("div");
-          div.className = "pillar";
-          div.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/25</span>`;
-          grid.appendChild(div);
-        });
-
-        if (highlights?.length){
-          const list = document.getElementById("highlightsList");
-          list.innerHTML = "";
-          highlights.forEach(h => { const li = document.createElement("li"); li.textContent = h; list.appendChild(li); });
-          document.getElementById("highlightsBlock").hidden = false;
-        }
-      }
-
-      function bandText(score){
-        if (score >= 85) return "Rank: Highly Visible ★★★★☆";
-        if (score >= 70) return "Rank: Partially Visible ★★★☆☆";
-        if (score >= 55) return "Rank: Needs Work ★★☆☆☆";
-        return "Rank: Low Visibility ★☆☆☆☆";
-      }
-
-      function calculateScoreFallback(){
-        let pillars = {
-          access: 18 + Math.floor(Math.random() * 7),
-          trust: 16 + Math.floor(Math.random() * 9),
-          clarity: 19 + Math.floor(Math.random() * 6),
-          alignment: 17 + Math.floor(Math.random() * 8)
-        };
-        let host = "";
-        try { host = new URL(document.getElementById("current-url").textContent).hostname.replace(/^www\./, ""); }
-        catch {}
-        if (host === "yoramezra.com" || host === "quontora.com") {
-          pillars = { access: 22, trust: 23, clarity: 22, alignment: 22 };
-        }
-        const total = pillars.access + pillars.trust + pillars.clarity + pillars.alignment;
-        const highlights = [
-          "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
-          "Add concise FAQ aligned to 'how/compare' prompts (4–6 non-overlapping Q&As).",
-          "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
-          "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
-        ];
-        return { total, pillars, highlights };
-      }
-
-      function buildShareableSummary(url, total, p, highlights){
-        const lines = [
-          `Website: ${url}`,
+        const txt = [
+          `Website: ${targetUrl}`,
           `SnipeRank Score: ${total}/100`,
           `Pillars:`,
           `- AI Access Readiness: ${p.access}/25`,
@@ -465,143 +228,72 @@
           `- Prompt-Pattern Alignment: ${p.alignment}/25`,
           ``,
           `Observed Highlights / Issues:`,
-          ...highlights.map(h => `- ${h}`),
+          ...highlights.map(h=>`- ${h}`),
           ``,
           `Next step — talk with Quontora:`,
           `• Book a free 30‑minute consult: https://calendly.com/quontora`,
           `• We'll deliver a tailored 30‑day plan to lift your score by 10+ points, prioritized by Technical, Content, and Schema.`,
           `• Each recommendation includes expected impact, effort (S/M/L), and the exact change needed (selector/file when relevant).`
-        ];
-        return lines.join("\n");
+        ].join("\n");
+        try{ await navigator.clipboard.writeText(txt); const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);}catch{ window.prompt("Copy the summary:", txt); }
+      });
+
+      // Full report button: go to full-report with params
+      const form = document.getElementById("fullReportForm");
+      document.getElementById("urlField").value = targetUrl;
+      form.addEventListener("submit",(e)=>{
+        e.preventDefault();
+        const next=`/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+        window.location.href = next;
+      });
+
+      /* helpers */
+      function renderScoreCard(total, pillars, highlights, band){
+        document.getElementById("scoreNumber").textContent = `${total}/100`;
+        document.getElementById("scoreBand").textContent = band || (total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆");
+        const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
+        [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment]].forEach(([l,v])=>{
+          const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${l}</span><span class="badge">${v}/25</span>`; grid.appendChild(d);
+        });
+        if (highlights?.length){ const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); }); document.getElementById("highlightsBlock").hidden=false; }
       }
-
-      // === API-driven LLM logos renderer with actual logo images ===
-      function renderAIInsightsFromAPI(insights){
-        if (!Array.isArray(insights) || !insights.length) return;
-
-        const root = document.getElementById('summary-results');
-        const titleNode = Array.from(root.querySelectorAll('.section-title'))
-          .find(n => /ai\s*engine\s*insights/i.test(n.textContent || ''));
-        if (!titleNode) return;
-
-        let sibling = titleNode.nextElementSibling;
-        while (sibling && sibling.tagName && sibling.tagName.toLowerCase() !== 'ul') sibling = sibling.nextElementSibling;
-        const replaceTarget = sibling || titleNode.nextElementSibling;
-
-        const container = document.createElement('div');
-        container.className = 'llm-insights';
-
-        insights.forEach(({ engine, text }) => {
-          const row = document.createElement('div');
-          row.className = 'llm-row';
-
-          const logoDiv = document.createElement('div');
-          logoDiv.className = 'llm-logo';
-
-          // Try multiple sources for logos
-          const sources = LOGO_SOURCES[engine] || [];
-          if (sources.length > 0) {
-            const img = document.createElement('img');
-            img.alt = `${engine} logo`;
-            let sourceIndex = 0;
-            
-            const tryNextSource = () => {
-              if (sourceIndex < sources.length) {
-                img.src = sources[sourceIndex++];
-              } else {
-                // Final fallback to text
-                logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-              }
-            };
-            
-            img.onerror = tryNextSource;
-            img.onload = () => {
-              logoDiv.innerHTML = '';
-              logoDiv.appendChild(img);
-            };
-            
-            tryNextSource();
-          } else {
-            logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-          }
-
-          const para = document.createElement('p');
-          para.textContent = text;
-
-          row.appendChild(logoDiv);
-          row.appendChild(para);
+      function fallbackScore(){ let p={access:20,trust:19,clarity:22,alignment:20}; return { total:p.access+p.trust+p.clarity+p.alignment, pillars:p, highlights:[
+        "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
+        "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
+        "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
+        "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
+      ]}; }
+      function logoDivFor(engine){
+        const div=document.createElement('div'); div.className='llm-logo';
+        const srcs=LOGO_SOURCES[engine]||[];
+        if(!srcs.length){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
+        const img=document.createElement('img'); let i=0;
+        const next=()=>{ if(i<srcs.length){ img.src=srcs[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
+        img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
+        return div;
+      }
+      function renderAIFromAPI(items){
+        const root=document.getElementById('summary-results'); const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
+        let replace=title.nextElementSibling; while(replace&&replace.tagName&&replace.tagName.toLowerCase()!=='ul') replace=replace.nextElementSibling;
+        const container=document.createElement('div'); container.className='llm-insights';
+        items.forEach(({engine,text})=>{
+          const row=document.createElement('div'); row.className='llm-row';
+          row.appendChild(logoDivFor(engine));
+          const p=document.createElement('p'); p.textContent=text||''; row.appendChild(p);
           container.appendChild(row);
         });
-
-        if (replaceTarget && replaceTarget.parentNode) {
-          replaceTarget.parentNode.replaceChild(container, replaceTarget);
-        } else {
-          titleNode.insertAdjacentElement('afterend', container);
-        }
+        if(replace && replace.parentNode) replace.parentNode.replaceChild(container, replace); else title.insertAdjacentElement('afterend', container);
       }
-
-      // Fallback: transform server UL into logos
       function transformAIInsights(root){
-        const titleNode = Array.from(root.querySelectorAll('.section-title'))
-          .find(n => /ai\s*engine\s*insights/i.test(n.textContent||''));
-        if (!titleNode) return;
-
-        let ul = titleNode.nextElementSibling;
-        while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-        if (!ul) return;
-
-        const items = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent || '').trim());
-        if (!items.length) return;
-
-        const container = document.createElement('div');
-        container.className = 'llm-insights';
-
-        const engines = ['ChatGPT', 'Claude', 'Gemini', 'Copilot', 'Perplexity'];
-
-        engines.forEach((engine, idx) => {
-          const text = items[idx] || '';
-          if (!text) return;
-          
-          const row = document.createElement('div');
-          row.className = 'llm-row';
-          
-          const logoDiv = document.createElement('div');
-          logoDiv.className = 'llm-logo';
-
-          // Try loading actual logos
-          const sources = LOGO_SOURCES[engine] || [];
-          if (sources.length > 0) {
-            const img = document.createElement('img');
-            img.alt = `${engine} logo`;
-            let sourceIndex = 0;
-            
-            const tryNextSource = () => {
-              if (sourceIndex < sources.length) {
-                img.src = sources[sourceIndex++];
-              } else {
-                logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-              }
-            };
-            
-            img.onerror = tryNextSource;
-            img.onload = () => {
-              logoDiv.innerHTML = '';
-              logoDiv.appendChild(img);
-            };
-            
-            tryNextSource();
-          } else {
-            logoDiv.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-          }
-
-          const para = document.createElement('p');
-          para.textContent = text;
-          
-          row.appendChild(logoDiv);
-          row.appendChild(para);
-          container.appendChild(row);
-        });
-
+        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
+        let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
+        const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()); if(!texts.length) return;
+        const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+        const container=document.createElement('div'); container.className='llm-insights';
+        engines.forEach((engine,i)=>{ const t=texts[i]||''; if(!t) return; const row=document.createElement('div'); row.className='llm-row';
+          row.appendChild(logoDivFor(engine));
+          const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
+          container.appendChild(row); });
         ul.replaceWith(container);
       }
     });
