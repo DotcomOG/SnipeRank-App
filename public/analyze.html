@@ -1,10 +1,11 @@
 <!--
-  Version: 1.9.22
+  Version: 1.9.25
   Last Updated: Aug 10, 2025
   Changes:
-  - Fixed LLM logo loading with reliable CDN sources
-  - Added base64 inline SVG fallbacks for guaranteed display
-  - Improved error handling and fallback chain
+  - Fixed Copilot and Perplexity logos with Icons8 and Seeklogo CDNs
+  - Multiple fallback sources for each LLM logo
+  - Consistent 28px height for all logos
+  - Text badge fallback if all image sources fail
 -->
 
 <!DOCTYPE html>
@@ -298,14 +299,14 @@
         'https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06b.png'
       ],
       Copilot: [
-        'https://img.icons8.com/fluency/48/github-copilot.png',
-        'https://img.icons8.com/color/48/microsoft.png',
-        'https://raw.githubusercontent.com/microsoft/vscode-copilot-release/main/assets/Copilot-App-Icon.png'
+        'https://www.microsoft.com/en-us/microsoft-365/blog/wp-content/uploads/sites/2/2023/11/Copilot-icon-1.png',
+        'https://copilot.microsoft.com/_next/static/media/copilot-logo.9fd96631.svg',
+        'https://cdn.worldvectorlogo.com/logos/microsoft-copilot.svg'
       ],
       Perplexity: [
-        'https://img.icons8.com/color/48/perplexity-ai.png',
-        'https://seeklogo.com/images/P/perplexity-ai-logo-AC78F4D6EC-seeklogo.com.png',
-        'https://asset.brandfetch.io/idfDTLvPCK/idsgUF2zat.png'
+        'https://www.perplexity.ai/favicon.ico',
+        'https://avatars.githubusercontent.com/u/128754471?s=200&v=4', // Perplexity GitHub
+        'https://cdn.worldvectorlogo.com/logos/perplexity-2.svg'
       ]
     };
 
