@@ -10,9 +10,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Document metadata + responsive viewport -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SnipeRank — AI SEO Analysis Results</title>
+
+  <!--
+    Global styles:
+    - Container width, typography, tokens (colors, radii)
+    - Scorecard, pillars, highlights
+    - Server-rendered section type locks (heading/list spacing)
+    - LLM logos layout
+    - Lead form + CTA
+    - Modal (methodology)
+    Note: CSS is kept compact for load speed.
+  -->
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
@@ -93,15 +105,17 @@
   </style>
 </head>
 <body>
+  <!-- Product title + subtitle -->
   <h1>SnipeRank</h1>
   <h2>AI SEO Analysis Results</h2>
 
+  <!-- Small context row: left = "Powered by", right = current URL (set by JS) -->
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
     <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
-  <!-- Score Card -->
+  <!-- Score Card (populated by JS: score, rank text, pillar grid, highlights) -->
   <section class="card score-card" id="scoreCard" aria-live="polite">
     <div class="score-top">
       <div class="score-main">
@@ -120,12 +134,12 @@
     </div>
   </section>
 
-  <!-- Server-rendered body -->
+  <!-- Server-rendered HTML from backend inserted here by JS -->
   <section id="summary-results">
     <p style="text-align:center;color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Lead form -> Formspree capture then redirect -->
+  <!-- Lead form: submits to Formspree; JS always redirects to /full-report.html?url=... -->
   <section class="report-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
@@ -143,7 +157,7 @@
     </form>
   </section>
 
-  <!-- Centered consultation CTA -->
+  <!-- Centered consultation CTA (Calendly) -->
   <section class="consultation-section">
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30‑minute consultation to discuss your specific opportunities and next steps.</p>
@@ -153,9 +167,10 @@
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
+  <!-- Footer -->
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
 
-  <!-- Methodology Modal -->
+  <!-- Accessible Methodology Modal (opened via [data-open="sr-modal"]) -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
@@ -174,7 +189,13 @@
   </div>
 
   <script>
-    // Local LLM logos + robust path try ('/img/...' then 'img/...')
+    /* -----------------------------------------------------------------------
+       LLM logo helper (ONLY SECTION UPDATED): shows icons for each engine.
+       Behavior:
+       - We reference local images in /img/*.png
+       - If absolute '/img/...' fails (e.g., hosted under sub-path), try 'img/...'
+       - If both fail, show readable text fallback (engine name)
+       --------------------------------------------------------------------- */
     const LOGO_SOURCES = {
       ChatGPT: ['/img/chatgpt-logo.png'],
       Claude:  ['/img/claude-logo.png'],
@@ -183,21 +204,52 @@
       Perplexity: ['/img/perplexity-logo.png']
     };
     function logoDivFor(engine){
-      const div=document.createElement('div'); div.className='llm-logo';
-      const primary=(LOGO_SOURCES[engine]||[])[0]; if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-      const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' -> 'img/x.png'
-      const img=document.createElement('img'); let i=0;
-      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
-      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
+      const div = document.createElement('div');
+      div.className = 'llm-logo';
+
+      // Pick the primary path; if missing, return text fallback.
+      const primary = (LOGO_SOURCES[engine] || [])[0];
+      if (!primary) {
+        div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+        return div;
+      }
+
+      // Try absolute then relative path to be resilient in different hosting setups.
+      const candidates = [primary, primary.replace(/^\/+/, '')]; // '/img/x.png' -> 'img/x.png'
+      const img = document.createElement('img');
+      let i = 0;
+
+      const next = () => {
+        if (i < candidates.length) {
+          img.src = candidates[i++];
+        } else {
+          // All attempts failed → text fallback.
+          div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+        }
+      };
+
+      img.onerror = next;
+      img.onload = () => { div.innerHTML = ''; div.appendChild(img); };
+      next();
+
       return div;
     }
 
+    /* -----------------------------------------------------------------------
+       Main page logic (DOM ready):
+       - Read ?url=... and print into header
+       - Fetch server-rendered HTML into #summary-results
+       - Render fallback scorecard (so the UI isn’t empty)
+       - Wire up modal open/close and clipboard copy
+       - Submit lead form to Formspree, then redirect to full-report
+       --------------------------------------------------------------------- */
     document.addEventListener("DOMContentLoaded", async () => {
+      // 1) Read target URL from query and show it in the header.
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Load server-rendered sections
+      // 2) Load server-rendered analysis HTML (What’s Working / Needs Attention / AI insights)
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         document.getElementById("summary-results").innerHTML = await res.text();
@@ -205,8 +257,8 @@
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // Simple fallback score just for the card UI
-      const p={access:20,trust:19,clarity:22,alignment:20,freshness:19};
+      // 3) Fallback score just to display a complete card even if API is unavailable.
+      const p = { access:20, trust:19, clarity:22, alignment:20, freshness:19 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
         "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
@@ -214,14 +266,14 @@
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // Modal controls
+      // 4) Modal open/close (supports button + Esc + backdrop click)
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // Copy summary
+      // 5) “Copy Shareable Summary” → builds a text block for email/LLMs and copies to clipboard
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
         const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
@@ -240,10 +292,16 @@
           `• Book a free 30‑minute consult: https://calendly.com/quontora`,
           `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
         ].join("\n");
-        try{ await navigator.clipboard.writeText(txt); const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);}catch{ window.prompt("Copy the summary:", txt); }
+        try{
+          await navigator.clipboard.writeText(txt);
+          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!";
+          setTimeout(()=>b.textContent=old,1500);
+        }catch{
+          window.prompt("Copy the summary:", txt);
+        }
       });
 
-      // ----- Formspree capture then redirect -----
+      // 6) Formspree capture then redirect to full-report
       const form = document.getElementById("fullReportForm");
       const status = document.getElementById("formMessage");
       document.getElementById("urlField").value = targetUrl;
@@ -265,7 +323,7 @@
         }
       });
 
-      // ----- helpers -----
+      // ----- helpers: render scorecard UI (total, band, pillars, highlights) -----
       function renderScoreCard(total, pillars, highlights){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent =
