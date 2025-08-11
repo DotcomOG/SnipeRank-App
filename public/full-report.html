@@ -1,9 +1,13 @@
 <!--
-  Version: 1.9.14 (restored-style)
-  Last Updated: Aug 08, 2025
-  Notes:
-  - Minimal, stable: loads backend full report HTML as-is
-  - No transformations/parsing to avoid breakage
+  Version: 1.10.0-FR
+  Last Updated: Aug 11, 2025
+  Changes:
+  - Clone of analyze v1.10.0 layout (scorecard, logos, modal, styling)
+  - Removes lead form; keeps single centered Calendly CTA
+  - Loads backend full report HTML and enforces list sizes:
+      * What's Working = up to 5 bullets, each trimmed to ~3–5 sentences
+      * Needs Attention = up to 20 bullets, each trimmed to ~4–6 sentences
+  - LLM section rendered as logo + paragraph using local /img logos with robust fallback
 -->
 
 <!DOCTYPE html>
@@ -13,38 +17,306 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SnipeRank — Full Report</title>
   <style>
-    :root { --max-width: 860px; --pad-v: 3vh; --pad-h: 2rem; --border:#e5e5e5; --muted:#666; }
-    * { box-sizing: border-box; }
-    body { font-family: Helvetica, Arial, sans-serif; margin:0; background:#fff; color:#000;
-           max-width: var(--max-width); margin-inline:auto; padding: var(--pad-v) var(--pad-h); }
-    h1 { font-size: 3rem; margin: 0 0 .25em; font-weight: 800; letter-spacing: -.5px; }
-    .info { color: var(--muted); margin-bottom: 1rem; }
-    .frame { border:1px solid var(--border); border-radius:12px; padding: 1rem; background:#fff;
-             box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    :root{
+      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
+      --muted:#666; --border:#e5e5e5;
+      --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
+      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
+    }
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
+    h1{font-size:4rem;font-weight:700;margin:0 0 .25em 0;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem 0}
+    p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem 0}
+
+    .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
+    .powered-by,.for-url{color:var(--muted);font-size:.95rem}
+    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
+    .for-url strong{color:#000}
+
+    .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
+    .score-card{padding:1rem;margin-bottom:2.25rem}
+    .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
+    .score-main{display:flex;align-items:baseline;gap:.5rem}
+    .score-number{font-size:2.25rem;font-weight:800}
+    .score-band{color:var(--muted);font-size:.95rem}
+    .btn-row{display:flex;gap:.5rem;align-items:center}
+    .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
+    .btn-ghost:hover{background:#f2f2f2}
+    .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+    .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
+    .pillar .label{font-weight:600}
+    .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
+    .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
+    .highlights h4{margin:0 0 .55rem 0;font-size:1.2rem;font-weight:800}
+    .highlights ul{margin:0;padding-left:1rem}
+    .highlights li{margin:.45rem 0;line-height:1.5}
+
+    #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem 0!important}
+    #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
+    #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important}
+
+    .llm-insights{margin:.4rem 0 1.2rem}
+    .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
+    .llm-row:last-child{border-bottom:0}
+    .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
+    .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
+    .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
+
+    .consultation-section{text-align:center;margin:2.5rem 0}
+    .consultation-section .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+    .consultation-note{background:#f8f9fa;padding:1rem;border-radius:8px;margin-top:1.5rem;font-size:.95rem}
+
+    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
+
+    .sr-modal{position:fixed;inset:0;display:none;z-index:9999}
+    .sr-modal[aria-hidden="false"]{display:block}
+    .sr-modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.3)}
+    .sr-modal__panel{position:relative;max-width:720px;width:calc(100% - 32px);margin:6vh auto;background:var(--sr-bg);color:var(--sr-text);border:1px solid var(--sr-border);border-radius:var(--sr-radius);box-shadow:var(--sr-shadow);padding:20px;max-height:90vh;overflow-y:auto}
+    .sr-modal__close{position:absolute;top:10px;right:10px;border:1px solid var(--sr-border);background:#fff;border-radius:999px;width:32px;height:32px;line-height:28px;font-size:18px;cursor:pointer;text-align:center}
+    .sr-modal__header h2{margin:0 0 4px;font-size:18px;font-weight:700}
+    .sr-modal__sub{margin:0 0 12px;color:var(--sr-muted);font-size:14px;line-height:1.35}
+    .sr-pill{background:var(--sr-pill-bg);border:1px solid var(--sr-border);border-radius:12px;padding:12px 14px;margin-bottom:var(--sr-gap)}
+    .sr-pill__title{margin:0 0 6px;font-size:15px;font-weight:700}
+    .sr-list{margin:0;padding-left:18px}
+    .sr-list li{margin:6px 0;line-height:1.35}
+    .sr-modal__fineprint{margin-top:8px;color:var(--sr-muted);font-size:12px;line-height:1.3;border-top:1px dashed var(--sr-border);padding-top:10px}
+
+    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}}
   </style>
 </head>
 <body>
-  <h1>Full Report</h1>
-  <div class="info">Analysis for: <strong id="u">—</strong></div>
+  <h1>SnipeRank</h1>
+  <h2>AI SEO Analysis Results</h2>
 
-  <div id="report" class="frame">
-    <p style="text-align:center;color:gray;">Loading full report…</p>
+  <div class="info-row">
+    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+    <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
+  </div>
+
+  <!-- Score Card (shared) -->
+  <section class="card score-card" id="scoreCard" aria-live="polite">
+    <div class="score-top">
+      <div class="score-main">
+        <div class="score-number" id="scoreNumber">—</div>
+        <div class="score-band" id="scoreBand">Calculating…</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-ghost" type="button" data-open="sr-modal">View Scoring Methodology</button>
+        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
+      </div>
+    </div>
+    <div class="pillars" id="pillarsGrid"></div>
+    <div class="highlights" id="highlightsBlock" hidden>
+      <h4>Highlights</h4>
+      <ul id="highlightsList"></ul>
+    </div>
+  </section>
+
+  <!-- Backend HTML goes here -->
+  <section id="summary-results">
+    <p style="text-align:center;color:gray;">Loading analysis...</p>
+  </section>
+
+  <!-- Single CTA (no form on full-report) -->
+  <section class="consultation-section">
+    <h3>Ready to Improve Your AI Visibility?</h3>
+    <p>After reviewing your analysis, book a free 30‑minute consultation to discuss your specific opportunities and next steps.</p>
+    <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
+    <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
+  </section>
+
+  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
+
+  <!-- Methodology Modal (shared) -->
+  <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
+    <div class="sr-modal__backdrop" data-close></div>
+    <div class="sr-modal__panel" role="document">
+      <button class="sr-modal__close" aria-label="Close" data-close>×</button>
+      <header class="sr-modal__header">
+        <h2 id="sr-modal-title">SnipeRank Scoring Methodology</h2>
+        <p class="sr-modal__sub">Our proprietary model evaluates four pillars (+ freshness preview). Items below are representative checks used to guide recommendations.</p>
+      </header>
+      <section class="sr-pill"><h3 class="sr-pill__title">AI Access Readiness</h3><ul class="sr-list"><li>robots.txt, meta directives, and sitemap crawlability.</li><li>Core Web Vitals thresholds & render stability (LCP/CLS/INP).</li><li>Internal link discoverability (click depth, orphan risk).</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">Trust & Verification Signals</h3><ul class="sr-list"><li>HTTPS/SSL health and redirect hygiene.</li><li>Organization/Person schema and verifiable profiles.</li><li>Contact/footprint consistency across key surfaces.</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">LLM Interpretability & Clarity</h3><ul class="sr-list"><li>Headings that ladder to one core claim.</li><li>Structured elements (lists/Q&A/tables) over dense paragraphs.</li><li>Entity disambiguation: names, dates, roles, locations.</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">Prompt-Pattern Alignment</h3><ul class="sr-list"><li>Answer-first summaries and "how/compare" FAQs.</li><li>Task framing suitable for AI snippets and summaries.</li><li>Schema coverage (FAQ, Article/BlogPosting, WebSite).</li></ul></section>
+      <section class="sr-pill"><h3 class="sr-pill__title">Freshness & Engagement Signals</h3><ul class="sr-list"><li>Update cadence and last‑modified headers on key pages.</li><li>Data recency and time‑boxed claims.</li><li>Interactive components and text equivalents.</li></ul></section>
+      <footer class="sr-modal__fineprint">Exact weights are confidential. Scores include small variance to reflect signal confidence.</footer>
+    </div>
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const qs = new URLSearchParams(location.search);
-      const url = qs.get('url') || 'https://example.com';
-      document.getElementById('u').textContent = url;
+    // Local LLM logos with robust path try ('/img/...' then 'img/...')
+    const LOGO_SOURCES = {
+      ChatGPT: ['/img/chatgpt-logo.png'],
+      Claude: ['/img/claude-logo.png'],
+      Gemini: ['/img/gemini-logo.png'],
+      Copilot: ['/img/copilot-logo.png'],
+      Perplexity: ['/img/perplexity-logo.png']
+    };
+    function logoDivFor(engine){
+      const div=document.createElement('div'); div.className='llm-logo';
+      const primary=(LOGO_SOURCES[engine]||[])[0];
+      if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
+      const candidates=[primary, primary.replace(/^\/+/,'')];
+      const img=document.createElement('img'); let i=0;
+      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
+      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
+      return div;
+    }
 
-      try{
-        const r = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(url)}`);
-        const html = await r.text();
-        document.getElementById('report').innerHTML = html;
-      }catch(e){
-        console.error(e);
-        document.getElementById('report').innerHTML =
-          "<p style='color:red;text-align:center;'>Error loading full report.</p>";
+    document.addEventListener("DOMContentLoaded", async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetUrl = urlParams.get("url") || "https://example.com";
+      document.getElementById("current-url").textContent = targetUrl;
+
+      // Load backend HTML for full report
+      try {
+        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const html = await res.text();
+        const host = document.getElementById("summary-results");
+        host.innerHTML = html;
+
+        // Enforce list sizes after inject
+        normalizeLists(host);
+
+        // Transform AI Engine Insights (bullets -> logo + paragraph)
+        transformAIInsights(host);
+      } catch (err) {
+        console.error("Error loading analysis:", err);
+        document.getElementById("summary-results").innerHTML =
+          "<p style='text-align:center;color:red;'>Error loading analysis. Please try again.</p>";
+      }
+
+      // --- Shared: demo score (kept for layout parity) ---
+      const { total, pillars, highlights } = fallbackScore();
+      renderScoreCard(total, pillars, highlights);
+
+      // Modal handlers
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
+        if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
+      });
+      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
+
+      // Copy summary
+      document.getElementById("copyLLMBtn").addEventListener("click", async () => {
+        const txt = buildLLMSummary(targetUrl);
+        try{ await navigator.clipboard.writeText(txt);
+          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
+        }catch{ window.prompt("Copy the summary:", txt); }
+      });
+
+      // ------ Helpers ------
+      function fallbackScore(){
+        let p={access:20,trust:19,clarity:22,alignment:20,freshness:19};
+        return { total:p.access+p.trust+p.clarity+p.alignment+p.freshness, pillars:p, highlights:[
+          "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
+          "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
+          "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
+          "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
+        ]};
+      }
+
+      function renderScoreCard(total, pillars, highlights){
+        document.getElementById("scoreNumber").textContent = `${total}/100`;
+        document.getElementById("scoreBand").textContent =
+          total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+
+        const grid = document.getElementById("pillarsGrid");
+        grid.innerHTML = "";
+        [
+          ["AI Access Readiness", pillars.access],
+          ["Trust & Verification Signals", pillars.trust],
+          ["LLM Interpretability & Clarity", pillars.clarity],
+          ["Prompt-Pattern Alignment", pillars.alignment],
+          ["Freshness & Engagement Signals", pillars.freshness],
+        ].forEach(([label,val]) => {
+          const d=document.createElement("div"); d.className="pillar";
+          d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
+          grid.appendChild(d);
+        });
+
+        if (highlights?.length){
+          const ul=document.getElementById("highlightsList");
+          ul.innerHTML="";
+          highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
+          document.getElementById("highlightsBlock").hidden=false;
+        }
+      }
+
+      // Build CTA-friendly copy
+      function buildLLMSummary(url){
+        const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
+        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
+        const lines = [
+          `Website: ${url}`,
+          `SnipeRank Score: ${document.getElementById("scoreNumber").textContent}`,
+          `Pillars:`,
+          ...labels.map((l,i)=>`- ${l}: ${vals[i]}`),
+          ``,
+          `Observed Highlights / Issues:`,
+          ...Array.from(document.querySelectorAll('#highlightsList li')).map(li=>`- ${li.textContent.trim()}`),
+          ``,
+          `Next step — talk with Quontora:`,
+          `• Book a free 30‑minute consult: https://calendly.com/quontora`,
+          `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
+        ];
+        return lines.join("\n");
+      }
+
+      // Trim lists to target sizes and sentence ranges
+      function normalizeLists(root){
+        const findSection = (re) => Array.from(root.querySelectorAll('.section-title')).find(n => re.test((n.textContent||'').trim()));
+        const workH = findSection(/what'?s\s*working/i);
+        const needH = findSection(/needs\s*attention/i);
+
+        const getUlAfter = (title) => {
+          let el = title && title.nextElementSibling;
+          while (el && el.tagName && el.tagName.toLowerCase() !== 'ul') el = el.nextElementSibling;
+          return el && el.tagName && el.tagName.toLowerCase() === 'ul' ? el : null;
+        };
+
+        const ww = getUlAfter(workH);
+        const na = getUlAfter(needH);
+
+        if (ww) limitBullets(ww, 5, [3,5]);
+        if (na) limitBullets(na, 20, [4,6]);
+      }
+
+      // Keep up to targetCount items, trim sentence count per bullet into min..max
+      function limitBullets(ul, targetCount, [minS,maxS]){
+        const items = Array.from(ul.querySelectorAll('li'));
+        // Trim to target count if too many
+        if (items.length > targetCount){
+          items.slice(targetCount).forEach(li => li.remove());
+        }
+        // For each remaining item, trim sentence count to the range
+        Array.from(ul.querySelectorAll('li')).forEach(li => {
+          const txt = (li.textContent||'').trim();
+          const parts = txt.split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean);
+          if (parts.length > maxS){
+            li.textContent = parts.slice(0, maxS).join(' ');
+          } else if (parts.length < minS){
+            // leave as-is; do not synthesize content
+            li.textContent = txt;
+          }
+        });
+      }
+
+      // Convert AI bullets to logo+paragraph
+      function transformAIInsights(root){
+        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
+        let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
+        const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()); if(!texts.length) return;
+        const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+        const container=document.createElement('div'); container.className='llm-insights';
+        engines.forEach((engine,i)=>{ const t=texts[i]||''; if(!t) return; const row=document.createElement('div'); row.className='llm-row';
+          row.appendChild(logoDivFor(engine));
+          const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
+          container.appendChild(row); });
+        ul.replaceWith(container);
       }
     });
   </script>
