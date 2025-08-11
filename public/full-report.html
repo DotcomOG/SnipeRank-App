@@ -1,10 +1,10 @@
 <!--
-  Version: 1.3.1
+  Version: 1.4.0
   Last Updated: Aug 11, 2025
-  - Matches analyze layout
-  - Local /img logos (arrays with single src each)
-  - 5 strengths (3–5 sentences), 20 needs (4–6 sentences)
-  - Single Calendly CTA
+  Changes:
+  - Header now matches analyze (title + subhead)
+  - LLM logos use same robust loader as analyze (tries '/img/..' then 'img/..')
+  - Bullets: first sentence is bold “subject”; lengths enforced (5 strengths @ 3–5 sentences; 20 needs @ 4–6 sentences)
 -->
 
 <!DOCTYPE html>
@@ -12,7 +12,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>SnipeRank — Full AI SEO Report</title>
+<title>SnipeRank — AI SEO Analysis Results</title>
 <style>
   :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5}
   *{box-sizing:border-box}
@@ -46,7 +46,7 @@
 </head>
 <body>
   <h1>SnipeRank</h1>
-  <h2>Full AI SEO Analysis Report</h2>
+  <h2>AI SEO Analysis Results</h2>
 
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
@@ -75,7 +75,7 @@
   </div>
 
 <script>
-/* Local LLM logos (arrays with single source) */
+/* Local logos + robust path try */
 const LOGO_SOURCES = {
   ChatGPT: ['/img/chatgpt-logo.png'],
   Claude: ['/img/claude-logo.png'],
@@ -83,15 +83,28 @@ const LOGO_SOURCES = {
   Copilot: ['/img/copilot-logo.png'],
   Perplexity: ['/img/perplexity-logo.png']
 };
-
 function loadLogo(engine){
   const div=document.createElement('div'); div.className='llm-logo';
-  const srcs=LOGO_SOURCES[engine]||[];
-  if(!srcs.length){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
+  const primary=(LOGO_SOURCES[engine]||[])[0];
+  if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
+  const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' -> 'img/x.png'
   const img=document.createElement('img'); let i=0;
-  const next=()=>{ if(i<srcs.length){ img.src=srcs[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
+  const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
   img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
   return div;
+}
+
+/* Bold the first sentence of a paragraph (used for bullet “subject”) */
+function boldFirstSentence(text){
+  const t = (text||'').trim();
+  if(!t) return '';
+  const idx = t.indexOf('.');
+  if(idx === -1 || idx > 240){ // if first sentence is too long or missing, keep it all bold but cap
+    return `<strong>${t}</strong>`;
+  }
+  const first = t.slice(0, idx+1).trim();
+  const rest = t.slice(idx+1).trim();
+  return `<strong>${first}</strong>${rest ? ' ' + rest : ''}`;
 }
 
 function expandPoint(base, domain, minS, maxS){
@@ -167,10 +180,15 @@ async function init(){
   strengths = ensureCount((strengths||[]).map(s=>expandPoint(String(s), target, 3, 5)), 5, target, 3, 5, synthStrengths);
   needs = ensureCount((needs||[]).map(s=>expandPoint(String(s), target, 4, 6)), 20, target, 4, 6, synthNeeds);
 
-  const sUL=document.getElementById('strengths'); strengths.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; sUL.appendChild(li); });
-  const nUL=document.getElementById('needs'); needs.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; nUL.appendChild(li); });
+  // Render strengths with bold first sentence
+  const sUL=document.getElementById('strengths'); sUL.innerHTML='';
+  strengths.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirstSentence(t); sUL.appendChild(li); });
+  // Render needs with bold first sentence
+  const nUL=document.getElementById('needs'); nUL.innerHTML='';
+  needs.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirstSentence(t); nUL.appendChild(li); });
 
-  const engines=document.getElementById('engines');
+  // LLM insights
+  const engines=document.getElementById('engines'); engines.innerHTML='';
   const ordered=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
   const apiMap={}; insights.forEach(x=> apiMap[(x.engine||'').trim()] = x.text || x.description || '');
   ordered.forEach(name=>{
@@ -180,7 +198,6 @@ async function init(){
     const p=document.createElement('p'); p.textContent=text; row.appendChild(p);
     engines.appendChild(row);
   });
-
   if(!engines.children.length){
     const host=new URL(target).hostname;
     [
