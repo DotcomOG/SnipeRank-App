@@ -1,10 +1,10 @@
 <!--
-  Version: 1.4.0
+  Version: 1.10.2
   Last Updated: Aug 11, 2025
   Changes:
-  - Header now matches analyze (title + subhead)
-  - LLM logos use same robust loader as analyze (tries '/img/..' then 'img/..')
-  - Bullets: first sentence is bold “subject”; lengths enforced (5 strengths @ 3–5 sentences; 20 needs @ 4–6 sentences)
+  - Removed "Get Your Full Report" form entirely
+  - Centered "Ready to Improve..." CTA (matches analyze)
+  - Logos handled same as analyze elsewhere in file
 -->
 
 <!DOCTYPE html>
@@ -24,24 +24,13 @@
   .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
   .powered-by,.for-url{color:var(--muted);font-size:.95rem}
   .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
-  .for-url strong{color:#000}
-
   .content-section{margin:2rem 0}
   .content-section ul{margin:0;padding-left:1.25rem;list-style:disc}
   .content-section li{margin:.6rem 0;line-height:1.65}
 
-  .llm-insights{margin:.4rem 0 1.2rem}
-  .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
-  .llm-row:last-child{border-bottom:0}
-  .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
-  .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
-  .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-
-  .consultation{margin:3rem 0 1rem;padding-top:2rem;border-top:1px solid var(--border);text-align:center}
+  .consultation{text-align:center;margin:3rem 0 1rem;padding-top:2rem;border-top:1px solid var(--border)}
   .btn{display:inline-block;background:#dc3545;color:#fff;border:none;border-radius:8px;padding:.9rem 1.5rem;font-weight:700;text-decoration:none}
   .btn:hover{background:#c82333}
-
-  @media(max-width:600px){h1{font-size:3rem}}
 </style>
 </head>
 <body>
@@ -65,157 +54,49 @@
 
   <section class="content-section">
     <h3>AI Engine Insights</h3>
-    <div id="engines" class="llm-insights"></div>
+    <div id="engines"></div>
   </section>
 
   <div class="consultation">
-    <p><strong>Want a prioritized 30‑day plan for your site?</strong></p>
-    <p>Book a free consult and we’ll translate this report into specific tasks, estimates, and owners.</p>
-    <p><a href="https://calendly.com/quontora" class="btn" target="_blank" rel="noopener">Book on Calendly</a></p>
+    <p><strong>Ready to Improve Your AI Visibility?</strong></p>
+    <p>Book a free 30‑minute consultation to turn this report into a 30‑day plan with owners & timelines.</p>
+    <p><a href="https://calendly.com/quontora" class="btn" target="_blank" rel="noopener">Schedule Free Consultation</a></p>
   </div>
 
 <script>
-/* Local logos + robust path try */
-const LOGO_SOURCES = {
-  ChatGPT: ['/img/chatgpt-logo.png'],
-  Claude: ['/img/claude-logo.png'],
-  Gemini: ['/img/gemini-logo.png'],
-  Copilot: ['/img/copilot-logo.png'],
-  Perplexity: ['/img/perplexity-logo.png']
-};
-function loadLogo(engine){
-  const div=document.createElement('div'); div.className='llm-logo';
-  const primary=(LOGO_SOURCES[engine]||[])[0];
-  if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-  const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' -> 'img/x.png'
-  const img=document.createElement('img'); let i=0;
-  const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
-  img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
-  return div;
-}
-
-/* Bold the first sentence of a paragraph (used for bullet “subject”) */
-function boldFirstSentence(text){
-  const t = (text||'').trim();
-  if(!t) return '';
-  const idx = t.indexOf('.');
-  if(idx === -1 || idx > 240){ // if first sentence is too long or missing, keep it all bold but cap
-    return `<strong>${t}</strong>`;
+  function boldFirstSentence(t){
+    t=(t||'').trim(); if(!t) return '';
+    const i=t.indexOf('.'); if(i===-1||i>240) return `<strong>${t}</strong>`;
+    return `<strong>${t.slice(0,i+1).trim()}</strong> ${t.slice(i+1).trim()}`;
   }
-  const first = t.slice(0, idx+1).trim();
-  const rest = t.slice(idx+1).trim();
-  return `<strong>${first}</strong>${rest ? ' ' + rest : ''}`;
-}
+  function ensureCount(arr,count){const out=[...arr]; while(out.length<count) out.push(out[out.length-1]||''); out.length=count; return out;}
 
-function expandPoint(base, domain, minS, maxS){
-  const host = (()=>{ try { return new URL(domain).hostname.replace(/^www\./,''); } catch { return (domain||'').replace(/^https?:\/\//,''); }})();
-  const seeds = [
-    `${base} On ${host}, this appears in multiple templates, so update the shared layout/component rather than only one page.`,
-    `Signals on ${host} show up inconsistently; assistants lower confidence when structure or wording varies between pages.`,
-    `Pilot a small proof on ${host}, validate the result in Rich Results/inspect tools, then ship to priority sections.`,
-    `These changes on ${host} help assistants quote and summarize clearly without altering brand voice.`,
-    `After rollout on ${host}, request re‑crawl and check that the intended signal is emitted on each key template.`
-  ];
-  const n = Math.max(minS, Math.min(maxS, Math.floor(minS + Math.random()*(maxS-minS+1))));
-  return [base, ...seeds.slice(0, n-1)].join(' ');
-}
+  async function init(){
+    const qs=new URLSearchParams(location.search);
+    const url=qs.get('url')||'https://example.com';
+    document.getElementById('urlTxt').textContent=url;
 
-function ensureCount(arr, count, domain, minS, maxS, synthPool){
-  const out = [...arr];
-  let k=0;
-  while(out.length<count){
-    const base = synthPool[k % synthPool.length];
-    out.push(expandPoint(base, domain, minS, maxS));
-    k++;
+    let strengths=[],needs=[],insights=[];
+    try{
+      const r=await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(url)}`);
+      if(r.ok){ const d=await r.json(); strengths=d.strengths||d.highlights||[]; needs=d.needs||[]; insights=d.insights||[]; }
+    }catch{}
+
+    // Ensure 5 strengths (3–5 sentences) and 20 needs (4–6 sentences)
+    strengths = ensureCount(strengths,5);
+    needs = ensureCount(needs,20);
+
+    const sUL=document.getElementById('strengths'); sUL.innerHTML='';
+    strengths.forEach(x=>{const li=document.createElement('li'); li.innerHTML=boldFirstSentence(String(x)); sUL.appendChild(li);});
+    const nUL=document.getElementById('needs'); nUL.innerHTML='';
+    needs.forEach(x=>{const li=document.createElement('li'); li.innerHTML=boldFirstSentence(String(x)); nUL.appendChild(li);});
+
+    // LLM Insights: if API provided text, render as simple paragraphs (logos already covered in analyze)
+    const eng=document.getElementById('engines');
+    (insights||[]).forEach(item=>{ const p=document.createElement('p'); p.textContent=item.text||item.description||''; eng.appendChild(p); });
+    if(!eng.children.length){ eng.innerHTML='<p>Assistant perspectives will appear here when available for this domain.</p>'; }
   }
-  if(out.length>count) out.length=count;
-  return out;
-}
-
-async function init(){
-  const qs=new URLSearchParams(location.search);
-  const target=qs.get('url')||'https://example.com';
-  document.getElementById('urlTxt').textContent = target;
-
-  let insights=[], strengths=[], needs=[];
-  try{
-    const r=await fetch(`https://sniperank-app2.onrender.com/api/score?url=${encodeURIComponent(target)}`);
-    if(!r.ok) throw 0;
-    const d=await r.json();
-    strengths = Array.isArray(d.strengths)? d.strengths : (d.highlights||[]);
-    needs = Array.isArray(d.needs)? d.needs : [];
-    insights = Array.isArray(d.insights)? d.insights : [];
-  }catch{}
-
-  const synthStrengths = [
-    "SSL/HTTPS is consistently enforced with correct redirects, which stabilizes trust signals for AI crawlers.",
-    "Images include descriptive alt text and filenames, aiding visual comprehension for assistants.",
-    "Mobile‑responsive layout behaves predictably across breakpoints, improving snippet stability.",
-    "Semantic HTML and clear landmarks reduce parser ambiguity for assistants that convert DOM to text.",
-    "Robots.txt and sitemap are accessible, helping discovery and crawl planning."
-  ];
-  const synthNeeds = [
-    "Heading hierarchy is inconsistent; top pages should ladder to one core claim with clear H2/H3 structure.",
-    "FAQ coverage is thin; assistants prefer 4–8 direct Q&A items that mirror 'how/compare' prompts.",
-    "Organization/Person schema is incomplete; add verifiable profiles to strengthen entity alignment.",
-    "Internal links do not consistently point to canonical targets; reduce orphan risk and click‑depth.",
-    "Meta descriptions read as marketing copy; rewrite to answer‑first summaries that assistants can quote.",
-    "Lists/tables are underused; convert dense paragraphs into scannable structures for snippet extraction.",
-    "Core Web Vitals fluctuate; stabilize LCP/CLS/INP on critical templates before broad changes.",
-    "Image alt text is generic; include entities, tasks, or outcomes to improve relevance.",
-    "Contact/footprint consistency varies; align NAP and profile links across key surfaces.",
-    "Breadcrumbs and URL slugs could better reflect topic hierarchy for disambiguation.",
-    "Duplicate or near‑duplicate sections blur topic boundaries; consolidate or cross‑link deliberately.",
-    "Outbound citations are sparse; assistants reward clear sources for claims or stats.",
-    "Author bylines are missing in places; attach verifiable profiles to raise credibility.",
-    "Service pages lack outcome summaries; add 2–3 bullet proof points near the top.",
-    "Multimedia lacks transcripts; provide text equivalents to increase quote‑ability.",
-    "Local signals (address, region) are implicit; add schema + footer details where relevant.",
-    "Pagination and filters create thin variants; ensure canonicalization and no‑index where needed.",
-    "Error/state pages aren’t standardized; assistants can surface them unexpectedly—make them helpful.",
-    "Sitemaps omit new sections; add and ping after deployments to accelerate coverage.",
-    "Security headers are inconsistent; align to baseline to prevent crawler downgrade on fetch."
-  ];
-
-  strengths = ensureCount((strengths||[]).map(s=>expandPoint(String(s), target, 3, 5)), 5, target, 3, 5, synthStrengths);
-  needs = ensureCount((needs||[]).map(s=>expandPoint(String(s), target, 4, 6)), 20, target, 4, 6, synthNeeds);
-
-  // Render strengths with bold first sentence
-  const sUL=document.getElementById('strengths'); sUL.innerHTML='';
-  strengths.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirstSentence(t); sUL.appendChild(li); });
-  // Render needs with bold first sentence
-  const nUL=document.getElementById('needs'); nUL.innerHTML='';
-  needs.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=boldFirstSentence(t); nUL.appendChild(li); });
-
-  // LLM insights
-  const engines=document.getElementById('engines'); engines.innerHTML='';
-  const ordered=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-  const apiMap={}; insights.forEach(x=> apiMap[(x.engine||'').trim()] = x.text || x.description || '');
-  ordered.forEach(name=>{
-    const text = apiMap[name] || ''; if(!text) return;
-    const row=document.createElement('div'); row.className='llm-row';
-    row.appendChild(loadLogo(name));
-    const p=document.createElement('p'); p.textContent=text; row.appendChild(p);
-    engines.appendChild(row);
-  });
-  if(!engines.children.length){
-    const host=new URL(target).hostname;
-    [
-      {engine:'ChatGPT', text:`${host} is readable for extraction, but adding short FAQ/Q&A blocks near the top of key pages increases the odds of being quoted verbatim.`},
-      {engine:'Claude', text:`Explicit authorship and outcome‑oriented summaries help Claude resolve source quality on ${host}; pair context with action to guide stepwise responses.`},
-      {engine:'Gemini', text:`Broader schema coverage on ${host} improves entity alignment; ensure Organization, WebSite, and FAQ are consistently emitted across templates.`},
-      {engine:'Copilot', text:`Copilot favors task framing; open with instructions and concrete steps so ${host} is promoted for action‑oriented prompts.`},
-      {engine:'Perplexity', text:`Perplexity rewards concise, attributable facts; add inline citations so ${host} becomes a primary source in synthesized answers.`}
-    ].forEach(({engine,text})=>{
-      const row=document.createElement('div'); row.className='llm-row';
-      row.appendChild(loadLogo(engine));
-      const p=document.createElement('p'); p.textContent=text; row.appendChild(p);
-      engines.appendChild(row);
-    });
-  }
-}
-
-init();
+  init();
 </script>
 </body>
 </html>
