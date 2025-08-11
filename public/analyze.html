@@ -188,53 +188,108 @@
     </div>
   </div>
 
-  <script>
-    /* -----------------------------------------------------------------------
-       LLM logo helper (ONLY SECTION UPDATED): shows icons for each engine.
-       Behavior:
-       - We reference local images in /img/*.png
-       - If absolute '/img/...' fails (e.g., hosted under sub-path), try 'img/...'
-       - If both fail, show readable text fallback (engine name)
-       --------------------------------------------------------------------- */
-    const LOGO_SOURCES = {
-      ChatGPT: ['/img/chatgpt-logo.png'],
-      Claude:  ['/img/claude-logo.png'],
-      Gemini:  ['/img/gemini-logo.png'],
-      Copilot: ['/img/copilot-logo.png'],
-      Perplexity: ['/img/perplexity-logo.png']
-    };
-    function logoDivFor(engine){
-      const div = document.createElement('div');
-      div.className = 'llm-logo';
 
-      // Pick the primary path; if missing, return text fallback.
-      const primary = (LOGO_SOURCES[engine] || [])[0];
-      if (!primary) {
-        div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-        return div;
-      }
+   
+ <script>
+   /**
+    * LLM logo loader
+    * 1) Tries local PNG in /img (and then 'img' without the leading slash)
+    * 2) If image fails, falls back to a small inline SVG icon per engine
+    * 3) If all else fails, shows a text pill with the engine name
+    */
 
-      // Try absolute then relative path to be resilient in different hosting setups.
-      const candidates = [primary, primary.replace(/^\/+/, '')]; // '/img/x.png' -> 'img/x.png'
-      const img = document.createElement('img');
-      let i = 0;
+   // 1) Primary image sources (kept exactly as requested)
+   const LOGO_SOURCES = {
+     ChatGPT:    ['/img/chatgpt-logo.png'],
+     Claude:     ['/img/claude-logo.png'],
+     Gemini:     ['/img/gemini-logo.png'],
+     Copilot:    ['/img/copilot-logo.png'],
+     Perplexity: ['/img/perplexity-logo.png']
+   };
 
-      const next = () => {
-        if (i < candidates.length) {
-          img.src = candidates[i++];
-        } else {
-          // All attempts failed → text fallback.
-          div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-        }
-      };
+   // 2) Inline SVG fallbacks — sized to fit your .llm-logo (height: 28px)
+   //    These aren’t official brand marks; they’re neutral glyphs so
+   //    the layout never breaks if a PNG is missing.
+   const ICON_SVGS = {
+     ChatGPT: `
+       <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+         <circle cx="12" cy="12" r="10" fill="#10a37f"/>
+         <path d="M7 12h10M12 7v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+       </svg>
+     `,
+     Claude: `
+       <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+         <rect x="3" y="3" width="18" height="18" rx="4" fill="#ff6b2c"/>
+         <path d="M7 12h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+       </svg>
+     `,
+     Gemini: `
+       <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+         <circle cx="8" cy="12" r="5" fill="#1a73e8"/><circle cx="16" cy="12" r="5" fill="#4285f4" opacity="0.6"/>
+       </svg>
+     `,
+     Copilot: `
+       <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+         <rect x="3" y="6" width="18" height="12" rx="6" fill="#5c2d91"/>
+         <path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+       </svg>
+     `,
+     Perplexity: `
+       <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+         <circle cx="12" cy="12" r="10" fill="#000"/>
+         <circle cx="12" cy="12" r="3.5" fill="#fff"/>
+       </svg>
+     `
+   };
 
-      img.onerror = next;
-      img.onload = () => { div.innerHTML = ''; div.appendChild(img); };
-      next();
+   /**
+    * Build the logo node for an engine:
+    * - Try PNG (with and without leading slash)
+    * - If it errors, inject the SVG fallback
+    * - If engine is unknown, show a text pill
+    */
+   function logoDivFor(engine) {
+     const wrap = document.createElement('div');
+     wrap.className = 'llm-logo';
 
-      return div;
-    }
+     // No mapping? show pill and bail.
+     const primary = (LOGO_SOURCES[engine] || [])[0];
+     if (!primary) {
+       wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+       return wrap;
+     }
 
+     // Candidate paths: '/img/x.png' then 'img/x.png'
+     const candidates = [primary, primary.replace(/^\/+/, '')];
+
+     // Create <img> and try paths in order
+     const img = document.createElement('img');
+     img.alt = `${engine} logo`;
+
+     let i = 0;
+     const tryNext = () => {
+       if (i < candidates.length) {
+         img.src = candidates[i++];
+       } else {
+         // If no image works, inject SVG fallback (or a text pill if missing)
+         const svg = ICON_SVGS[engine];
+         wrap.innerHTML = svg
+           ? svg
+           : `<span class="llm-fallback">${engine}</span>`;
+       }
+     };
+
+     img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
+     img.onerror = tryNext;
+
+     // kick off first attempt
+     tryNext();
+
+     return wrap;
+   }
+ </script>
+ 
+ 
     /* -----------------------------------------------------------------------
        Main page logic (DOM ready):
        - Read ?url=... and print into header
