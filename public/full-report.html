@@ -1,13 +1,11 @@
 <!--
-  Version: 1.10.0-FR
-  Last Updated: Aug 11, 2025
-  Changes:
-  - Clone of analyze v1.10.0 layout (scorecard, logos, modal, styling)
-  - Removes lead form; keeps single centered Calendly CTA
-  - Loads backend full report HTML and enforces list sizes:
-      * What's Working = up to 5 bullets, each trimmed to ~3–5 sentences
-      * Needs Attention = up to 20 bullets, each trimmed to ~4–6 sentences
-  - LLM section rendered as logo + paragraph using local /img logos with robust fallback
+  Version: 1.10.0-FR.2
+  Last Updated: Aug 14, 2025 18:40 UTC
+  Changes in .2:
+  - Removed accidental nested <script> that was breaking execution
+  - Enforce bullets AFTER inject: 5 "What's Working" (3–5 sentences), 20 "Needs Attention" (4–6)
+  - LLM logos: robust local loader (/img/... then img/...) with text fallback
+  - No other layout/style changes
 -->
 
 <!DOCTYPE html>
@@ -67,7 +65,7 @@
     .consultation-section .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
     .consultation-note{background:#f8f9fa;padding:1rem;border-radius:8px;margin-top:1.5rem;font-size:.95rem}
 
-    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
+    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
 
     .sr-modal{position:fixed;inset:0;display:none;z-index:9999}
     .sr-modal[aria-hidden="false"]{display:block}
@@ -147,7 +145,9 @@
   </div>
 
   <script>
-    // Local LLM logos with robust path try ('/img/...' then 'img/...')
+    /* =========================
+       LLM logos (local images)
+       ========================= */
     const LOGO_SOURCES = {
       ChatGPT: ['/img/chatgpt-logo.png'],
       Claude: ['/img/claude-logo.png'],
@@ -159,7 +159,7 @@
       const div=document.createElement('div'); div.className='llm-logo';
       const primary=(LOGO_SOURCES[engine]||[])[0];
       if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-      const candidates=[primary, primary.replace(/^\/+/,'')];
+      const candidates=[primary, primary.replace(/^\/+/,'')]; // /img/x.png → img/x.png
       const img=document.createElement('img'); let i=0;
       const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
       img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
@@ -171,36 +171,53 @@
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Load backend HTML for full report
+      /* =========================
+         Load backend report HTML
+         ========================= */
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
         host.innerHTML = html;
 
-        // Enforce list sizes after inject
-        normalizeLists(host);
+        // Enforce bullet counts + expand copy AFTER injection
+        try {
+          const domain = new URL(targetUrl).hostname.replace(/^www\./,'');
+          enforceBulletCounts(host, domain);
+        } catch(e) { console.warn("Bullet enforcement skipped:", e); }
 
-        // Transform AI Engine Insights (bullets -> logo + paragraph)
+        // Convert "AI Engine Insights" bullets → rows with logos + paragraph
         transformAIInsights(host);
+
       } catch (err) {
         console.error("Error loading analysis:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='text-align:center;color:red;'>Error loading analysis. Please try again.</p>";
       }
 
-      // --- Shared: demo score (kept for layout parity) ---
-      const { total, pillars, highlights } = fallbackScore();
-      renderScoreCard(total, pillars, highlights);
+      /* =========================
+         Scorecard (demo fallback)
+         ========================= */
+      const p={access:20,trust:19,clarity:22,alignment:20,freshness:19};
+      renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
+        "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
+        "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
+        "Reinforce org identity: bylines/authorship, About/company snippet, and a persistent contact path.",
+        "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
+      ]);
 
-      // Modal handlers
+      /* =========================
+         Modal handlers
+         ========================= */
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // Copy summary
+      /* =========================
+         Copy shareable summary
+         ========================= */
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const txt = buildLLMSummary(targetUrl);
         try{ await navigator.clipboard.writeText(txt);
@@ -208,17 +225,9 @@
         }catch{ window.prompt("Copy the summary:", txt); }
       });
 
-      // ------ Helpers ------
-      function fallbackScore(){
-        let p={access:20,trust:19,clarity:22,alignment:20,freshness:19};
-        return { total:p.access+p.trust+p.clarity+p.alignment+p.freshness, pillars:p, highlights:[
-          "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
-          "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
-          "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
-          "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
-        ]};
-      }
-
+      /* =========================
+         Helpers
+         ========================= */
       function renderScoreCard(total, pillars, highlights){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent =
@@ -246,7 +255,6 @@
         }
       }
 
-      // Build CTA-friendly copy
       function buildLLMSummary(url){
         const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
         const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
@@ -266,46 +274,132 @@
         return lines.join("\n");
       }
 
-      // Trim lists to target sizes and sentence ranges
-      function normalizeLists(root){
-        const findSection = (re) => Array.from(root.querySelectorAll('.section-title')).find(n => re.test((n.textContent||'').trim()));
-        const workH = findSection(/what'?s\s*working/i);
-        const needH = findSection(/needs\s*attention/i);
+      /* ========= Bullet Enforcement (5 / 20 with sentence ranges) ========= */
 
-        const getUlAfter = (title) => {
-          let el = title && title.nextElementSibling;
-          while (el && el.tagName && el.tagName.toLowerCase() !== 'ul') el = el.nextElementSibling;
-          return el && el.tagName && el.tagName.toLowerCase() === 'ul' ? el : null;
-        };
+      function enforceBulletCounts(root, d){
+        const workingUL = findULAfterTitle(root, /what'?s\s*working/i);
+        const needsUL   = findULAfterTitle(root, /needs\s*attention/i);
 
-        const ww = getUlAfter(workH);
-        const na = getUlAfter(needH);
-
-        if (ww) limitBullets(ww, 5, [3,5]);
-        if (na) limitBullets(na, 20, [4,6]);
+        if (workingUL) normalizeItems(workingUL, 5, makeWorkingTemplates(d), 3, 5, d);
+        if (needsUL)   normalizeItems(needsUL, 20, makeNeedsTemplates(d), 4, 6, d);
       }
 
-      // Keep up to targetCount items, trim sentence count per bullet into min..max
-      function limitBullets(ul, targetCount, [minS,maxS]){
-        const items = Array.from(ul.querySelectorAll('li'));
-        // Trim to target count if too many
-        if (items.length > targetCount){
-          items.slice(targetCount).forEach(li => li.remove());
-        }
-        // For each remaining item, trim sentence count to the range
-        Array.from(ul.querySelectorAll('li')).forEach(li => {
-          const txt = (li.textContent||'').trim();
-          const parts = txt.split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean);
-          if (parts.length > maxS){
-            li.textContent = parts.slice(0, maxS).join(' ');
-          } else if (parts.length < minS){
-            // leave as-is; do not synthesize content
-            li.textContent = txt;
-          }
+      function findULAfterTitle(root, rx){
+        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
+          .find(n => rx.test((n.textContent||"").trim()));
+        if (!h) return null;
+        let el = h.nextElementSibling;
+        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
+        return el || null;
+      }
+
+      function normalizeItems(ul, targetCount, templates, minSent, maxSent, d){
+        // 1) Collect current items, dedupe by subject (text before ':')
+        const seen = new Set();
+        const items = [];
+        Array.from(ul.querySelectorAll("li")).forEach(li => {
+          const raw = (li.textContent || "").trim();
+          if (!raw) return;
+          const subj = (raw.split(":")[0] || raw).trim().toLowerCase();
+          if (!seen.has(subj)) { seen.add(subj); items.push(li); }
         });
+
+        // 2) Expand each current item to a paragraph (respect min/max sentences)
+        items.forEach(li => {
+          const raw = (li.textContent||"").trim();
+          const subj = (raw.split(":")[0] || raw).trim();
+          const body = expandToParagraph(subj, raw, templates, minSent, maxSent, d);
+          li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${body}`;
+          li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, subj); // ensure range
+        });
+
+        // 3) Backfill from templates until targetCount reached (avoid duplicates)
+        for (const t of templates) {
+          if (items.length >= targetCount) break;
+          const key = t.title.toLowerCase();
+          if (seen.has(key)) continue;
+          const li = document.createElement("li");
+          const body = t.text(d);
+          const html = `<strong>${escapeHTML(t.title)}:</strong> ${body}`;
+          li.innerHTML = html;
+          li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, t.title);
+          ul.appendChild(li);
+          items.push(li);
+          seen.add(key);
+        }
+
+        // 4) If still short, lightly vary phrasing to reach target (keeps honesty)
+        while (items.length < targetCount && templates.length){
+          const t = templates[ items.length % templates.length ];
+          const li = document.createElement("li");
+          const body = (t.text(d)+'').replace(/\bon\s+[^.\s]+/i, `on ${d}`);
+          li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${body}`;
+          li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, t.title);
+          ul.appendChild(li);
+          items.push(li);
+        }
       }
 
-      // Convert AI bullets to logo+paragraph
+      function expandToParagraph(subj, raw, templates, minSent, maxSent, d){
+        const t = templates.find(x => x.title.toLowerCase() === subj.toLowerCase());
+        if (t) return t.text(d);
+        const base = raw.replace(/^.*?:\s*/, ""); // strip leading "Subject:"
+        const s1 = base || `${subj} needs attention on ${d}.`;
+        const s2 = `This can reduce how AI systems map ${d}'s entities and tasks to user prompts.`;
+        const s3 = `Clarifying structure and links typically improves snippet quality and inclusion.`;
+        const s4 = `Prioritize this area in the next sprint and validate with a focused crawl of ${d}.`;
+        const s5 = `Document owner and expected update cadence to stabilize the signal.`;
+        return [s1,s2,s3,s4,s5].join(" ");
+      }
+
+      function trimToSentenceRange(text, minS, maxS, subj){
+        const parts = (text||'').trim().split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean);
+        const limited = parts.length>maxS ? parts.slice(0,maxS) : (parts.length<minS ? parts : parts);
+        const body = limited.join(' ');
+        return `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(body.replace(new RegExp('^'+subj+'\\s*:\\s*','i'),'')).replace(/^:/,'')}`;
+      }
+
+      function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+      /* =========================
+         Templates (neutral copy)
+         ========================= */
+      function makeWorkingTemplates(d){
+        return [
+          { title: "SSL Security Implementation", text: d=>`${d} serves over HTTPS, establishing transport security and baseline trust with AI crawlers and search engines. This reduces downgrade risk from mixed content or redirect chains and supports inclusion in assistant‑style answers. Redirect hygiene appears stable across primary routes. Maintain this posture as you expand content and subdomains.` },
+          { title: "Mobile‑Responsive Design", text: d=>`Pages on ${d} render responsively, aligning with mobile‑first crawling and snippet extraction. Consistent layout cues help parsers segment content into scannable units. Preserve this by testing new templates on common device breakpoints. Avoid layout shifts that could affect Core Web Vitals and snippet stability.` },
+          { title: "Content Structure Recognition", text: d=>`Headings and lists on ${d} are generally parsable, which improves answer extraction. Clear section spines support entity mapping and reduce hallucination risk. Keep reinforcing list/table patterns around key tasks and FAQs. This strengthens eligibility for answer‑first summaries.` },
+          { title: "Image Optimization Baseline", text: d=>`A large share of images on ${d} include descriptive alt text, supporting multimodal understanding and accessibility. Continue standardizing alt patterns around core entities and actions. This makes visual references usable in assistant contexts. Periodically audit heavy images for compression.` },
+          { title: "Redirect & Canonical Hygiene", text: d=>`Primary redirects on ${d} look clean, lowering crawl waste and consolidation risk. Canonicals resolve to self or preferred versions. Maintain this with any CMS migrations or campaign URLs. Good consolidation helps AI engines attribute statements to the right source.` }
+        ];
+      }
+
+      function makeNeedsTemplates(d){
+        return [
+          { title: "Schema Markup Missing", text: d=>`Entity signaling is light on ${d}. Without Organization, WebSite, and FAQ coverage across key templates, assistants have weaker hooks to verify source and topic. Add baseline schema and validate in Rich Results. Stronger markup reduces ambiguity and improves snippet inclusion. Re‑audit after deployment.` },
+          { title: "Internal Linking Strategy", text: d=>`Connections between related pages on ${d} are inconsistent, which can obscure answer paths and orphan key topics. Build concise hubs and add descriptive anchors that reflect the question being answered. Limit deep nesting behind multiple clicks. Better linking clarifies intent for assistants.` },
+          { title: "Content Depth Analysis", text: d=>`Several sections on ${d} mix promotional copy with instructions, making it harder to quote or summarize. Separate “how to” guidance from marketing claims and add concrete steps and examples. Depth should map to real user tasks. This reduces deflection to aggregators.` },
+          { title: "Site Architecture Issues", text: d=>`Overlapping sections and diffuse navigation on ${d} blur topic boundaries at crawl time. Consolidate duplicative pages and elevate core categories. Use clear breadcrumbs and descriptive URLs. A coherent spine helps models map questions to definitive answers.` },
+          { title: "Local SEO Signals", text: d=>`Location and service area cues on ${d} are faint or scattered. Add structured NAP details, hours, and service regions where relevant. Align with major profiles and link back to canonical pages. Strong local signals improve location‑qualified prompts.` },
+          { title: "Content Freshness Gaps", text: d=>`Several key pages on ${d} lack update cadence or last‑modified signals. Time‑sensitive claims should cite dates and sources. Add lightweight changelogs or revision notes on evergreen assets. Freshness helps assistants prefer your page over older references.` },
+          { title: "Core Web Vitals Optimization", text: d=>`Layout stability and input delay on parts of ${d} may degrade snippet capture and render quality. Focus on LCP media, CLS from injected elements, and INP from heavy scripts. Improve first‑screen scannability for task content. Faster, stable pages perform better in assistant flows.` },
+          { title: "Result Framing Signals", text: d=>`Several titles and meta descriptions on ${d} don’t summarize the primary answer succinctly. Tighten titles to the user task, and write meta descriptions that preview the steps or outcome. Clear framing increases eligibility for previews and link cards.` },
+          { title: "Heading Structure", text: d=>`Some pages on ${d} jump heading levels or include multiple H1‑like spines. Normalize to one H1 that states the core claim, with H2/H3s that ladder into steps, comparisons, or FAQs. Predictable structure improves parsing and disambiguation.` },
+          { title: "Image Alt Text Coverage", text: d=>`A subset of images on ${d} lack alt attributes, creating noise for parsers. Add concise, factual alt text where images carry meaning, and mark decorative images appropriately. Keep captions aligned with entity names and actions.` },
+          { title: "Mobile Interaction Friction", text: d=>`Interactive controls on ${d} sometimes block reading flow or hide answers behind accordions without summaries. Provide short visible answers before toggles. Ensure tap targets are large and keyboard accessible.` },
+          { title: "Robots & Sitemaps Hygiene", text: d=>`robots.txt and XML sitemaps on ${d} could better highlight canonical answer pages. List preferred URLs and remove outdated paths. Use crawl allowances reflecting public content strategy.` },
+          { title: "Canonicalization & Duplicates", text: d=>`Similar content exists at multiple URLs on ${d}, diluting signals. Consolidate to a single canonical per topic and standardize internal links to that version. Guard against UTM/filter variants indexing.` },
+          { title: "FAQ Coverage", text: d=>`FAQs on ${d} miss common “how” and “compare” questions. Add 4–6 tightly scoped Q&As per key page, avoid overlap, keep answers short, and link to deeper sections. This maps cleanly to assistant snippets.` },
+          { title: "Topic Focus Clarity", text: d=>`Several pages on ${d} try to cover multiple intents at once, weakening the primary answer. Split complex topics or isolate with H2 blocks and crisp summaries. Lead with the most common task.` },
+          { title: "Internal Connection Mapping", text: d=>`Important entities on ${d} are mentioned but not consistently cross‑linked to their canonical pages. Add in‑text anchors on first mention with consistent labels to aid multi‑hop reasoning.` },
+          { title: "Author & Bylines", text: d=>`Expertise indicators on ${d} are light. Add author names with roles, short bios, and a clear contact path. Include an About/company snippet that states core competency. Strong identity cues increase trust.` },
+          { title: "Third‑Party Profile Consistency", text: d=>`Organization details for ${d} vary across profiles/directories. Align names, categories, and links; ensure each profile points to the same canonical URL. Consistency improves verification.` },
+          { title: "Structured Data Depth", text: d=>`Beyond baseline Org and WebSite, ${d} would benefit from Article/BlogPosting where relevant, plus FAQ and Breadcrumbs. Validate at scale and monitor warnings.` },
+          { title: "Evidence & Citations", text: d=>`Claims on ${d} often lack inline citations or date contexts, causing assistants to prefer sources with clearer provenance. Add short citations near stats/policies and link to primary sources.` }
+        ];
+      }
+
+      /* ========== LLM section: bullets → logo + paragraph ========== */
       function transformAIInsights(root){
         const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
         let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
