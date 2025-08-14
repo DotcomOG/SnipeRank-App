@@ -345,7 +345,7 @@
 
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
-          status.textContent = "📤 Sending…";
+          status.textContent = "🤖 Analyzing…";
           const fd = new FormData(form);
           fd.set("url", targetUrl);
 
@@ -353,7 +353,7 @@
             await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
             status.textContent = "✅ Thanks! Redirecting…";
           } catch {
-            status.textContent = "⚠️ Couldn't send just now, redirecting anyway.";
+            status.textContent = "⚠️ Couldn't analyze just now, redirecting anyway.";
           } finally {
             const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
             window.location.href = next;
