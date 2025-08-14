@@ -4,6 +4,7 @@
   Changes:
   - Logos-only fix: after injecting backend HTML, convert AI Insights bullets
     into rows with LLM logos (ChatGPT, Claude, Gemini, Copilot, Perplexity).
+  - Fixed form submission to redirect to full-report page
   - No other layout/logic changes.
 -->
 
@@ -278,7 +279,7 @@
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // 2) Load server-rendered analysis HTML (What’s Working / Needs Attention / AI insights)
+      // 2) Load server-rendered analysis HTML (What's Working / Needs Attention / AI insights)
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
@@ -324,7 +325,7 @@
           ``,
           `Next step — talk with Quontora:`,
           `• Book a free 30‑minute consult: https://calendly.com/quontora`,
-          `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
+          `• We'll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
         ].join("\n");
         try{
           await navigator.clipboard.writeText(txt);
@@ -334,6 +335,31 @@
           window.prompt("Copy the summary:", txt);
         }
       });
+
+      // 6) Formspree capture then redirect to full-report
+      const form = document.getElementById("fullReportForm");
+      const status = document.getElementById("formMessage");
+      
+      if (form && status) {
+        document.getElementById("urlField").value = targetUrl;
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          status.textContent = "📤 Sending…";
+          const fd = new FormData(form);
+          fd.set("url", targetUrl);
+
+          try {
+            await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
+            status.textContent = "✅ Thanks! Redirecting…";
+          } catch {
+            status.textContent = "⚠️ Couldn't send just now, redirecting anyway.";
+          } finally {
+            const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+            window.location.href = next;
+          }
+        });
+      }
 
       // ----- helpers: render scorecard UI (total, band, pillars, highlights) -----
       function renderScoreCard(total, pillars, highlights){
