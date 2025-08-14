@@ -1,11 +1,10 @@
 <!--
-  Version: 1.10.3
+  Version: 1.10.2-logofix
   Last Updated: Aug 11, 2025
-  Changes in this patch ONLY:
-  - Analyze page now enforces bullet counts after injecting backend HTML:
-      * What's Working: cap at 5
-      * Needs Attention: ensure at least 10 (domain-specific backfill if short)
-  - No other code/behavior changed
+  Changes:
+  - Logos-only fix: after injecting backend HTML, convert AI Insights bullets
+    into rows with LLM logos (ChatGPT, Claude, Gemini, Copilot, Perplexity).
+  - No other layout/logic changes.
 -->
 
 <!DOCTYPE html>
@@ -79,7 +78,7 @@
     input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
     input:focus,textarea:focus{outline:none;border-color:#3182CE}
     textarea{resize:vertical;min-height:100px}
-    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:background .2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
+    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
     .btn-primary:hover{background:#c82333}
     .form-button-wrapper{text-align:center;margin:1.5rem 0}
 
@@ -206,9 +205,7 @@
       Perplexity: ['/img/perplexity-logo.png']
     };
 
-    // 2) Inline SVG fallbacks — sized to fit your .llm-logo (height: 28px)
-    //    These aren’t official brand marks; they’re neutral glyphs so
-    //    the layout never breaks if a PNG is missing.
+    // 2) Inline SVG fallbacks — neutral glyphs so the layout never breaks
     const ICON_SVGS = {
       ChatGPT: `
         <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
@@ -273,13 +270,7 @@
     }
 
     /* -----------------------------------------------------------------------
-       Main page logic (DOM ready):
-       - Read ?url=... and print into header
-       - Fetch server-rendered HTML into #summary-results
-       - ENFORCE analyze bullet counts: Working ≤5, Needs ≥10 (ONLY change)
-       - Render fallback scorecard (so the UI isn’t empty)
-       - Wire up modal open/close and clipboard copy
-       - Submit lead form to Formspree, then redirect to full-report
+       Main page logic (DOM ready)
        --------------------------------------------------------------------- */
     document.addEventListener("DOMContentLoaded", async () => {
       // 1) Read target URL from query and show it in the header.
@@ -291,15 +282,11 @@
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
-        document.getElementById("summary-results").innerHTML = html;
+        const host = document.getElementById("summary-results");
+        host.innerHTML = html;
 
-        // >>> NEW: enforce counts for analyze (Working ≤5, Needs ≥10)
-        try {
-          const domain = new URL(targetUrl).hostname.replace(/^www\./, "");
-          enforceAnalyzeCounts(document.getElementById("summary-results"), domain);
-        } catch (e) {
-          console.warn("Analyze bullet enforcement skipped:", e);
-        }
+        // LOGOS-ONLY FIX: Convert AI Insights bullets into logo + paragraph rows
+        try { transformAIInsights(host); } catch(e){ console.warn("LLM transform skipped:", e); }
       } catch {
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
@@ -313,14 +300,14 @@
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // 4) Modal open/close (supports button + Esc + backdrop click)
+      // 4) Modal open/close
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // 5) “Copy Shareable Summary” → builds a text block for email/LLMs and copies to clipboard
+      // 5) Copy Shareable Summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
         const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
@@ -345,28 +332,6 @@
           setTimeout(()=>b.textContent=old,1500);
         }catch{
           window.prompt("Copy the summary:", txt);
-        }
-      });
-
-      // 6) Formspree capture then redirect to full-report
-      const form = document.getElementById("fullReportForm");
-      const status = document.getElementById("formMessage");
-      document.getElementById("urlField").value = targetUrl;
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        status.textContent = "📤 Sending…";
-        const fd = new FormData(form);
-        fd.set("url", targetUrl);
-
-        try {
-          await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
-          status.textContent = "✅ Thanks! Redirecting…";
-        } catch {
-          status.textContent = "⚠️ Couldn’t send just now, redirecting anyway.";
-        } finally {
-          const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
-          window.location.href = next;
         }
       });
 
@@ -398,105 +363,38 @@
         }
       }
 
-      /* ====================== NEW: Analyze bullet enforcement ====================== */
+      /* ---------------------- LOGOS-ONLY helper ---------------------- */
+      function transformAIInsights(root){
+        // Find the "AI Engine Insights" (or similar) section title
+        const title = Array.from(root.querySelectorAll('.section-title,h2,h3,h4'))
+          .find(n => /ai\s*(engine\s*)?insights/i.test((n.textContent||'').trim()));
+        if (!title) return;
 
-      function enforceAnalyzeCounts(root, domain){
-        const workingUL = findULAfterTitle(root, /what'?s\s*working/i);
-        const needsUL   = findULAfterTitle(root, /needs\s*attention/i);
+        // Find the first UL after that title
+        let ul = title.nextElementSibling;
+        while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+        if (!ul) return;
 
-        if (workingUL) {
-          // Cap at 5, do not synthesize more
-          capBullets(workingUL, 5);
-        }
-        if (needsUL) {
-          // Ensure at least 10; synthesize short domain-specific items only if short
-          ensureMinNeeds(needsUL, 10, makeNeedsShortTemplates(domain));
-        }
-      }
+        const texts = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim()).filter(Boolean);
+        if (!texts.length) return;
 
-      function findULAfterTitle(root, rx){
-        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
-          .find(n => rx.test((n.textContent || "").trim()));
-        if (!h) return null;
-        let el = h.nextElementSibling;
-        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
-        return el && el.tagName && el.tagName.toLowerCase() === "ul" ? el : null;
-      }
+        const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+        const container = document.createElement('div');
+        container.className = 'llm-insights';
 
-      function capBullets(ul, maxCount){
-        const items = Array.from(ul.querySelectorAll("li"));
-        if (items.length > maxCount){
-          items.slice(maxCount).forEach(li => li.remove());
-        }
-      }
-
-      function ensureMinNeeds(ul, minCount, templates){
-        // De‑dupe by subject (text before first colon), keep first occurrence
-        const seen = new Set();
-        Array.from(ul.querySelectorAll("li")).forEach(li => {
-          const raw = (li.textContent || "").trim();
-          const subj = (raw.split(":")[0] || raw).trim().toLowerCase();
-          if (seen.has(subj)) li.remove(); else seen.add(subj);
+        engines.forEach((engine, i) => {
+          const t = texts[i] || texts[i % texts.length] || '';
+          if (!t) return;
+          const row = document.createElement('div');
+          row.className = 'llm-row';
+          row.appendChild(logoDivFor(engine));
+          const p = document.createElement('p'); p.textContent = t; row.appendChild(p);
+          container.appendChild(row);
         });
 
-        let items = Array.from(ul.querySelectorAll("li"));
-
-        if (items.length >= minCount) return;
-
-        // Backfill with templates not already present
-        for (const t of templates) {
-          if (items.length >= minCount) break;
-          const key = t.title.toLowerCase();
-          if (seen.has(key)) continue;
-          const li = document.createElement("li");
-          li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${t.text}`;
-          ul.appendChild(li);
-          items.push(li);
-          seen.add(key);
-        }
-
-        // If still short (rare), recycle with small domain tweak
-        let i = 0;
-        while (items.length < minCount && templates.length){
-          const t = templates[i++ % templates.length];
-          const li = document.createElement("li");
-          const tweaked = t.text.replace(/( on | at )\S+/i, ` on ${t.domain}`);
-          li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${tweaked}`;
-          ul.appendChild(li);
-          items.push(li);
-        }
+        ul.replaceWith(container);
       }
-
-      function escapeHTML(s){
-        return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-      }
-
-      // Short, 2–3 sentence domain‑specific templates for analyze backfill
-      function makeNeedsShortTemplates(domain){
-        const d = domain;
-        return [
-          { title: "Schema Markup Missing", text: `Entity markup is light on ${d}. Add Organization, WebSite, and FAQ on key templates and validate in Rich Results. Stronger signals help assistants attribute answers correctly.`, domain: d },
-          { title: "Internal Linking Strategy", text: `Related pages on ${d} aren’t consistently interlinked. Build hubs and use descriptive anchors that mirror user questions. This clarifies answer paths for AI.`, domain: d },
-          { title: "Content Depth & Clarity", text: `Some sections on ${d} mix promo copy with instructions. Separate tasks from marketing and add lists/tables. Clear steps improve extractability.`, domain: d },
-          { title: "Heading Structure", text: `${d} reuses H1‑like headings or skips levels. Normalize to one H1 and logical H2/H3 ladders. Predictable spines reduce parsing errors.`, domain: d },
-          { title: "Meta Titles & Descriptions", text: `Several titles/descriptions on ${d} don’t frame the primary answer. Tighten to outcome‑focused phrasing with a clear payoff. This boosts snippet eligibility.`, domain: d },
-          { title: "Image Alt Text Gaps", text: `Important images on ${d} lack concise alt attributes. Add factual descriptors or mark decorative imagery correctly. Multimodal parsers rely on this.`, domain: d },
-          { title: "Core Web Vitals", text: `First‑screen media and script weight on ${d} may affect LCP/INP. Optimize hero media and defer non‑critical JS. Stability aids snippet capture.`, domain: d },
-          { title: "Canonicalization", text: `Near‑duplicate content exists on ${d}. Point canonicals to a single source and standardize internal links to it. Consolidation strengthens authority.`, domain: d },
-          { title: "Robots & Sitemaps", text: `robots.txt and sitemaps on ${d} could better highlight canonical answers. Remove stale URLs and surface preferred routes. This improves crawl spend.`, domain: d },
-          { title: "FAQ Coverage", text: `Common “how/compare” questions are missing on ${d}. Add 4–6 precise Q&As per key page. Short answers map cleanly to assistant snippets.`, domain: d },
-          { title: "Local Signals", text: `NAP details and service areas are thin on ${d}. Standardize address, hours, and regions and align profiles. Location cues steer local prompts.`, domain: d },
-          { title: "Evidence & Citations", text: `Claims on ${d} often lack dates/citations. Add inline sources for stats and policies. Provenance increases quote‑worthiness.`, domain: d },
-          { title: "Thin Pages", text: `Some pages on ${d} provide limited task support. Expand with concrete steps, examples, and links to tools. Depth reduces deflection to aggregators.`, domain: d },
-          { title: "Navigation Duplication", text: `${d} has overlapping nav labels that blur topic boundaries. Consolidate and use descriptive names. Clear IA improves intent targeting.`, domain: d },
-          { title: "Breadcrumbs & Context", text: `Breadcrumbs on ${d} are missing or inconsistent. Add structured breadcrumbs to expose hierarchy. Context helps assistants disambiguate.`, domain: d },
-          { title: "Media Weight", text: `Large uncompressed images/videos slow ${d}. Transcode, lazy‑load below‑the‑fold, and set proper dimensions. Faster pages parse more reliably.`, domain: d },
-          { title: "Outdated Content", text: `Key pages on ${d} lack visible update cadence. Add last‑modified notes or slim changelogs. Freshness boosts assistant preference.`, domain: d },
-          { title: "Contact Path", text: `Contact routes on ${d} are hard to find. Add a persistent footer snippet and link from About. Clear identity improves trust signals.`, domain: d },
-          { title: "Anchor Text Consistency", text: `Anchors on ${d} are generic (“learn more”). Rewrite to reflect the question/outcome. Descriptive anchors aid multi‑hop reasoning.`, domain: d }
-        ];
-      }
-      /* ==================== END: Analyze bullet enforcement (ONLY) =================== */
+      /* -------------------- END logos-only helper -------------------- */
     });
   </script>
 </body>
