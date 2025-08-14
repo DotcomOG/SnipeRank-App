@@ -1,0 +1,15 @@
+Website: https://urj.org
+SnipeRank Score: 81/100
+Pillars:
+- AI Access Readiness: 20/25
+- Trust & Verification: 20/25
+- LLM Interpretability & Clarity: 19/25
+- Prompt-Pattern Alignment: 22/25
+
+Observed Highlights / Issues:
+- Ensure consistent schema coverage: add/verify Organization + WebSite + FAQ across primary templates; validate in Rich Results.
+- Add a concise FAQ targeting 'how' and 'compare' prompts; 4–6 Q&As that mirror buyer questions; avoid overlapping answers.
+- Reinforce org identity: show author names with bylines, About/company snippet in footer, and a persistent contact path.
+- Refactor key sections with lists/Q&A tables so AI can extract answers without parsing long paragraphs.
+
+Instruction: Produce a prioritized, step-by-step action plan to raise the score by 10+ points within 30 days. Group tasks by Technical, Content, and Schema. For each task, include: impact, difficulty (S/M/L), and the exact change to make (filename/selector if relevant).
