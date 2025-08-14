@@ -171,11 +171,21 @@
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
+      
+   
+   // === debug code
+   
+      console.log("Debug: targetUrl =", targetUrl, "About to fetch from API...");
 
       /* =========================
          Load backend report HTML
          ========================= */
       try {
+          
+          // == debug code
+          console.log("Debug: Making fetch request to:", `https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+          
+          
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
@@ -191,7 +201,7 @@
         transformAIInsights(host);
 
       } catch (err) {
-        console.error("Error loading analysis:", err);
+        console.error("Debug: Fetch failed:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='text-align:center;color:red;'>Error loading analysis. Please try again.</p>";
       }
@@ -416,5 +426,7 @@
       }
     });
   </script>
+  
+  
 </body>
 </html>
