@@ -1,11 +1,10 @@
 <!--
-  Version: 1.10.0-FR.4
+  Version: 1.10.0-FR.5
   Last Updated: Aug 15, 2025
-  Changes in .4:
-  - Fixed JavaScript syntax error (extra closing brace)
-  - Corrected API endpoint URL structure
-  - Improved error handling and fallbacks
-  - Enhanced logo loading functionality
+  Changes in .5:
+  - Fixed logo loading function with multiple path fallbacks
+  - Complete HTML file with all functions
+  - Improved error handling and immediate text fallbacks
 -->
 
 <!DOCTYPE html>
@@ -146,62 +145,89 @@
 
   <script>
     /* =========================
-       LLM logos (local images)
+       LLM logos (with fallback to text pills)
        =========================
-       This function:
-       1) Uses a predefined PNG path from LOGO_SOURCES
-       2) Tries two versions of the path: '/img/...' and 'img/...'
-       3) If both fail, shows a text fallback pill
+       This function tries multiple logo sources and falls back to text
     */
-    const LOGO_SOURCES = {
-      ChatGPT: ['/img/chatgpt-logo.png'],
-      Claude: ['/img/claude-logo.png'],
-      Gemini: ['/img/gemini-logo.png'],
-      Copilot: ['/img/copilot-logo.png'],
-      Perplexity: ['/img/perplexity-logo.png']
-    };
-
     function logoDivFor(engine) {
       const div = document.createElement('div');
       div.className = 'llm-logo';
 
-      // Get the primary path from LOGO_SOURCES
-      const primary = (LOGO_SOURCES[engine] || [])[0];
-      if (!primary) {
-        // No logo defined: show plain text pill
+      // Try multiple possible logo paths
+      const logoPaths = {
+        'ChatGPT': [
+          '/img/chatgpt-logo.png',
+          'img/chatgpt-logo.png',
+          '/assets/chatgpt-logo.png',
+          'assets/chatgpt-logo.png'
+        ],
+        'Claude': [
+          '/img/claude-logo.png',
+          'img/claude-logo.png',
+          '/assets/claude-logo.png',
+          'assets/claude-logo.png'
+        ],
+        'Gemini': [
+          '/img/gemini-logo.png',
+          'img/gemini-logo.png',
+          '/assets/gemini-logo.png',
+          'assets/gemini-logo.png'
+        ],
+        'Copilot': [
+          '/img/copilot-logo.png',
+          'img/copilot-logo.png',
+          '/assets/copilot-logo.png',
+          'assets/copilot-logo.png'
+        ],
+        'Perplexity': [
+          '/img/perplexity-logo.png',
+          'img/perplexity-logo.png',
+          '/assets/perplexity-logo.png',
+          'assets/perplexity-logo.png'
+        ]
+      };
+
+      const candidates = logoPaths[engine] || [];
+      
+      if (candidates.length === 0) {
+        // No logo paths defined: show text pill immediately
         div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
         return div;
       }
 
-      // Try with and without leading slash
-      const candidates = [primary, primary.replace(/^\/+/, '')];
+      let currentIndex = 0;
 
-      // Create image element
-      const img = document.createElement('img');
-      img.alt = `${engine} logo`;
-      let i = 0;
-
-      // Attempt to load each candidate path in sequence
-      const tryNext = () => {
-        if (i < candidates.length) {
-          img.src = candidates[i++];
-        } else {
-          // Both failed: show text pill
+      const tryLoadImage = () => {
+        if (currentIndex >= candidates.length) {
+          // All paths failed: show text pill
           div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          return;
         }
+
+        const img = document.createElement('img');
+        img.alt = `${engine} logo`;
+        img.style.display = 'none'; // Hide until loaded
+        
+        img.onload = () => {
+          // Success: show the image
+          div.innerHTML = '';
+          img.style.display = 'block';
+          div.appendChild(img);
+        };
+        
+        img.onerror = () => {
+          // Failed: try next path
+          currentIndex++;
+          tryLoadImage();
+        };
+        
+        // Start loading this candidate
+        img.src = candidates[currentIndex];
       };
 
-      // Success: clear and append image
-      img.onload = () => {
-        div.innerHTML = '';
-        div.appendChild(img);
-      };
-
-      // Failure: try next candidate
-      img.onerror = tryNext;
-
-      // Start first attempt
-      tryNext();
+      // Start with text fallback, then try to replace with image
+      div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+      tryLoadImage();
 
       return div;
     }
