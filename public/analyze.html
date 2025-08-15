@@ -144,15 +144,21 @@
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
       <div class="form-grid">
-        <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
-        <input type="email" name="email" placeholder="Your Email" required autocomplete="email"/>
-        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel"/>
-        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
+        <input type="text" name="name" placeholder="Your Name" required autocomplete="name" />
+        <input type="email" name="email" placeholder="Your Email" required autocomplete="email" />
+        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel" />
+        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization" />
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
-      <input type="hidden" name="url" id="urlField"/>
-      <input type="hidden" name="_subject" value="SnipeRank Full Report request"/>
-      <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
+      
+      <!-- Hidden fields -->
+      <input type="hidden" name="url" id="urlField" />
+      <input type="hidden" name="_redirect" id="redirectField" />
+      <input type="hidden" name="_subject" value="SnipeRank Full Report request" />
+      
+      <div class="form-button-wrapper">
+        <button type="submit" class="btn-primary">View Full Report Now</button>
+      </div>
       <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
   </section>
@@ -189,12 +195,9 @@
   </div>
 
   <script>
-    /**
-     * LLM logo loader
-     * 1) Tries local PNG in /img (and then 'img' without the leading slash)
-     * 2) If image fails, falls back to a small inline SVG icon per engine
-     * 3) If all else fails, shows a text pill with the engine name
-     */
+    /* ============================================================
+       LLM logo loader (TOP‑LEVEL so other code can call it)
+       ============================================================ */
 
     // 1) Primary image sources (kept exactly as requested)
     const LOGO_SOURCES = {
@@ -221,7 +224,8 @@
       `,
       Gemini: `
         <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <circle cx="8" cy="12" r="5" fill="#1a73e8"/><circle cx="16" cy="12" r="5" fill="#4285f4" opacity="0.6"/>
+          <circle cx="8" cy="12" r="5" fill="#1a73e8"/>
+          <circle cx="16" cy="12" r="5" fill="#4285f4" opacity="0.6"/>
         </svg>
       `,
       Copilot: `
@@ -238,17 +242,15 @@
       `
     };
 
+    // 3) Builds a logo node: try /img, then img/, then SVG, then text pill
     function logoDivFor(engine) {
       const wrap = document.createElement('div');
       wrap.className = 'llm-logo';
 
       const primary = (LOGO_SOURCES[engine] || [])[0];
-      if (!primary) {
-        wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-        return wrap;
-      }
+      if (!primary) { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
 
-      const candidates = [primary, primary.replace(/^\/+/, '')];
+      const candidates = [primary, primary.replace(/^\/+/, '')]; // '/img/x.png' → 'img/x.png'
       const img = document.createElement('img');
       img.alt = `${engine} logo`;
 
@@ -262,36 +264,46 @@
         }
       };
 
-      img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
+      img.onload  = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
       img.onerror = tryNext;
       tryNext();
 
       return wrap;
     }
 
-    /* -----------------------------------------------------------------------
-       Main page logic (DOM ready)
-       --------------------------------------------------------------------- */
+    /* ============================================================
+       Main page logic
+       ============================================================ */
     document.addEventListener("DOMContentLoaded", async () => {
-      // 1) Read target URL from query and show it in the header.
+      // 1) Read ?url=... and show it in the header
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
-      document.getElementById("current-url").textContent = targetUrl;
+      const currentUrlEl = document.getElementById("current-url");
+      if (currentUrlEl) currentUrlEl.textContent = targetUrl;
 
-      // 2) Load server-rendered analysis HTML (What’s Working / Needs Attention / AI insights)
+      // 2) ✅ Populate hidden form fields (these two are the lines you needed)
+      const urlField = document.getElementById("urlField");
+      if (urlField) urlField.value = targetUrl;
+
+      const redirectField = document.getElementById("redirectField");
+      if (redirectField) redirectField.value = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+
+      // 3) Load server-rendered sections
       try {
-        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const res  = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
-        host.innerHTML = html;
+        if (host) host.innerHTML = html;
 
-        // LOGOS-ONLY FIX: Convert AI Insights bullets into logo + paragraph rows
-        try { transformAIInsights(host); } catch(e){ console.warn("LLM transform skipped:", e); }
+        // Optional: if your backend emits an "AI Engine Insights" UL,
+        // convert it into rows with logos + paragraphs
+        transformAIInsights(host);
       } catch {
-        document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
+        const host = document.getElementById("summary-results");
+        if (host) host.innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // 3) Fallback score just to display a complete card even if API is unavailable.
+      // 4) Minimal fallback score so the card isn’t empty
       const p = { access:18, trust:17, clarity:19, alignment:18, freshness:16 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
@@ -300,48 +312,72 @@
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // 4) Modal open/close
+      // 5) Modal handlers
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // 5) Copy Shareable Summary
-      document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
-        const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
-        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(el => el.textContent.trim());
-        const highlights = Array.from(document.querySelectorAll('#highlightsList li')).map(li => li.textContent.trim());
-        const txt = [
-          `Website: ${targetUrl}`,
-          `SnipeRank Score: ${scoreText}`,
-          `Pillars:`,
-          ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
-          ``,
-          `Observed Highlights / Issues:`,
-          ...highlights.map(h=>`- ${h}`),
-          ``,
-          `Next step — talk with Quontora:`,
-          `• Book a free 30‑minute consult: https://calendly.com/quontora`,
-          `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
-        ].join("\n");
-        try{
-          await navigator.clipboard.writeText(txt);
-          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!";
-          setTimeout(()=>b.textContent=old,1500);
-        }catch{
-          window.prompt("Copy the summary:", txt);
-        }
-      });
+      // 6) Copy summary
+      const copyBtn = document.getElementById("copyLLMBtn");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async () => {
+          const txt = buildLLMSummary(targetUrl);
+          try {
+            await navigator.clipboard.writeText(txt);
+            const old = copyBtn.textContent; copyBtn.textContent = "Copied!"; setTimeout(()=>copyBtn.textContent=old,1500);
+          } catch {
+            window.prompt("Copy the summary:", txt);
+          }
+        });
+      }
 
-      // ----- helpers: render scorecard UI (total, band, pillars, highlights) -----
-      function renderScoreCard(total, pillars, highlights){
-        document.getElementById("scoreNumber").textContent = `${total}/100`;
-        document.getElementById("scoreBand").textContent =
-          total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+      // 7) Lead form → Formspree → redirect (uses the hidden redirectField if present)
+      const form   = document.getElementById("fullReportForm");
+      const status = document.getElementById("formMessage");
+      if (form) {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          if (status) status.textContent = "📤 Sending…";
 
-        const grid = document.getElementById("pillarsGrid");
+          const fd = new FormData(form);
+          fd.set("url", targetUrl); // ensure URL is set even if the hidden input was missing
+
+          try {
+            await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
+            if (status) status.textContent = "✅ Thanks! Redirecting…";
+          } catch {
+            if (status) status.textContent = "⚠️ Couldn’t send just now, redirecting anyway.";
+          } finally {
+            // Prefer the hidden _redirect if your Formspree rule uses it; otherwise fall back to client redirect
+            const to = (redirectField && redirectField.value)
+              ? redirectField.value
+              : `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+            window.location.href = to;
+          }
+        });
+      }
+    });
+
+    /* ============================================================
+       Small helpers (pure UI)
+       ============================================================ */
+
+    function renderScoreCard(total, pillars, highlights){
+      const scoreEl = document.getElementById("scoreNumber");
+      const bandEl  = document.getElementById("scoreBand");
+      if (scoreEl) scoreEl.textContent = `${total}/100`;
+      if (bandEl) {
+        bandEl.textContent =
+          total>=85 ? "Rank: Highly Visible ★★★★☆" :
+          total>=70 ? "Rank: Partially Visible ★★★☆☆" :
+          total>=55 ? "Rank: Needs Work ★★☆☆☆" :
+                      "Rank: Low Visibility ★☆☆☆☆";
+      }
+
+      const grid = document.getElementById("pillarsGrid");
+      if (grid) {
         grid.innerHTML = "";
         [
           ["AI Access Readiness", pillars.access],
@@ -354,48 +390,66 @@
           d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
           grid.appendChild(d);
         });
+      }
 
-        if (highlights?.length){
-          const ul=document.getElementById("highlightsList");
+      if (Array.isArray(highlights) && highlights.length){
+        const ul=document.getElementById("highlightsList");
+        const block=document.getElementById("highlightsBlock");
+        if (ul && block) {
           ul.innerHTML="";
           highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
-          document.getElementById("highlightsBlock").hidden=false;
+          block.hidden=false;
         }
       }
+    }
 
-      /* ---------------------- LOGOS-ONLY helper ---------------------- */
-      function transformAIInsights(root){
-        // Find the "AI Engine Insights" (or similar) section title
-        const title = Array.from(root.querySelectorAll('.section-title,h2,h3,h4'))
-          .find(n => /ai\s*(engine\s*)?insights/i.test((n.textContent||'').trim()));
-        if (!title) return;
+    function buildLLMSummary(url){
+      const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
+      const vals   = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
+      const lines = [
+        `Website: ${url}`,
+        `SnipeRank Score: ${document.getElementById("scoreNumber")?.textContent || "—/100"}`,
+        `Pillars:`,
+        ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
+        ``,
+        `Observed Highlights / Issues:`,
+        ...Array.from(document.querySelectorAll('#highlightsList li')).map(li=>`- ${li.textContent.trim()}`),
+        ``,
+        `Next step — talk with Quontora:`,
+        `• Book a free 30‑minute consult: https://calendly.com/quontora`,
+        `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
+      ];
+      return lines.join("\n");
+    }
 
-        // Find the first UL after that title
-        let ul = title.nextElementSibling;
-        while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-        if (!ul) return;
+    // Turns an "AI Engine Insights" <ul> into rows with logos + paragraphs
+    function transformAIInsights(root){
+      if (!root) return;
+      const title = Array.from(root.querySelectorAll('.section-title'))
+        .find(n => /ai\s*engine\s*insights/i.test(n.textContent||''));
+      if (!title) return;
 
-        const texts = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim()).filter(Boolean);
-        if (!texts.length) return;
+      let ul = title.nextElementSibling;
+      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+      if (!ul) return;
 
-        const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-        const container = document.createElement('div');
-        container.className = 'llm-insights';
+      const texts = Array.from(ul.querySelectorAll('li')).map(li => li.textContent.trim());
+      if (!texts.length) return;
 
-        engines.forEach((engine, i) => {
-          const t = texts[i] || texts[i % texts.length] || '';
-          if (!t) return;
-          const row = document.createElement('div');
-          row.className = 'llm-row';
-          row.appendChild(logoDivFor(engine));
-          const p = document.createElement('p'); p.textContent = t; row.appendChild(p);
-          container.appendChild(row);
-        });
+      const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+      const container = document.createElement('div'); container.className='llm-insights';
 
-        ul.replaceWith(container);
-      }
-      /* -------------------- END logos-only helper -------------------- */
-    });
+      engines.forEach((engine, i) => {
+        const t = texts[i] || '';
+        if (!t) return;
+        const row = document.createElement('div'); row.className='llm-row';
+        row.appendChild(logoDivFor(engine)); // ← uses the top-level logo function
+        const p = document.createElement('p'); p.textContent = t; row.appendChild(p);
+        container.appendChild(row);
+      });
+
+      ul.replaceWith(container);
+    }
   </script>
 </body>
 </html>
