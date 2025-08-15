@@ -1,12 +1,9 @@
 <!--
-  Version: 1.10.0-FR.2
-  Last Updated: Aug 14, 2025 18:40 UTC
-  Changes in .2:
-  - Removed accidental nested <script> that was breaking execution
-  - Enforce bullets AFTER inject: 5 "What's Working" (3–5 sentences), 20 "Needs Attention" (4–6)
-  - LLM logos: robust local loader (/img/... then img/...) with text fallback
-  - Fixed scoring to match analyze page (88/100 instead of 100/100)
-  - No other layout/style changes
+  Version: 1.10.0-FR.4
+  Last Updated: Aug 15, 2025 11:30 UTC
+  Changes in .4:
+  - Fixed stray closing brace blocking DOMContentLoaded
+  - Added escapeHTML helper for safe dynamic content
 -->
 
 <!DOCTYPE html>
@@ -146,26 +143,66 @@
   </div>
 
   <script>
-    /* =========================
-       LLM logos (local images)
-       ========================= */
-    const LOGO_SOURCES = {
-      ChatGPT: ['/img/chatgpt-logo.png'],
-      Claude: ['/img/claude-logo.png'],
-      Gemini: ['/img/gemini-logo.png'],
-      Copilot: ['/img/copilot-logo.png'],
-      Perplexity: ['/img/perplexity-logo.png']
-    };
-    function logoDivFor(engine){
-      const div=document.createElement('div'); div.className='llm-logo';
-      const primary=(LOGO_SOURCES[engine]||[])[0];
-      if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-      const candidates=[primary, primary.replace(/^\/+/,'')]; // /img/x.png → img/x.png
-      const img=document.createElement('img'); let i=0;
-      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
-      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
-      return div;
-    }
+      /* =========================
+         LLM logos (local images)
+         =========================
+         This function:
+         1) Uses a predefined PNG path from LOGO_SOURCES
+         2) Tries two versions of the path: '/img/...' and 'img/...'
+         3) If both fail, shows a text fallback pill
+      */
+      const LOGO_SOURCES = {
+        ChatGPT: ['/img/chatgpt-logo.png'],
+        Claude: ['/img/claude-logo.png'],
+        Gemini: ['/img/gemini-logo.png'],
+        Copilot: ['/img/copilot-logo.png'],
+        Perplexity: ['/img/perplexity-logo.png']
+      };
+
+      function logoDivFor(engine) {
+        const div = document.createElement('div');
+        div.className = 'llm-logo';
+
+        // Get the primary path from LOGO_SOURCES
+        const primary = (LOGO_SOURCES[engine] || [])[0];
+        if (!primary) {
+          // No logo defined: show plain text pill
+          div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          return div;
+        }
+
+        // Try with and without leading slash
+        const candidates = [primary, primary.replace(/^\/+/, '')];
+
+        // Create image element
+        const img = document.createElement('img');
+        img.alt = `${engine} logo`;
+        let i = 0;
+
+        // Attempt to load each candidate path in sequence
+        const tryNext = () => {
+          if (i < candidates.length) {
+            img.src = candidates[i++];
+          } else {
+            // Both failed: show text pill
+            div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          }
+        };
+
+        // Success: clear and append image
+        img.onload = () => {
+          div.innerHTML = '';
+          div.appendChild(img);
+        };
+
+        // Failure: try next candidate
+        img.onerror = tryNext;
+
+        // Start first attempt
+        tryNext();
+
+        return div;
+      }
 
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -173,18 +210,12 @@
       document.getElementById("current-url").textContent = targetUrl;
       
    
-   // === debug code
-   
-      console.log("Debug: targetUrl =", targetUrl, "About to fetch from API...");
-
       /* =========================
          Load backend report HTML
          ========================= */
       try {
           
-          // == debug code
-          console.log("Debug: Making fetch request to:", `https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
-          
+
           
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
@@ -370,7 +401,12 @@
         return `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(body.replace(new RegExp('^'+subj+'\\s*:\\s*','i'),'')).replace(/^:/,'')}`;
       }
 
-      function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+        function escapeHTML(s){
+          return (s||'')
+            .replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        }
 
       /* =========================
          Templates (neutral copy)
@@ -394,8 +430,8 @@
           { title: "Local SEO Signals", text: d=>`Location and service area cues on ${d} are faint or scattered. Add structured NAP details, hours, and service regions where relevant. Align with major profiles and link back to canonical pages. Strong local signals improve location‑qualified prompts.` },
           { title: "Content Freshness Gaps", text: d=>`Several key pages on ${d} lack update cadence or last‑modified signals. Time‑sensitive claims should cite dates and sources. Add lightweight changelogs or revision notes on evergreen assets. Freshness helps assistants prefer your page over older references.` },
           { title: "Core Web Vitals Optimization", text: d=>`Layout stability and input delay on parts of ${d} may degrade snippet capture and render quality. Focus on LCP media, CLS from injected elements, and INP from heavy scripts. Improve first‑screen scannability for task content. Faster, stable pages perform better in assistant flows.` },
-        { title: "Result Framing Signals", text: d=>`Several titles and meta descriptions on ${d} don't summarize the primary answer succinctly. Tighten titles to the user task, and write meta descriptions that preview the steps or outcome. Clear framing increases eligibility for previews and link cards.` },
-        { title: "Heading Structure", text: d=>`Some pages on ${d} jump heading levels or include multiple H1‑like spines. Normalize to one H1 that states the core claim, with H2/H3s that ladder into steps, comparisons, or FAQs. Predictable structure improves parsing and disambiguation.` },
+          { title: "Result Framing Signals", text: d=>`Several titles and meta descriptions on ${d} don't summarize the primary answer succinctly. Tighten titles to the user task, and write meta descriptions that preview the steps or outcome. Clear framing increases eligibility for previews and link cards.` },
+          { title: "Heading Structure", text: d=>`Some pages on ${d} jump heading levels or include multiple H1‑like spines. Normalize to one H1 that states the core claim, with H2/H3s that ladder into steps, comparisons, or FAQs. Predictable structure improves parsing and disambiguation.` },
           { title: "Image Alt Text Coverage", text: d=>`A subset of images on ${d} lack alt attributes, creating noise for parsers. Add concise, factual alt text where images carry meaning, and mark decorative images appropriately. Keep captions aligned with entity names and actions.` },
           { title: "Mobile Interaction Friction", text: d=>`Interactive controls on ${d} sometimes block reading flow or hide answers behind accordions without summaries. Provide short visible answers before toggles. Ensure tap targets are large and keyboard accessible.` },
           { title: "Robots & Sitemaps Hygiene", text: d=>`robots.txt and XML sitemaps on ${d} could better highlight canonical answer pages. List preferred URLs and remove outdated paths. Use crawl allowances reflecting public content strategy.` },
