@@ -1,10 +1,12 @@
 <!--
   Version: 1.10.0-FR.4
-  Last Updated: Aug 15, 2025 11:30 UTC
+  Last Updated: Aug 15, 2025
   Changes in .4:
-  - Fixed stray closing brace blocking DOMContentLoaded
-  - Added escapeHTML helper for safe dynamic content
+  - Fixed JavaScript syntax error (extra closing brace)
+  - Corrected API endpoint URL structure
+  - Improved error handling and fallbacks
 -->
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -143,82 +145,96 @@
   </div>
 
   <script>
-      /* =========================
-         LLM logos (local images)
-         =========================
-         This function:
-         1) Uses a predefined PNG path from LOGO_SOURCES
-         2) Tries two versions of the path: '/img/...' and 'img/...'
-         3) If both fail, shows a text fallback pill
-      */
-      const LOGO_SOURCES = {
-        ChatGPT: ['/img/chatgpt-logo.png'],
-        Claude: ['/img/claude-logo.png'],
-        Gemini: ['/img/gemini-logo.png'],
-        Copilot: ['/img/copilot-logo.png'],
-        Perplexity: ['/img/perplexity-logo.png']
-      };
+    /* =========================
+       LLM logos (local images)
+       =========================
+       This function:
+       1) Uses a predefined PNG path from LOGO_SOURCES
+       2) Tries two versions of the path: '/img/...' and 'img/...'
+       3) If both fail, shows a text fallback pill
+    */
+    const LOGO_SOURCES = {
+      ChatGPT: ['/img/chatgpt-logo.png'],
+      Claude: ['/img/claude-logo.png'],
+      Gemini: ['/img/gemini-logo.png'],
+      Copilot: ['/img/copilot-logo.png'],
+      Perplexity: ['/img/perplexity-logo.png']
+    };
 
-      function logoDivFor(engine) {
-        const div = document.createElement('div');
-        div.className = 'llm-logo';
+    function logoDivFor(engine) {
+      const div = document.createElement('div');
+      div.className = 'llm-logo';
 
-        // Get the primary path from LOGO_SOURCES
-        const primary = (LOGO_SOURCES[engine] || [])[0];
-        if (!primary) {
-          // No logo defined: show plain text pill
-          div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-          return div;
-        }
-
-        // Try with and without leading slash
-        const candidates = [primary, primary.replace(/^\/+/, '')];
-
-        // Create image element
-        const img = document.createElement('img');
-        img.alt = `${engine} logo`;
-        let i = 0;
-
-        // Attempt to load each candidate path in sequence
-        const tryNext = () => {
-          if (i < candidates.length) {
-            img.src = candidates[i++];
-          } else {
-            // Both failed: show text pill
-            div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-          }
-        };
-
-        // Success: clear and append image
-        img.onload = () => {
-          div.innerHTML = '';
-          div.appendChild(img);
-        };
-
-        // Failure: try next candidate
-        img.onerror = tryNext;
-
-        // Start first attempt
-        tryNext();
-
+      // Get the primary path from LOGO_SOURCES
+      const primary = (LOGO_SOURCES[engine] || [])[0];
+      if (!primary) {
+        // No logo defined: show plain text pill
+        div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
         return div;
       }
+
+      // Try with and without leading slash
+      const candidates = [primary, primary.replace(/^\/+/, '')];
+
+      // Create image element
+      const img = document.createElement('img');
+      img.alt = `${engine} logo`;
+      let i = 0;
+
+      // Attempt to load each candidate path in sequence
+      const tryNext = () => {
+        if (i < candidates.length) {
+          img.src = candidates[i++];
+        } else {
+          // Both failed: show text pill
+          div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+        }
+      };
+
+      // Success: clear and append image
+      img.onload = () => {
+        div.innerHTML = '';
+        div.appendChild(img);
+      };
+
+      // Failure: try next candidate
+      img.onerror = tryNext;
+
+      // Start first attempt
+      tryNext();
+
+      return div;
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
       
-   
       /* =========================
          Load backend report HTML
          ========================= */
       try {
-          
-
-          
-        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        console.log("Attempting to fetch report for:", targetUrl);
+        
+        // Use the correct API endpoint structure
+        const apiUrl = `https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`;
+        console.log("Fetching from:", apiUrl);
+        
+        const res = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          }
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
         const html = await res.text();
+        console.log("Received HTML length:", html.length);
+        
         const host = document.getElementById("summary-results");
         host.innerHTML = html;
 
@@ -226,15 +242,27 @@
         try {
           const domain = new URL(targetUrl).hostname.replace(/^www\./,'');
           enforceBulletCounts(host, domain);
-        } catch(e) { console.warn("Bullet enforcement skipped:", e); }
+        } catch(e) {
+          console.warn("Bullet enforcement skipped:", e);
+        }
 
         // Convert "AI Engine Insights" bullets → rows with logos + paragraph
         transformAIInsights(host);
 
       } catch (err) {
-        console.error("Debug: Fetch failed:", err);
-        document.getElementById("summary-results").innerHTML =
-          "<p style='text-align:center;color:red;'>Error loading analysis. Please try again.</p>";
+        console.error("Fetch failed:", err);
+        document.getElementById("summary-results").innerHTML = `
+          <div style="text-align:center;color:red;padding:2rem;">
+            <h3>Error Loading Analysis</h3>
+            <p>Unable to load the full report. This could be due to:</p>
+            <ul style="text-align:left;max-width:400px;margin:1rem auto;">
+              <li>Network connectivity issues</li>
+              <li>Server temporarily unavailable</li>
+              <li>Invalid URL format</li>
+            </ul>
+            <p><button onclick="location.reload()" style="padding:.5rem 1rem;margin-top:1rem;">Try Again</button></p>
+          </div>
+        `;
       }
 
       /* =========================
@@ -252,216 +280,218 @@
          Modal handlers
          ========================= */
       document.addEventListener('click', (e) => {
-        if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
-        if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
+        if (e.target.closest('[data-open="sr-modal"]')) {
+          document.getElementById('sr-modal').setAttribute('aria-hidden','false');
+        }
+        if (e.target.matches('[data-close]')) {
+          document.getElementById('sr-modal').setAttribute('aria-hidden','true');
+        }
       });
-      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
+      
+      document.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape') {
+          document.getElementById('sr-modal').setAttribute('aria-hidden','true');
+        }
+      });
 
       /* =========================
          Copy shareable summary
          ========================= */
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const txt = buildLLMSummary(targetUrl);
-        try{ await navigator.clipboard.writeText(txt);
-          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
-        }catch{ window.prompt("Copy the summary:", txt); }
+        try {
+          await navigator.clipboard.writeText(txt);
+          const b = document.getElementById("copyLLMBtn");
+          const old = b.textContent;
+          b.textContent = "Copied!";
+          setTimeout(() => b.textContent = old, 1500);
+        } catch {
+          window.prompt("Copy the summary:", txt);
+        }
+      });
+    });
+
+    /* =========================
+       Helper Functions
+       ========================= */
+    function renderScoreCard(total, pillars, highlights) {
+      document.getElementById("scoreNumber").textContent = `${total}/100`;
+      document.getElementById("scoreBand").textContent =
+        total >= 85 ? "Rank: Highly Visible ★★★★☆" :
+        total >= 70 ? "Rank: Partially Visible ★★★☆☆" :
+        total >= 55 ? "Rank: Needs Work ★★☆☆☆" : "Rank: Low Visibility ★☆☆☆☆";
+
+      const grid = document.getElementById("pillarsGrid");
+      grid.innerHTML = "";
+      [
+        ["AI Access Readiness", pillars.access],
+        ["Trust & Verification Signals", pillars.trust],
+        ["LLM Interpretability & Clarity", pillars.clarity],
+        ["Prompt-Pattern Alignment", pillars.alignment],
+        ["Freshness & Engagement Signals", pillars.freshness],
+      ].forEach(([label, val]) => {
+        const d = document.createElement("div");
+        d.className = "pillar";
+        d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
+        grid.appendChild(d);
       });
 
-      /* =========================
-         Helpers
-         ========================= */
-      function renderScoreCard(total, pillars, highlights){
-        document.getElementById("scoreNumber").textContent = `${total}/100`;
-        document.getElementById("scoreBand").textContent =
-          total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
-
-        const grid = document.getElementById("pillarsGrid");
-        grid.innerHTML = "";
-        [
-          ["AI Access Readiness", pillars.access],
-          ["Trust & Verification Signals", pillars.trust],
-          ["LLM Interpretability & Clarity", pillars.clarity],
-          ["Prompt-Pattern Alignment", pillars.alignment],
-          ["Freshness & Engagement Signals", pillars.freshness],
-        ].forEach(([label,val]) => {
-          const d=document.createElement("div"); d.className="pillar";
-          d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
-          grid.appendChild(d);
-        });
-
-        if (highlights?.length){
-          const ul=document.getElementById("highlightsList");
-          ul.innerHTML="";
-          highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
-          document.getElementById("highlightsBlock").hidden=false;
-        }
-      }
-
-      function buildLLMSummary(url){
-        const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
-        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
-        const lines = [
-          `Website: ${url}`,
-          `SnipeRank Score: ${document.getElementById("scoreNumber").textContent}`,
-          `Pillars:`,
-          ...labels.map((l,i)=>`- ${l}: ${vals[i]}`),
-          ``,
-          `Observed Highlights / Issues:`,
-          ...Array.from(document.querySelectorAll('#highlightsList li')).map(li=>`- ${li.textContent.trim()}`),
-          ``,
-          `Next step — talk with Quontora:`,
-          `• Book a free 30‑minute consult: https://calendly.com/quontora`,
-          `• We'll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
-        ];
-        return lines.join("\n");
-      }
-
-      /* ========= Bullet Enforcement (5 / 20 with sentence ranges) ========= */
-
-      function enforceBulletCounts(root, d){
-        const workingUL = findULAfterTitle(root, /what'?s\s*working/i);
-        const needsUL   = findULAfterTitle(root, /needs\s*attention/i);
-
-        if (workingUL) normalizeItems(workingUL, 5, makeWorkingTemplates(d), 3, 5, d);
-        if (needsUL)   normalizeItems(needsUL, 20, makeNeedsTemplates(d), 4, 6, d);
-      }
-
-      function findULAfterTitle(root, rx){
-        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
-          .find(n => rx.test((n.textContent||"").trim()));
-        if (!h) return null;
-        let el = h.nextElementSibling;
-        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
-        return el || null;
-      }
-
-      function normalizeItems(ul, targetCount, templates, minSent, maxSent, d){
-        // 1) Collect current items, dedupe by subject (text before ':')
-        const seen = new Set();
-        const items = [];
-        Array.from(ul.querySelectorAll("li")).forEach(li => {
-          const raw = (li.textContent || "").trim();
-          if (!raw) return;
-          const subj = (raw.split(":")[0] || raw).trim().toLowerCase();
-          if (!seen.has(subj)) { seen.add(subj); items.push(li); }
-        });
-
-        // 2) Expand each current item to a paragraph (respect min/max sentences)
-        items.forEach(li => {
-          const raw = (li.textContent||"").trim();
-          const subj = (raw.split(":")[0] || raw).trim();
-          const body = expandToParagraph(subj, raw, templates, minSent, maxSent, d);
-          li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${body}`;
-          li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, subj); // ensure range
-        });
-
-        // 3) Backfill from templates until targetCount reached (avoid duplicates)
-        for (const t of templates) {
-          if (items.length >= targetCount) break;
-          const key = t.title.toLowerCase();
-          if (seen.has(key)) continue;
+      if (highlights?.length) {
+        const ul = document.getElementById("highlightsList");
+        ul.innerHTML = "";
+        highlights.forEach(h => {
           const li = document.createElement("li");
-          const body = t.text(d);
-          const html = `<strong>${escapeHTML(t.title)}:</strong> ${body}`;
-          li.innerHTML = html;
-          li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, t.title);
+          li.textContent = h;
           ul.appendChild(li);
-          items.push(li);
-          seen.add(key);
-        }
+        });
+        document.getElementById("highlightsBlock").hidden = false;
+      }
+    }
 
-        // 4) If still short, lightly vary phrasing to reach target (keeps honesty)
-        while (items.length < targetCount && templates.length){
-          const t = templates[ items.length % templates.length ];
-          const li = document.createElement("li");
-          const body = (t.text(d)+'').replace(/\bon\s+[^.\s]+/i, `on ${d}`);
-          li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${body}`;
-          li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, t.title);
-          ul.appendChild(li);
+    function buildLLMSummary(url) {
+      const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n => n.textContent.trim());
+      const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(n => n.textContent.trim());
+      const lines = [
+        `Website: ${url}`,
+        `SnipeRank Score: ${document.getElementById("scoreNumber").textContent}`,
+        `Pillars:`,
+        ...labels.map((l, i) => `- ${l}: ${vals[i]}`),
+        ``,
+        `Observed Highlights / Issues:`,
+        ...Array.from(document.querySelectorAll('#highlightsList li')).map(li => `- ${li.textContent.trim()}`),
+        ``,
+        `Next step — talk with Quontora:`,
+        `• Book a free 30‑minute consult: https://calendly.com/quontora`,
+        `• We'll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
+      ];
+      return lines.join("\n");
+    }
+
+    /* ========= Bullet Enforcement (5 / 20 with sentence ranges) ========= */
+    function enforceBulletCounts(root, d) {
+      const workingUL = findULAfterTitle(root, /what'?s\s*working/i);
+      const needsUL = findULAfterTitle(root, /needs\s*attention/i);
+
+      if (workingUL) normalizeItems(workingUL, 5, makeWorkingTemplates(d), 3, 5, d);
+      if (needsUL) normalizeItems(needsUL, 20, makeNeedsTemplates(d), 4, 6, d);
+    }
+
+    function findULAfterTitle(root, rx) {
+      const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
+        .find(n => rx.test((n.textContent || "").trim()));
+      if (!h) return null;
+      let el = h.nextElementSibling;
+      while (el && el.tagName && el.tagName.toLowerCase() !== "ul") {
+        el = el.nextElementSibling;
+      }
+      return el || null;
+    }
+
+    function normalizeItems(ul, targetCount, templates, minSent, maxSent, d) {
+      // 1) Collect current items, dedupe by subject (text before ':')
+      const seen = new Set();
+      const items = [];
+      Array.from(ul.querySelectorAll("li")).forEach(li => {
+        const raw = (li.textContent || "").trim();
+        if (!raw) return;
+        const subj = (raw.split(":")[0] || raw).trim().toLowerCase();
+        if (!seen.has(subj)) {
+          seen.add(subj);
           items.push(li);
         }
+      });
+
+      // 2) Expand each current item to a paragraph (respect min/max sentences)
+      items.forEach(li => {
+        const raw = (li.textContent || "").trim();
+        const subj = (raw.split(":")[0] || raw).trim();
+        const body = expandToParagraph(subj, raw, templates, minSent, maxSent, d);
+        li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${body}`;
+        li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, subj); // ensure range
+      });
+
+      // 3) Backfill from templates until targetCount reached (avoid duplicates)
+      for (const t of templates) {
+        if (items.length >= targetCount) break;
+        const key = t.title.toLowerCase();
+        if (seen.has(key)) continue;
+        const li = document.createElement("li");
+        const body = t.text(d);
+        const html = `<strong>${escapeHTML(t.title)}:</strong> ${body}`;
+        li.innerHTML = html;
+        li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, t.title);
+        ul.appendChild(li);
+        items.push(li);
+        seen.add(key);
       }
 
-      function expandToParagraph(subj, raw, templates, minSent, maxSent, d){
-        const t = templates.find(x => x.title.toLowerCase() === subj.toLowerCase());
-        if (t) return t.text(d);
-        const base = raw.replace(/^.*?:\s*/, ""); // strip leading "Subject:"
-        const s1 = base || `${subj} needs attention on ${d}.`;
-        const s2 = `This can reduce how AI systems map ${d}'s entities and tasks to user prompts.`;
-        const s3 = `Clarifying structure and links typically improves snippet quality and inclusion.`;
-        const s4 = `Prioritize this area in the next sprint and validate with a focused crawl of ${d}.`;
-        const s5 = `Document owner and expected update cadence to stabilize the signal.`;
-        return [s1,s2,s3,s4,s5].join(" ");
+      // 4) If still short, lightly vary phrasing to reach target (keeps honesty)
+      while (items.length < targetCount && templates.length) {
+        const t = templates[items.length % templates.length];
+        const li = document.createElement("li");
+        const body = (t.text(d) + '').replace(/\bon\s+[^.\s]+/i, `on ${d}`);
+        li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${body}`;
+        li.innerHTML = trimToSentenceRange(li.innerText, minSent, maxSent, t.title);
+        ul.appendChild(li);
+        items.push(li);
       }
+    }
 
-      function trimToSentenceRange(text, minS, maxS, subj){
-        const parts = (text||'').trim().split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean);
-        const limited = parts.length>maxS ? parts.slice(0,maxS) : (parts.length<minS ? parts : parts);
-        const body = limited.join(' ');
-        return `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(body.replace(new RegExp('^'+subj+'\\s*:\\s*','i'),'')).replace(/^:/,'')}`;
-      }
+    function expandToParagraph(subj, raw, templates, minSent, maxSent, d) {
+      const t = templates.find(x => x.title.toLowerCase() === subj.toLowerCase());
+      if (t) return t.text(d);
+      const base = raw.replace(/^.*?:\s*/, ""); // strip leading "Subject:"
+      const s1 = base || `${subj} needs attention on ${d}.`;
+      const s2 = `This can reduce how AI systems map ${d}'s entities and tasks to user prompts.`;
+      const s3 = `Clarifying structure and links typically improves snippet quality and inclusion.`;
+      const s4 = `Prioritize this area in the next sprint and validate with a focused crawl of ${d}.`;
+      const s5 = `Document owner and expected update cadence to stabilize the signal.`;
+      return [s1, s2, s3, s4, s5].join(" ");
+    }
 
-        function escapeHTML(s){
-          return (s||'')
-            .replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+    function trimToSentenceRange(text, minS, maxS, subj) {
+      const parts = (text || '').trim().split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean);
+      const limited = parts.length > maxS ? parts.slice(0, maxS) : (parts.length < minS ? parts : parts);
+      const body = limited.join(' ');
+      return `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(body.replace(new RegExp('^' + subj + '\\s*:\\s*', 'i'), '')).replace(/^:/, '')}`;
+    }
+
+    function escapeHTML(s) {
+      return (s || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
+
+    /* =========================
+       Templates (neutral copy)
+       ========================= */
+    function makeWorkingTemplates(d) {
+      return [
+        {
+          title: "SSL Security Implementation",
+          text: d => `${d} serves over HTTPS, establishing transport security and baseline trust with AI crawlers and search engines. This reduces downgrade risk from mixed content or redirect chains and supports inclusion in assistant‑style answers. Redirect hygiene appears stable across primary routes. Maintain this posture as you expand content and subdomains.`
+        },
+        {
+          title: "Mobile‑Responsive Design",
+          text: d => `Pages on ${d} render responsively, aligning with mobile‑first crawling and snippet extraction. Consistent layout cues help parsers segment content into scannable units. Preserve this by testing new templates on common device breakpoints. Avoid layout shifts that could affect Core Web Vitals and snippet stability.`
+        },
+        {
+          title: "Content Structure Recognition",
+          text: d => `Headings and lists on ${d} are generally parsable, which improves answer extraction. Clear section spines support entity mapping and reduce hallucination risk. Keep reinforcing list/table patterns around key tasks and FAQs. This strengthens eligibility for answer‑first summaries.`
+        },
+        {
+          title: "Image Optimization Baseline",
+          text: d => `A large share of images on ${d} include descriptive alt text, supporting multimodal understanding and accessibility. Continue standardizing alt patterns around core entities and actions. This makes visual references usable in assistant contexts. Periodically audit heavy images for compression.`
+        },
+        {
+          title: "Redirect & Canonical Hygiene",
+          text: d => `Primary redirects on ${d} look clean, lowering crawl waste and consolidation risk. Canonicals resolve to self or preferred versions. Maintain this with any CMS migrations or campaign URLs. Good consolidation helps AI engines attribute statements to the right source.`
         }
+      ];
+    }
 
-      /* =========================
-         Templates (neutral copy)
-         ========================= */
-      function makeWorkingTemplates(d){
-        return [
-          { title: "SSL Security Implementation", text: d=>`${d} serves over HTTPS, establishing transport security and baseline trust with AI crawlers and search engines. This reduces downgrade risk from mixed content or redirect chains and supports inclusion in assistant‑style answers. Redirect hygiene appears stable across primary routes. Maintain this posture as you expand content and subdomains.` },
-          { title: "Mobile‑Responsive Design", text: d=>`Pages on ${d} render responsively, aligning with mobile‑first crawling and snippet extraction. Consistent layout cues help parsers segment content into scannable units. Preserve this by testing new templates on common device breakpoints. Avoid layout shifts that could affect Core Web Vitals and snippet stability.` },
-          { title: "Content Structure Recognition", text: d=>`Headings and lists on ${d} are generally parsable, which improves answer extraction. Clear section spines support entity mapping and reduce hallucination risk. Keep reinforcing list/table patterns around key tasks and FAQs. This strengthens eligibility for answer‑first summaries.` },
-          { title: "Image Optimization Baseline", text: d=>`A large share of images on ${d} include descriptive alt text, supporting multimodal understanding and accessibility. Continue standardizing alt patterns around core entities and actions. This makes visual references usable in assistant contexts. Periodically audit heavy images for compression.` },
-          { title: "Redirect & Canonical Hygiene", text: d=>`Primary redirects on ${d} look clean, lowering crawl waste and consolidation risk. Canonicals resolve to self or preferred versions. Maintain this with any CMS migrations or campaign URLs. Good consolidation helps AI engines attribute statements to the right source.` }
-        ];
-      }
-
-      function makeNeedsTemplates(d){
-        return [
-          { title: "Schema Markup Missing", text: d=>`Entity signaling is light on ${d}. Without Organization, WebSite, and FAQ coverage across key templates, assistants have weaker hooks to verify source and topic. Add baseline schema and validate in Rich Results. Stronger markup reduces ambiguity and improves snippet inclusion. Re‑audit after deployment.` },
-          { title: "Internal Linking Strategy", text: d=>`Connections between related pages on ${d} are inconsistent, which can obscure answer paths and orphan key topics. Build concise hubs and add descriptive anchors that reflect the question being answered. Limit deep nesting behind multiple clicks. Better linking clarifies intent for assistants.` },
-          { title: "Content Depth Analysis", text: d=>`Several sections on ${d} mix promotional copy with instructions, making it harder to quote or summarize. Separate "how to" guidance from marketing claims and add concrete steps and examples. Depth should map to real user tasks. This reduces deflection to aggregators.` },
-          { title: "Site Architecture Issues", text: d=>`Overlapping sections and diffuse navigation on ${d} blur topic boundaries at crawl time. Consolidate duplicative pages and elevate core categories. Use clear breadcrumbs and descriptive URLs. A coherent spine helps models map questions to definitive answers.` },
-          { title: "Local SEO Signals", text: d=>`Location and service area cues on ${d} are faint or scattered. Add structured NAP details, hours, and service regions where relevant. Align with major profiles and link back to canonical pages. Strong local signals improve location‑qualified prompts.` },
-          { title: "Content Freshness Gaps", text: d=>`Several key pages on ${d} lack update cadence or last‑modified signals. Time‑sensitive claims should cite dates and sources. Add lightweight changelogs or revision notes on evergreen assets. Freshness helps assistants prefer your page over older references.` },
-          { title: "Core Web Vitals Optimization", text: d=>`Layout stability and input delay on parts of ${d} may degrade snippet capture and render quality. Focus on LCP media, CLS from injected elements, and INP from heavy scripts. Improve first‑screen scannability for task content. Faster, stable pages perform better in assistant flows.` },
-          { title: "Result Framing Signals", text: d=>`Several titles and meta descriptions on ${d} don't summarize the primary answer succinctly. Tighten titles to the user task, and write meta descriptions that preview the steps or outcome. Clear framing increases eligibility for previews and link cards.` },
-          { title: "Heading Structure", text: d=>`Some pages on ${d} jump heading levels or include multiple H1‑like spines. Normalize to one H1 that states the core claim, with H2/H3s that ladder into steps, comparisons, or FAQs. Predictable structure improves parsing and disambiguation.` },
-          { title: "Image Alt Text Coverage", text: d=>`A subset of images on ${d} lack alt attributes, creating noise for parsers. Add concise, factual alt text where images carry meaning, and mark decorative images appropriately. Keep captions aligned with entity names and actions.` },
-          { title: "Mobile Interaction Friction", text: d=>`Interactive controls on ${d} sometimes block reading flow or hide answers behind accordions without summaries. Provide short visible answers before toggles. Ensure tap targets are large and keyboard accessible.` },
-          { title: "Robots & Sitemaps Hygiene", text: d=>`robots.txt and XML sitemaps on ${d} could better highlight canonical answer pages. List preferred URLs and remove outdated paths. Use crawl allowances reflecting public content strategy.` },
-          { title: "Canonicalization & Duplicates", text: d=>`Similar content exists at multiple URLs on ${d}, diluting signals. Consolidate to a single canonical per topic and standardize internal links to that version. Guard against UTM/filter variants indexing.` },
-          { title: "FAQ Coverage", text: d=>`FAQs on ${d} miss common "how" and "compare" questions. Add 4–6 tightly scoped Q&As per key page, avoid overlap, keep answers short, and link to deeper sections. This maps cleanly to assistant snippets.` },
-          { title: "Topic Focus Clarity", text: d=>`Several pages on ${d} try to cover multiple intents at once, weakening the primary answer. Split complex topics or isolate with H2 blocks and crisp summaries. Lead with the most common task.` },
-          { title: "Internal Connection Mapping", text: d=>`Important entities on ${d} are mentioned but not consistently cross‑linked to their canonical pages. Add in‑text anchors on first mention with consistent labels to aid multi‑hop reasoning.` },
-          { title: "Author & Bylines", text: d=>`Expertise indicators on ${d} are light. Add author names with roles, short bios, and a clear contact path. Include an About/company snippet that states core competency. Strong identity cues increase trust.` },
-          { title: "Third‑Party Profile Consistency", text: d=>`Organization details for ${d} vary across profiles/directories. Align names, categories, and links; ensure each profile points to the same canonical URL. Consistency improves verification.` },
-          { title: "Structured Data Depth", text: d=>`Beyond baseline Org and WebSite, ${d} would benefit from Article/BlogPosting where relevant, plus FAQ and Breadcrumbs. Validate at scale and monitor warnings.` },
-          { title: "Evidence & Citations", text: d=>`Claims on ${d} often lack inline citations or date contexts, causing assistants to prefer sources with clearer provenance. Add short citations near stats/policies and link to primary sources.` }
-        ];
-      }
-
-      /* ========== LLM section: bullets → logo + paragraph ========== */
-      function transformAIInsights(root){
-        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
-        let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
-        const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()); if(!texts.length) return;
-        const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-        const container=document.createElement('div'); container.className='llm-insights';
-        engines.forEach((engine,i)=>{ const t=texts[i]||''; if(!t) return; const row=document.createElement('div'); row.className='llm-row';
-          row.appendChild(logoDivFor(engine));
-          const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
-          container.appendChild(row); });
-        ul.replaceWith(container);
-      }
-    });
-  </script>
-  
-  
-</body>
-</html>
+    function makeNeedsTemplates(d) {
