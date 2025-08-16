@@ -116,24 +116,54 @@
   <!-- (Optional) Methodology modal could be included here if you use it on FR as well -->
 
   <script>
-    // Logos from /img only
-    const LOGO_SOURCES = {
-      ChatGPT: ['/img/chatgpt-logo.png'],
-      Claude: ['/img/claude-logo.png'],
-      Gemini: ['/img/gemini-logo.png'],
-      Copilot: ['/img/copilot-logo.png'],
-      Perplexity: ['/img/perplexity-logo.png']
-    };
-    function logoDivFor(engine){
-      const wrap=document.createElement('div'); wrap.className='llm-logo';
-      const src=(LOGO_SOURCES[engine]||[])[0];
-      if(!src){ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; return wrap; }
-      const img=document.createElement('img'); img.alt=`${engine} logo`; img.src=src;
-      img.onerror=()=>{ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; };
-      img.onload =()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
-      wrap.appendChild(img); return wrap;
-    }
+      <!-- LLM logos (strictly /img PNGs; no SVG/icon set) -->
+        // Map each engine to its logo in /img
+        const LOGO_SOURCES = {
+          ChatGPT: '/img/chatgpt-logo.png',
+          Claude: '/img/claude-logo.png',
+          Gemini: '/img/gemini-logo.png',
+          Copilot: '/img/copilot-logo.png',
+          Perplexity: '/img/perplexity-logo.png'
+        };
 
+        /**
+         * Create a logo node for an engine.
+         * 1) Try '/img/...' first
+         * 2) If that 404s, try 'img/...'
+         * 3) If still missing, show a text pill (engine name)
+         */
+        function logoDivFor(engine) {
+          const div = document.createElement('div');
+          div.className = 'llm-logo';
+
+          const src = LOGO_SOURCES[engine];
+          if (!src) {
+            div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+            return div;
+          }
+
+          const candidates = [src, src.replace(/^\/+/, '')]; // '/img/x.png' -> 'img/x.png'
+          const img = document.createElement('img');
+          img.alt = `${engine} logo`;
+
+          let i = 0;
+          const tryNext = () => {
+            if (i < candidates.length) {
+              img.src = candidates[i++];
+            } else {
+              // Final fallback: text pill with engine name
+              div.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+            }
+          };
+
+          img.onload = () => { div.innerHTML = ''; div.appendChild(img); };
+          img.onerror = tryNext;
+
+          // kick off
+          tryNext();
+          return div;
+        }
+      
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
