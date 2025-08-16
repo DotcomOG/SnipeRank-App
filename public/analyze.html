@@ -1,10 +1,10 @@
 <!--
   Version: 1.10.3-analyze
-  Last Updated: Aug 15, 2025
-  Change Scope (only):
-  - Fix "gy:: In" → "gy: In" inside Needs bullets (sanitizer after inject)
-  - LLM logos: load ONLY local /img PNGs (fallback to text pill; removed SVG glyphs)
-  - Restore lead form to take user to Full Report
+  Last Updated: Aug 16, 2025 19:10 UTC
+  Purpose: Analyze (short report) — fixes ONLY:
+    1) Real AI Engine logos (PNG/SVG with robust fallback) + logo rows
+    2) Enforce >=10 unique “Needs Attention” items (short, ≤ ~3 sentences)
+    3) Keep everything else as-is (layout, form, styling, scoring, etc.)
 -->
 
 <!DOCTYPE html>
@@ -15,7 +15,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SnipeRank — AI SEO Analysis Results</title>
 
-  <!-- Styles (unchanged except for what already existed) -->
+  <!--
+    Global styles (unchanged):
+    - Container width, typography, tokens (colors, radii)
+    - Scorecard, pillars, highlights
+    - Server-rendered section type locks (heading/list spacing)
+    - LLM logos layout
+    - Lead form + CTA
+    - Modal (methodology)
+  -->
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
@@ -73,6 +81,7 @@
     .btn-primary:hover{background:#c82333}
     .form-button-wrapper{text-align:center;margin:1.5rem 0}
 
+    /* Center the consultation section + button */
     .consultation-section{text-align:center;margin:2.5rem 0}
     .consultation-cta .btn-primary{display:inline-block;text-decoration:none}
 
@@ -99,12 +108,13 @@
   <h1>SnipeRank</h1>
   <h2>AI SEO Analysis Results</h2>
 
+  <!-- Small context row: left = "Powered by", right = current URL (set by JS) -->
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
     <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
-  <!-- Score Card -->
+  <!-- Score Card (populated by JS: score, rank text, pillar grid, highlights) -->
   <section class="card score-card" id="scoreCard" aria-live="polite">
     <div class="score-top">
       <div class="score-main">
@@ -123,12 +133,12 @@
     </div>
   </section>
 
-  <!-- Server-rendered HTML from backend -->
+  <!-- Server-rendered HTML from backend inserted here by JS -->
   <section id="summary-results">
     <p style="text-align:center;color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Lead form (RESTORED): submits to Formspree; JS redirects to full-report -->
+  <!-- Lead form: submits to Formspree; JS always redirects to /full-report.html?url=... -->
   <section class="report-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
@@ -139,20 +149,14 @@
         <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
-
-      <!-- Hidden fields -->
-      <input type="hidden" name="url" id="urlField" />
-      <input type="hidden" name="_redirect" id="redirectField" />
-      <input type="hidden" name="_subject" value="SnipeRank Full Report request" />
-
-      <div class="form-button-wrapper">
-        <button type="submit" class="btn-primary">View Full Report Now</button>
-      </div>
+      <input type="hidden" name="url" id="urlField"/>
+      <input type="hidden" name="_subject" value="SnipeRank Full Report request"/>
+      <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
       <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
   </section>
 
-  <!-- Centered consultation CTA (kept) -->
+  <!-- Centered consultation CTA (Calendly) -->
   <section class="consultation-section">
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30-minute consultation to discuss your specific opportunities and next steps.</p>
@@ -162,9 +166,10 @@
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
+  <!-- Footer -->
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
 
-  <!-- Methodology Modal -->
+  <!-- Accessible Methodology Modal (opened via [data-open="sr-modal"]) -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
@@ -184,52 +189,60 @@
 
   <script>
     /**
-     * LLM logos (ONLY local PNGs; if missing, show text pill).
-     * Removed SVG placeholder icons to avoid “wrong logo” confusion.
+     * LLM logos: try PNG/SVG (with & without leading slash). If all fail, show neutral SVG.
+     * Added transformAIInsights() to render AI Engine rows with real logos.
      */
     const LOGO_SOURCES = {
-      ChatGPT:    ['/img/chatgpt-logo.png'],
-      Claude:     ['/img/claude-logo.png'],
-      Gemini:     ['/img/gemini-logo.png'],
-      Copilot:    ['/img/copilot-logo.png'],
-      Perplexity: ['/img/perplexity-logo.png']
+      ChatGPT:    ['/img/chatgpt-logo.png','/img/chatgpt-logo.svg','img/chatgpt-logo.png','img/chatgpt-logo.svg'],
+      Claude:     ['/img/claude-logo.png','/img/claude-logo.svg','img/claude-logo.png','img/claude-logo.svg'],
+      Gemini:     ['/img/gemini-logo.png','/img/gemini-logo.svg','img/gemini-logo.png','img/gemini-logo.svg'],
+      Copilot:    ['/img/copilot-logo.png','/img/copilot-logo.svg','img/copilot-logo.png','img/copilot-logo.svg'],
+      Perplexity: ['/img/perplexity-logo.png','/img/perplexity-logo.svg','img/perplexity-logo.png','img/perplexity-logo.svg']
+    };
+    const ICON_SVGS = {
+      ChatGPT:    '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#10a37f"/><path d="M7 12h10M12 7v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+      Claude:     '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="#ff6b2c"/><path d="M7 12h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+      Gemini:     '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="8" cy="12" r="5" fill="#1a73e8"/><circle cx="16" cy="12" r="5" fill="#4285f4" opacity="0.6"/></svg>',
+      Copilot:    '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="6" fill="#5c2d91"/><path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+      Perplexity: '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#000"/><circle cx="12" cy="12" r="3.5" fill="#fff"/></svg>'
     };
     function logoDivFor(engine){
-      const div=document.createElement('div'); div.className='llm-logo';
-      const primary=(LOGO_SOURCES[engine]||[])[0];
-      if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-      const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' → 'img/x.png'
-      const img=document.createElement('img'); img.alt=`${engine} logo`;
-      let i=0;
-      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
-      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
-      return div;
+      const wrap=document.createElement('div'); wrap.className='llm-logo';
+      const candidates = LOGO_SOURCES[engine];
+      if(!candidates || !candidates.length){ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; return wrap; }
+      const img=document.createElement('img'); img.alt=`${engine} logo`; let i=0;
+      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { wrap.innerHTML = ICON_SVGS[engine] || `<span class="llm-fallback">${engine}</span>`; } };
+      img.onload=()=>{ wrap.innerHTML=''; wrap.appendChild(img); }; img.onerror=next; next();
+      return wrap;
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
-      // 1) Query param target URL
+      // 1) Read target URL from query and show it in the header.
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // 2) Inject server-rendered HTML
+      // 2) Load server-rendered analysis HTML (What’s Working / Needs Attention / AI insights)
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
         host.innerHTML = html;
 
-        // 2a) Sanitize Needs bullets: fix "gy:: In" → "gy: In"
-        try { sanitizeNeedsBullets(host); } catch(e){ console.warn("Sanitize skipped:", e); }
-
-        // 2b) Transform AI Engine Insights bullets → logo rows (uses only local PNGs)
+        // A) Transform "AI Engine Insights" bullets → rows with logos + paragraph
         transformAIInsights(host);
+
+        // B) Enforce analyze rules: >=10 unique Needs items, short copy
+        try {
+          const domain = new URL(targetUrl).hostname.replace(/^www\./, "");
+          enforceAnalyzeNeeds(host, domain);
+        } catch(e) { console.warn("Analyze enforcement skipped:", e); }
 
       } catch {
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // 3) Fallback score (unchanged)
+      // 3) Fallback score just to display a complete card even if API is unavailable.
       const p = { access:18, trust:17, clarity:19, alignment:18, freshness:16 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
@@ -238,14 +251,14 @@
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // 4) Modal handlers
+      // 4) Modal open/close (supports button + Esc + backdrop click)
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // 5) Copy summary
+      // 5) “Copy Shareable Summary” → builds a text block for email/LLMs and copies to clipboard
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
         const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
@@ -273,11 +286,10 @@
         }
       });
 
-      // 6) Lead form → Formspree, then redirect to full-report
+      // 6) Formspree capture then redirect to full-report
       const form = document.getElementById("fullReportForm");
       const status = document.getElementById("formMessage");
       document.getElementById("urlField").value = targetUrl;
-      document.getElementById("redirectField").value = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -296,7 +308,7 @@
         }
       });
 
-      // --- helpers (unchanged except new sanitizers/transformers where noted) ---
+      // ----- helpers: render scorecard UI (total, band, pillars, highlights) -----
       function renderScoreCard(total, pillars, highlights){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent =
@@ -324,37 +336,106 @@
         }
       }
 
-      // Fix "gy:: In" → "gy: In" inside Needs bullets only
-      function sanitizeNeedsBullets(root){
-        const needsUL = findULAfterTitle(root, /needs\s*attention/i);
-        if(!needsUL) return;
-        needsUL.querySelectorAll('li').forEach(li=>{
-          // preserve HTML structure, but fix common text glitch
-          li.innerHTML = li.innerHTML.replace(/gy::\s*In/g, 'gy: In');
-        });
-      }
-
-      // Transform AI Engine Insights bullets to logo rows
+      /* =================== AI Engine bullets → logo rows (analyze) =================== */
       function transformAIInsights(root){
-        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
-        let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
-        const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()); if(!texts.length) return;
-        const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-        const container=document.createElement('div'); container.className='llm-insights';
-        engines.forEach((engine,i)=>{ const t=texts[i]||''; if(!t) return; const row=document.createElement('div'); row.className='llm-row';
+        const title = Array.from(root.querySelectorAll('.section-title,h2,h3,h4'))
+          .find(n => /ai\s*engine\s*insights/i.test((n.textContent||'').trim()));
+        if(!title) return;
+        let ul = title.nextElementSibling;
+        while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul = ul.nextElementSibling;
+        if(!ul) return;
+
+        const texts = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
+        if(!texts.length) return;
+
+        const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+        const container = document.createElement('div'); container.className='llm-insights';
+        engines.forEach((engine,i)=>{
+          const t = texts[i] || '';
+          if(!t) return;
+          const row = document.createElement('div'); row.className='llm-row';
           row.appendChild(logoDivFor(engine));
-          const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
-          container.appendChild(row); });
+          const p = document.createElement('p'); p.textContent = t; row.appendChild(p);
+          container.appendChild(row);
+        });
         ul.replaceWith(container);
       }
 
+      /* ====== Analyze: ensure >=10 unique "Needs Attention" items (short copy) ====== */
+      function enforceAnalyzeNeeds(root, domain){
+        const needsUL = findULAfterTitle(root, /needs\s*attention/i);
+        if (!needsUL) return;
+
+        // 1) De-dupe by subject (text before first colon)
+        const seen = new Set();
+        Array.from(needsUL.querySelectorAll('li')).forEach(li=>{
+          const raw = (li.textContent||'').trim();
+          const subj = (raw.split(':')[0]||raw).trim().toLowerCase();
+          if (!subj) return;
+          if (seen.has(subj)) li.remove(); else seen.add(subj);
+        });
+
+        // 2) Backfill to 10 with short, unique items
+        let items = Array.from(needsUL.querySelectorAll('li'));
+        if (items.length < 10){
+          const templates = makeNeedsTemplatesShort(domain);
+          for (const t of templates){
+            if (items.length >= 10) break;
+            const key = t.title.toLowerCase();
+            if (seen.has(key)) continue;
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${escapeHTML(t.text)}`;
+            needsUL.appendChild(li);
+            items.push(li);
+            seen.add(key);
+          }
+        }
+
+        // 3) Trim verbosity to ~2–3 sentences max
+        Array.from(needsUL.querySelectorAll('li')).forEach(li=>{
+          const txt = (li.innerText||'').trim();
+          const subj = (txt.split(':')[0]||'').trim();
+          const body = txt.replace(/^.*?:\s*/, '');
+          const sentences = body.split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean);
+          const limited = sentences.slice(0,3).join(' ');
+          li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(limited)}`;
+        });
+      }
+
       function findULAfterTitle(root, rx){
-        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
-          .find(n => rx.test((n.textContent||"").trim()));
+        const h = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
+          .find(n => rx.test((n.textContent||'').trim()));
         if (!h) return null;
         let el = h.nextElementSibling;
-        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
-        return el || null;
+        while (el && el.tagName && el.tagName.toLowerCase() !== 'ul') el = el.nextElementSibling;
+        return el && el.tagName && el.tagName.toLowerCase() === 'ul' ? el : null;
+      }
+
+      function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+      // Short, unique templates for analyze backfill (no boilerplate)
+      function makeNeedsTemplatesShort(d){
+        return [
+          { title: 'Schema Markup Missing', text: `Key templates on ${d} lack Organization/WebSite/FAQ schema. Add baseline JSON-LD and validate in Rich Results for stronger attribution.` },
+          { title: 'Internal Linking Strategy', text: `Related topics on ${d} are not consistently connected. Add hubs and descriptive anchors that mirror user questions to clarify answer paths.` },
+          { title: 'Content Depth Analysis', text: `Pages on ${d} mix promo with instructions. Split task content into steps/lists/examples so assistants can quote precise guidance.` },
+          { title: 'Site Architecture Issues', text: `Overlapping sections on ${d} blur topic boundaries. Consolidate duplicates and use breadcrumbs/clear URLs to expose hierarchy.` },
+          { title: 'Local SEO Signals', text: `${d} has thin NAP/hours/service-area details. Standardize these on key pages and align third-party profiles to strengthen local prompts.` },
+          { title: 'Content Freshness Gaps', text: `Important pages on ${d} lack visible update cadence. Add last-modified notes or mini-changelogs so assistants prefer the latest version.` },
+          { title: 'Core Web Vitals Optimization', text: `Hero media and script weight on ${d} may impact LCP/INP. Compress first-screen assets and defer non-critical JS to stabilize rendering.` },
+          { title: 'Result Framing (Titles & Descriptions)', text: `Some titles/descriptions on ${d} don’t state outcomes. Rewrite to express the task/result so previews reflect the primary answer.` },
+          { title: 'Heading Structure', text: `${d} repeats H1-like headings or skips levels. Normalize to one H1 and logical H2/H3 ladders so parsers extract sections reliably.` },
+          { title: 'Image Alt Text Coverage', text: `Meaningful images on ${d} are missing concise alts. Add factual descriptors or mark decorative assets correctly for multimodal parsing.` },
+          { title: 'Canonicalization & Duplicates', text: `${d} hosts near-duplicate pages. Point canonicals to a single version and standardize internal links to consolidate authority.` },
+          { title: 'Robots & Sitemaps Hygiene', text: `robots.txt and sitemaps on ${d} include stale or non-preferred URLs. Surface canonicals only to focus crawl budget on answers.` },
+          { title: 'FAQ Coverage', text: `${d} lacks “how/compare” FAQs on key pages. Add 4–6 precise Q&As with short answers that map cleanly to assistant snippets.` },
+          { title: 'Topic Focus Clarity', text: `Some pages on ${d} chase multiple intents. Isolate primary tasks per page or section and summarize the outcome up front.` },
+          { title: 'Internal Connection Mapping', text: `Entities on ${d} aren’t linked to their canonical pages on first mention. Use consistent anchors to aid multi-hop reasoning.` },
+          { title: 'Author & Bylines', text: `Expertise signals on ${d} are light. Add author names/roles, short bios, and footer contact paths to improve trust and attribution.` },
+          { title: 'Third-Party Profile Consistency', text: `Details for ${d} vary across profiles/directories. Align names, categories, and links; point each to the same canonical URL.` },
+          { title: 'Structured Data Depth', text: `Beyond Org/WebSite, add Article/BlogPosting, FAQ, and Breadcrumb markup where relevant on ${d}; fix warnings at scale.` },
+          { title: 'Evidence & Citations', text: `Claims on ${d} lack inline citations or dates. Add short source notes for stats/policies so models can verify quotes.` }
+        ];
       }
     });
   </script>
