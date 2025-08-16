@@ -144,52 +144,52 @@
   </div>
 
   <script>
-    // ===== LLM logos: strict local PNGs under /img (fallback to img/) =====
-    const LOGO_SOURCES = {
-      ChatGPT: '/img/chatgpt-logo.png',
-      Claude: '/img/claude-logo.png',
-      Gemini: '/img/gemini-logo.png',
-      Copilot: '/img/copilot-logo.png',
-      Perplexity: '/img/perplexity-logo.png',
-    };
-
-    /**
-     * Builds a logo node for a given engine.
-     * - Try absolute /img/<file>.png first, then relative img/<file>.png
-     * - If both fail, show a small text pill with the engine name
-     * NOTE: No SVG/emoji fallbacks — only your local PNGs or a text pill.
-     */
-    function logoDivFor(engine){
-      const wrap = document.createElement('div');
-      wrap.className = 'llm-logo';
-
-      const p = LOGO_SOURCES[engine];
-      if (!p) {
-        wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-        return wrap;
-      }
-
-      const img = document.createElement('img');
-      img.alt = `${engine} logo`;
-
-      // Try absolute '/img/...' then relative 'img/...'
-      const candidates = [p, p.replace(/^\/+/, '')];
-      let i = 0;
-
-      const tryNext = () => {
-        if (i < candidates.length) {
-          img.src = candidates[i++];
-        } else {
-          wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-        }
+      // ===== Fixed LLM logos: using official company logos from reliable CDN sources =====
+      const LOGO_SOURCES = {
+        ChatGPT: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/openai/openai-original.svg',
+        Claude: 'https://claude.ai/images/claude_app_icon.png',
+        Gemini: 'https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg',
+        Copilot: 'https://github.com/microsoft/vscode-codicons/raw/main/src/icons/copilot.svg',
+        Perplexity: 'https://yt3.googleusercontent.com/0gwrSlP6wGQnxGGEm_3jFZ0Q_QX-QlN9Pir-F0qSJGsn5EEWy-Xs0TtdDzOKDGJjMmS1_O9Yow=s176-c-k-c0x00ffffff-no-rj'
       };
 
-      img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
-      img.onerror = tryNext;
+      /**
+       * Builds a logo node for a given engine.
+       * - Try loading the official company logo from reliable sources
+       * - If it fails, show a text pill with the engine name
+       */
+      function logoDivFor(engine){
+        const wrap = document.createElement('div');
+        wrap.className = 'llm-logo';
 
-      tryNext();
-      return wrap;
-    }
+        const logoUrl = LOGO_SOURCES[engine];
+        if (!logoUrl) {
+          wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          return wrap;
+        }
+
+        const img = document.createElement('img');
+        img.alt = `${engine} logo`;
+        img.src = logoUrl;
+
+        img.onload = () => {
+          wrap.innerHTML = '';
+          wrap.appendChild(img);
+        };
+        
+        img.onerror = () => {
+          wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+        };
+
+        // Set a timeout fallback in case the image takes too long
+        setTimeout(() => {
+          if (!img.complete) {
+            wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+          }
+        }, 3000);
+
+        return wrap;
+      }
 
       /* === Transform "AI Engine Insights" bullets → rows with logo + paragraph === */
       function transformAIInsights(root){
