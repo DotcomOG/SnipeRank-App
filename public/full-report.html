@@ -145,7 +145,6 @@
 
   <script>
     /* ===== LLM logos: strict local PNGs under /img (fallback to img/) ===== */
-    <!-- START: LLM logos loader (strict local PNGs) -->
 
       const LOGO_SOURCES = {
         ChatGPT: '/img/chatgpt-logo.png',
@@ -193,7 +192,6 @@
         return wrap;
       }
 
-    <!-- END: LLM logos loader -->
     /* -------- Existing page logic (unchanged) -------- */
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -231,8 +229,7 @@
             if (!text) return;
             const row = document.createElement('div');
             row.className = 'llm-row';
-            // uses your existing strict local /img loader
-            row.appendChild(logoDivFor(engine));
+            row.appendChild(logoDivFor(engine)); // uses strict /img loader you already have
             const p = document.createElement('p');
             p.textContent = text;
             row.appendChild(p);

@@ -170,7 +170,6 @@
   </div>
 
   <script>
-      <!-- START: LLM logos loader (strict local PNGs) -->
     /* ===== LLM logos: strict local PNGs under /img (fallback to img/) ===== */
         const LOGO_SOURCES = {
           ChatGPT: '/img/chatgpt-logo.png',
@@ -218,7 +217,6 @@
           return wrap;
         }
 
-      <!-- END: LLM logos loader -->
     /* -----------------------------------------------------------------------
        Main page logic (existing behavior preserved)
     ----------------------------------------------------------------------- */
@@ -258,8 +256,7 @@
             if (!text) return;
             const row = document.createElement('div');
             row.className = 'llm-row';
-            // uses your existing strict local /img loader
-            row.appendChild(logoDivFor(engine));
+            row.appendChild(logoDivFor(engine)); // uses strict /img loader you already have
             const p = document.createElement('p');
             p.textContent = text;
             row.appendChild(p);
