@@ -170,56 +170,56 @@
   </div>
 
   <script>
-    /* ===== LLM logos: strict local PNGs under /img (fallback to img/) ===== */
-        const LOGO_SOURCES = {
-          ChatGPT: '/img/chatgpt-logo.png',
-          Claude: '/img/claude-logo.png',
-          Gemini: '/img/gemini-logo.png',
-          Copilot: '/img/copilot-logo.png',
-          Perplexity: '/img/perplexity-logo.png',
-        };
+    // ===== LLM logos: strict local PNGs under /img (fallback to img/) =====
+    const LOGO_SOURCES = {
+      ChatGPT: '/img/chatgpt-logo.png',
+      Claude: '/img/claude-logo.png',
+      Gemini: '/img/gemini-logo.png',
+      Copilot: '/img/copilot-logo.png',
+      Perplexity: '/img/perplexity-logo.png',
+    };
 
-        /**
-         * Builds a logo node for a given engine.
-         * - Try absolute /img/<file>.png first, then relative img/<file>.png
-         * - If both fail, show a small text pill with the engine name
-         * NOTE: No SVG/emoji fallbacks — only your local PNGs or a text pill.
-         */
-        function logoDivFor(engine){
-          const wrap = document.createElement('div');
-          wrap.className = 'llm-logo';
+    /**
+     * Builds a logo node for a given engine.
+     * - Try absolute /img/<file>.png first, then relative img/<file>.png
+     * - If both fail, show a small text pill with the engine name
+     * NOTE: No SVG/emoji fallbacks — only your local PNGs or a text pill.
+     */
+    function logoDivFor(engine){
+      const wrap = document.createElement('div');
+      wrap.className = 'llm-logo';
 
-          const p = LOGO_SOURCES[engine];
-          if (!p) {
-            wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-            return wrap;
-          }
+      const p = LOGO_SOURCES[engine];
+      if (!p) {
+        wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+        return wrap;
+      }
 
-          const img = document.createElement('img');
-          img.alt = `${engine} logo`;
+      const img = document.createElement('img');
+      img.alt = `${engine} logo`;
 
-          // Try absolute '/img/...' then relative 'img/...'
-          const candidates = [p, p.replace(/^\/+/, '')];
-          let i = 0;
+      // Try absolute '/img/...' then relative 'img/...'
+      const candidates = [p, p.replace(/^\/+/, '')];
+      let i = 0;
 
-          const tryNext = () => {
-            if (i < candidates.length) {
-              img.src = candidates[i++];
-            } else {
-              wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-            }
-          };
-
-          img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
-          img.onerror = tryNext;
-
-          tryNext();
-          return wrap;
+      const tryNext = () => {
+        if (i < candidates.length) {
+          img.src = candidates[i++];
+        } else {
+          wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
         }
+      };
 
-    /* -----------------------------------------------------------------------
-       Main page logic (existing behavior preserved)
-    ----------------------------------------------------------------------- */
+      img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
+      img.onerror = tryNext;
+
+      tryNext();
+      return wrap;
+    }
+
+    // -----------------------------------------------------------------------
+    // Main page logic (existing behavior preserved)
+    // -----------------------------------------------------------------------
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
@@ -229,45 +229,17 @@
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
-        document.getElementById("summary-results").innerHTML = html;
-        
-        /* === Transform "AI Engine Insights" bullets → rows with logo + paragraph === */
-        function transformAIInsights(root){
-          // Find the heading that says "AI Engine Insights"
-          const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
-            .find(n => /ai\s*engine\s*insights/i.test((n.textContent||'').trim()));
-          if (!title) return;
 
-          // Find the first <ul> after that heading
-          let ul = title.nextElementSibling;
-          while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-          if (!ul) return;
-
-          // Collect bullets in order: ChatGPT, Claude, Gemini, Copilot, Perplexity
-          const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
-          if (!bullets.length) return;
-
-          const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-          const container = document.createElement('div');
-          container.className = 'llm-insights';
-
-          engines.forEach((engine, i) => {
-            const text = bullets[i];
-            if (!text) return;
-            const row = document.createElement('div');
-            row.className = 'llm-row';
-            row.appendChild(logoDivFor(engine)); // uses strict /img loader you already have
-            const p = document.createElement('p');
-            p.textContent = text;
-            row.appendChild(p);
-            container.appendChild(row);
-          });
-
-          // Replace the <ul> with our logo+paragraph layout
-          ul.replaceWith(container);
-        }
-
+        // [context -2 lines shown below for placement check]
+        // document.getElementById("summary-results").innerHTML = html;
         // (existing analyze extras left untouched)
+
+        // >>> CORRECTED: inject, then transform bullets -> logos
+        const host = document.getElementById("summary-results");
+        host.innerHTML = html;
+        transformAIInsights(host);
+        // <<< END insertion
+
       } catch {
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
@@ -356,6 +328,38 @@
           highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
           document.getElementById("highlightsBlock").hidden=false;
         }
+      }
+
+      // === Helper used above (moved here so it exists before we call it) ===
+      function transformAIInsights(root){
+        const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
+          .find(n => /ai\s*engine\s*insights/i.test((n.textContent||'').trim()));
+        if (!title) return;
+
+        let ul = title.nextElementSibling;
+        while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+        if (!ul) return;
+
+        const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
+        if (!bullets.length) return;
+
+        const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+        const container = document.createElement('div');
+        container.className = 'llm-insights';
+
+        engines.forEach((engine, i) => {
+          const text = bullets[i];
+          if (!text) return;
+          const row = document.createElement('div');
+          row.className = 'llm-row';
+          row.appendChild(logoDivFor(engine));
+          const p = document.createElement('p');
+          p.textContent = text;
+          row.appendChild(p);
+          container.appendChild(row);
+        });
+
+        ul.replaceWith(container);
       }
     });
   </script>
