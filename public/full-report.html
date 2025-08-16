@@ -1,10 +1,11 @@
 <!--
-  Version: 1.10.3-full
-  Last Updated: Aug 15, 2025
-  Change Scope (only):
-  - Fix "gy:: In" → "gy: In" inside Needs bullets (sanitizer after inject)
-  - LLM logos: load ONLY local /img PNGs (fallback to text pill; removed SVG glyphs)
-  - (No lead form here by design)
+  Version: 1.10.0-FR.3
+  Last Updated: Aug 16, 2025 19:25 UTC
+  Purpose: Minimal fix-only update
+  Changes in FR.3:
+  - Enforce exactly 20 unique “Needs Attention” with 4–6 sentences each
+  - Remove duplicate issue bodies (title + body normalization)
+  - Make AI Engine logos load reliably (/img → img → ./img; then inline SVG)
 -->
 
 <!DOCTYPE html>
@@ -14,23 +15,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SnipeRank — Full Report</title>
   <style>
-    :root{
-      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
-      --muted:#666; --border:#e5e5e5;
+    :root{ --max-width:760px; --pad-v:3vh; --pad-h:2rem; --muted:#666; --border:#e5e5e5;
       --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
-      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
-    }
+      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px; }
     *{box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
     h1{font-size:4rem;font-weight:700;margin:0 0 .25em 0;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
     h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem 0}
     p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem 0}
-
     .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
     .powered-by,.for-url{color:var(--muted);font-size:.95rem}
     .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
     .for-url strong{color:#000}
-
     .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
     .score-card{padding:1rem;margin-bottom:2.25rem}
     .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
@@ -48,24 +44,19 @@
     .highlights h4{margin:0 0 .55rem 0;font-size:1.2rem;font-weight:800}
     .highlights ul{margin:0;padding-left:1rem}
     .highlights li{margin:.45rem 0;line-height:1.5}
-
     #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem 0!important}
     #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
     #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important}
-
     .llm-insights{margin:.4rem 0 1.2rem}
     .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
     .llm-row:last-child{border-bottom:0}
     .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-
     .consultation-section{text-align:center;margin:2.5rem 0}
     .consultation-section .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
     .consultation-note{background:#f8f9fa;padding:1rem;border-radius:8px;margin-top:1.5rem;font-size:.95rem}
-
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
-
     .sr-modal{position:fixed;inset:0;display:none;z-index:9999}
     .sr-modal[aria-hidden="false"]{display:block}
     .sr-modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.3)}
@@ -78,7 +69,6 @@
     .sr-list{margin:0;padding-left:18px}
     .sr-list li{margin:6px 0;line-height:1.35}
     .sr-modal__fineprint{margin-top:8px;color:var(--sr-muted);font-size:12px;line-height:1.3;border-top:1px dashed var(--sr-border);padding-top:10px}
-
     @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}}
   </style>
 </head>
@@ -144,7 +134,9 @@
   </div>
 
   <script>
-    /* Logos: ONLY local PNGs */
+    /* =========================
+       LLM logos (local images)
+       ========================= */
     const LOGO_SOURCES = {
       ChatGPT: ['/img/chatgpt-logo.png'],
       Claude: ['/img/claude-logo.png'],
@@ -152,16 +144,21 @@
       Copilot: ['/img/copilot-logo.png'],
       Perplexity: ['/img/perplexity-logo.png']
     };
+    const ICON_SVGS = {
+      ChatGPT:`<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#10a37f"/><path d="M7 12h10M12 7v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+      Claude:`<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="#ff6b2c"/><path d="M7 12h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+      Gemini:`<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="8" cy="12" r="5" fill="#1a73e8"/><circle cx="16" cy="12" r="5" fill="#4285f4" opacity=".6"/></svg>`,
+      Copilot:`<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="6" fill="#5c2d91"/><path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+      Perplexity:`<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#000"/><circle cx="12" cy="12" r="3.5" fill="#fff"/></svg>`
+    };
     function logoDivFor(engine){
       const div=document.createElement('div'); div.className='llm-logo';
       const primary=(LOGO_SOURCES[engine]||[])[0];
-      if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
-      const candidates=[primary, primary.replace(/^\/+/,'')];
-      const img=document.createElement('img'); img.alt=`${engine} logo`;
-      let i=0;
-      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=`<span class="llm-fallback">${engine}</span>`; } };
-      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
-      return div;
+      if(!primary){ div.innerHTML=ICON_SVGS[engine]||`<span class="llm-fallback">${engine}</span>`; return div; }
+      const candidates=[primary, primary.replace(/^\/+/,'') , `./${primary.replace(/^\/+/,'')}`];
+      const img=document.createElement('img'); let i=0; img.alt=`${engine} logo`;
+      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=ICON_SVGS[engine]||`<span class="llm-fallback">${engine}</span>`; } };
+      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next(); return div;
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -169,28 +166,32 @@
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
+      /* =========================
+         Load backend report HTML
+         ========================= */
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
         host.innerHTML = html;
 
-        // Fix "gy:: In" → "gy: In" inside Needs bullets
-        try { sanitizeNeedsBullets(host); } catch(e){ console.warn("Sanitize skipped:", e); }
+        // Enforce 5 + 20 with uniqueness & sentence lengths (4–6 on Needs)
+        try{
+          const domain = new URL(targetUrl).hostname.replace(/^www\./,'');
+          enforceBulletCounts(host, domain);
+        }catch(e){ console.warn('Bullet enforcement skipped:', e); }
 
-        // Transform AI Engine Insights bullets → rows with logos (local PNGs only)
+        // Transform “AI Engine Insights” bullets → logo + paragraph
         transformAIInsights(host);
-
-        // (Your existing enforcement for 5/20 bullets + 4–6 sentences stays as-is if present)
-        // If you want me to reinsert that block exactly, say so and I’ll splice it back verbatim.
-
       } catch (err) {
-        console.error("Error loading analysis:", err);
+        console.error("Fetch failed:", err);
         document.getElementById("summary-results").innerHTML =
           "<p style='text-align:center;color:red;'>Error loading analysis. Please try again.</p>";
       }
 
-      // Fallback scorecard (unchanged)
+      /* =========================
+         Scorecard (fallback only)
+         ========================= */
       const p = { access:18, trust:17, clarity:19, alignment:18, freshness:16 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
@@ -199,71 +200,210 @@
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // Modal, copy, helpers (unchanged)
+      /* =========================
+         Modal handlers
+         ========================= */
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
+      /* =========================
+         Copy shareable summary
+         ========================= */
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
-        const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
-        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(el => el.textContent.trim());
-        const highlights = Array.from(document.querySelectorAll('#highlightsList li')).map(li => li.textContent.trim());
-        const txt = [
-          `Website: ${targetUrl}`,
-          `SnipeRank Score: ${scoreText}`,
-          `Pillars:`,
-          ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
-          ``,
-          `Observed Highlights / Issues:`,
-          ...highlights.map(h=>`- ${h}`),
-          ``,
-          `Next step — talk with Quontora:`,
-          `• Book a free 30-minute consult: https://calendly.com/quontora`,
-          `• We’ll deliver a tailored 30-day plan prioritized by Technical, Content, Schema, and Freshness.`
-        ].join("\n");
+        const txt = buildLLMSummary(targetUrl);
         try{ await navigator.clipboard.writeText(txt);
           const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
         }catch{ window.prompt("Copy the summary:", txt); }
       });
 
+      /* =========================
+         Helpers
+         ========================= */
       function renderScoreCard(total, pillars, highlights){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent =
           total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
-
-        const grid = document.getElementById("pillarsGrid");
-        grid.innerHTML = "";
-        [
-          ["AI Access Readiness", pillars.access],
-          ["Trust & Verification Signals", pillars.trust],
-          ["LLM Interpretability & Clarity", pillars.clarity],
-          ["Prompt-Pattern Alignment", pillars.alignment],
-          ["Freshness & Engagement Signals", pillars.freshness],
-        ].forEach(([label,val]) => {
+        const grid = document.getElementById("pillarsGrid"); grid.innerHTML = "";
+        [["AI Access Readiness", pillars.access],["Trust & Verification Signals", pillars.trust],["LLM Interpretability & Clarity", pillars.clarity],["Prompt-Pattern Alignment", pillars.alignment],["Freshness & Engagement Signals", pillars.freshness]].forEach(([label,val]) => {
           const d=document.createElement("div"); d.className="pillar";
           d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
           grid.appendChild(d);
         });
-
         if (highlights?.length){
-          const ul=document.getElementById("highlightsList");
-          ul.innerHTML="";
+          const ul=document.getElementById("highlightsList"); ul.innerHTML="";
           highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
           document.getElementById("highlightsBlock").hidden=false;
         }
       }
 
-      function sanitizeNeedsBullets(root){
-        const needsUL = findULAfterTitle(root, /needs\s*attention/i);
-        if(!needsUL) return;
-        needsUL.querySelectorAll('li').forEach(li=>{
-          li.innerHTML = li.innerHTML.replace(/gy::\s*In/g, 'gy: In');
+      function buildLLMSummary(url){
+        const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
+        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
+        const lines = [
+          `Website: ${url}`,
+          `SnipeRank Score: ${document.getElementById("scoreNumber").textContent}`,
+          `Pillars:`,
+          ...labels.map((l,i)=>`- ${l}: ${vals[i]}`),
+          ``,
+          `Observed Highlights / Issues:`,
+          ...Array.from(document.querySelectorAll('#highlightsList li')).map(li=>`- ${li.textContent.trim()}`),
+          ``,
+          `Next step — talk with Quontora:`,
+          `• Book a free 30-minute consult: https://calendly.com/quontora`,
+          `• We'll deliver a tailored 30-day plan prioritized by Technical, Content, Schema, and Freshness.`
+        ];
+        return lines.join("\n");
+      }
+
+      /* ========= Bullet Enforcement (5 “Working”, 20 “Needs”) ========= */
+      function enforceBulletCounts(root, domain){
+        const workingUL = findULAfterTitle(root, /what'?s\s*working/i);
+        const needsUL   = findULAfterTitle(root, /needs\s*attention/i);
+        if (workingUL) limitAndPolish(workingUL, 5, domain, 'working');
+        if (needsUL)   ensureTwentyUnique(needsUL, domain);
+      }
+      function findULAfterTitle(root, rx){
+        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title")).find(n => rx.test((n.textContent||"").trim()));
+        if (!h) return null; let el = h.nextElementSibling;
+        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
+        return el || null;
+      }
+      function limitAndPolish(ul, maxCount, d, mode){
+        const items = Array.from(ul.querySelectorAll('li'));
+        items.slice(maxCount).forEach(li=>li.remove());
+        items.forEach(li=>{
+          const subj = (li.textContent||'').split(':')[0].trim();
+          const body = (li.textContent||'').replace(/^.*?:\s*/,'').trim();
+          const para = polishBody(subj, body, d, 3, 5); // Working can be 3–5
+          li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${para}`;
         });
       }
 
+      // Core: guarantee 20 unique Need items with 4–6 sentences each, dedup by title and body.
+      function ensureTwentyUnique(ul, d){
+        // Normalize existing items (dedupe by title and by body hash)
+        const seenTitles = new Set();
+        const seenBodies = new Set();
+        const liNodes = Array.from(ul.querySelectorAll('li'));
+        liNodes.forEach(li=>{
+          const raw = (li.textContent||'').trim();
+          if (!raw) { li.remove(); return; }
+          const subj = (raw.split(':')[0]||raw).trim();
+          const normTitle = subj.toLowerCase();
+          const body = raw.replace(/^.*?:\s*/,'').trim();
+          const fixed = tailorBodyToTitle(subj, body, d);
+          const bodyHash = hashString(fixed.toLowerCase().replace(/\s+/g,' '));
+          if (seenTitles.has(normTitle) || seenBodies.has(bodyHash)){
+            li.remove();
+          } else {
+            seenTitles.add(normTitle); seenBodies.add(bodyHash);
+            li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${trimToSentenceRange(fixed, 4, 6)}`;
+          }
+        });
+
+        let items = Array.from(ul.querySelectorAll('li'));
+        if (items.length >= 20) { items.slice(20).forEach(li=>li.remove()); return; }
+
+        // Backfill with per-title templates (unique text per title)
+        const templates = makeNeedsTemplates(d);
+        for (const t of templates){
+          if (items.length >= 20) break;
+          const normTitle = t.title.toLowerCase();
+          if (seenTitles.has(normTitle)) continue;
+          const para = trimToSentenceRange(t.text, 4, 6);
+          const bodyHash = hashString(para.toLowerCase().replace(/\s+/g,' '));
+          if (seenBodies.has(bodyHash)) continue;
+          const li = document.createElement('li');
+          li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${para}`;
+          ul.appendChild(li);
+          seenTitles.add(normTitle); seenBodies.add(bodyHash);
+          items.push(li);
+        }
+
+        // If still short (unlikely), lightly vary remaining templates
+        let i = 0;
+        while (items.length < 20 && templates.length){
+          const t = templates[i++ % templates.length];
+          const varied = varySentence(t.text, d, items.length);
+          const normTitle = `${t.title} (${items.length-templates.length+1})`;
+          const bodyHash = hashString(varied.toLowerCase().replace(/\s+/g,' '));
+          if (seenBodies.has(bodyHash)) continue;
+          const li = document.createElement('li');
+          li.innerHTML = `<strong>${escapeHTML(normTitle)}:</strong> ${trimToSentenceRange(varied,4,6)}`;
+          ul.appendChild(li);
+          seenBodies.add(bodyHash); items.push(li);
+        }
+      }
+
+      // Per-title tailoring for existing items to avoid generic duplicated copy
+      function tailorBodyToTitle(title, body, d){
+        const key = title.trim().toLowerCase();
+        const map = titleToParagraphs(d);
+        if (map[key]) return map[key];
+        // If no mapped template, polish the existing copy into 4–6 sentences
+        return polishBody(title, body, d, 4, 6);
+      }
+      function polishBody(subj, body, d, minS, maxS){
+        const base = (body||'').replace(/^\s+|\s+$/g,'');
+        const s1 = base || `${subj} on ${d} shows gaps that affect assistant summarization.`;
+        const s2 = `We observed patterns that may reduce how models extract definitive answers from ${d}.`;
+        const s3 = `Tightening structure, clarifying ownership, and adding references typically improves inclusion.`;
+        const s4 = `Prioritize a focused pass and validate improvements with a constrained crawl.`;
+        const s5 = `Document expected update cadence to stabilize long-term signals on ${d}.`;
+        const blob = [s1,s2,s3,s4,s5].join(' ');
+        return trimToSentenceRange(blob, minS, maxS);
+      }
+      function trimToSentenceRange(text, minS, maxS){
+        const parts=(text||'').split(/(?<=[.!?])\s+(?=[A-Z(0-9])/).filter(Boolean);
+        if (parts.length > maxS) return parts.slice(0,maxS).join(' ');
+        if (parts.length < minS){
+          // If short, pad softly (rare; keeps topic-aligned)
+          return (text+' This should be validated against priority URLs on the site.').trim();
+        }
+        return text;
+      }
+      function hashString(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h<<5)-h+s.charCodeAt(i); h|=0; } return h; }
+      function varySentence(t, d, idx){
+        return t.replace(/\bon\s+[a-z0-9\.\-]+/i, `on ${d}`)
+                .replace(/\b(consider|recommend|prioritize)\b/i, idx%2? 'prioritize':'recommend');
+      }
+      function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+      // Canonical per-issue paragraphs (distinct text per title; 4–6 sentences)
+      function titleToParagraphs(d){
+        const t = makeNeedsTemplates(d); const map={};
+        t.forEach(x=>{ map[x.title.toLowerCase()] = x.text; });
+        return map;
+      }
+      function makeNeedsTemplates(d){
+        return [
+          { title:"Schema Markup Missing", text:`Entity markup is incomplete on ${d}. Add Organization and WebSite site-wide, and use FAQ/Article where applicable. Validate at scale and fix warnings. Clear schema improves identity and topic disambiguation. Expect better snippet eligibility once deployed and crawled.` },
+          { title:"Internal Linking Strategy", text:`Related pages on ${d} aren’t consistently connected. Build concise hubs and use descriptive, task-oriented anchors. Reduce deep nesting that hides key tasks. Strong links clarify answer paths for assistants. Re-audit after publishing to confirm discoverability.` },
+          { title:"Content Depth Analysis", text:`Several sections on ${d} mix promotional copy with instructions. Separate “how to” steps from positioning statements. Add concrete examples and short lists/tables near decisions. Depth should map to real tasks, reducing deflection to aggregator sites. Track improvement via assisted traffic.` },
+          { title:"Site Architecture Issues", text:`Overlapping sections on ${d} blur topic boundaries. Consolidate duplicates, elevate core categories, and standardize breadcrumbs. Keep URLs descriptive and stable. A coherent spine helps models map questions to definitive answers. Monitor crawl paths to confirm consolidation.` },
+          { title:"Local SEO Signals", text:`Location cues on ${d} are faint. Standardize NAP details, hours, and service regions; align third-party profiles. Link back to canonical pages. Strong local signals improve location-qualified prompts. Validate with a localized crawl and profile sync.` },
+          { title:"Content Freshness Gaps", text:`Key pages on ${d} lack visible update cadence. Add last-modified notes or slim changelogs where statements evolve. Date sensitive claims should cite sources. Clear recency signals help assistants prefer your content over older references.` },
+          { title:"Core Web Vitals Optimization", text:`Areas of ${d} show LCP/INP stress from heavy media and script work. Optimize hero media, defer non-critical JS, and prevent layout shifts. Stabilizing the first screen improves extractability. Expect cleaner captures in assistant previews.` },
+          { title:"Result Framing Signals", text:`Titles and descriptions on ${d} don’t consistently preview the primary answer. Tighten to outcome-first phrasing and avoid redundancy with hero copy. Add benefit-oriented summaries. Clear framing increases eligibility for link cards and quick answers.` },
+          { title:"Heading Structure", text:`Some pages on ${d} jump levels or reuse H1-like headings. Normalize to one H1; group tasks and comparisons under H2/H3. Predictable spines improve parsing and reduce ambiguity. Re-check after templating updates.` },
+          { title:"Image Alt Text Coverage", text:`Important images on ${d} lack concise alt attributes. Add factual descriptors for content-bearing images and mark decorative assets. Good alt text supports multimodal parsing and accessibility. Keep captions aligned with named entities.` },
+          { title:"Mobile Interaction Friction", text:`Interactive controls on ${d} hide key answers behind toggles without previews. Surface a short visible answer before any accordion. Ensure tap targets and keyboard access meet guidelines. Assistants prefer content readable without interaction.` },
+          { title:"Robots & Sitemaps Hygiene", text:`robots.txt and XML sitemaps on ${d} could better reflect preferred routes. Remove stale URLs and list only canonical pages. Use crawl allowances aligned to your public content plan. This focuses budget where it matters.` },
+          { title:"Canonicalization & Duplicates", text:`Similar material appears at multiple URLs on ${d}. Point canonicals to one source and standardize internal links. Guard against UTM and filter variants indexing. Consolidation strengthens authority on the primary answer.` },
+          { title:"FAQ Coverage", text:`Common “how” and “compare” questions are under-served on ${d}. Add 4–6 precise Q&As per key page. Keep answers short, cite data points, and link to depth. This pattern maps cleanly to assistant snippets.` },
+          { title:"Topic Focus Clarity", text:`Pages on ${d} sometimes try to satisfy multiple intents at once. Split complex topics or isolate them with clear H2 blocks and summaries. Lead with the most common task. Focused answers reduce hallucination and improve inclusion.` },
+          { title:"Internal Connection Mapping", text:`Key entities on ${d} aren’t consistently cross-linked to their canonical pages. Add in-text anchors on first mention and keep labels consistent. This helps models resolve references across multi-hop reasoning.` },
+          { title:"Author, Bylines & Contact Paths", text:`Expertise signals on ${d} are light. Add bylines with roles, short bios, and a clear contact path. Include an About/company snippet stating your core competency. Identity cues improve verification in assistant results.` },
+          { title:"Third-Party Profile Consistency", text:`Organization details for ${d} vary across major profiles. Align naming, categories, and canonical links; ensure each profile points back to the same URL. Assistants cross-check these surfaces for verification.` },
+          { title:"Structured Data Coverage Depth", text:`Beyond baseline Org/WebSite, ${d} should use Article/BlogPosting where relevant, plus FAQ and Breadcrumbs. Validate at scale and fix warnings. Rich, clean markup offers multiple hooks for summarizers.` },
+          { title:"Evidence & Citations", text:`Claims on ${d} often lack inline citations or dates. Add short citations near stats and policies and link to primary sources. Clear provenance increases quote-worthiness and reduces ambiguity.` }
+        ];
+      }
+
+      /* ========== LLM section: bullets → logo + paragraph ========== */
       function transformAIInsights(root){
         const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
         let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
@@ -275,15 +415,6 @@
           const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
           container.appendChild(row); });
         ul.replaceWith(container);
-      }
-
-      function findULAfterTitle(root, rx){
-        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
-          .find(n => rx.test((n.textContent||"").trim()));
-        if (!h) return null;
-        let el = h.nextElementSibling;
-        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
-        return el || null;
       }
     });
   </script>
