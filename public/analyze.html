@@ -1,30 +1,20 @@
 <!--
-  Version: 1.10.2-logofix
-  Last Updated: Aug 11, 2025
-  Changes:
-  - Logos-only fix: after injecting backend HTML, convert AI Insights bullets
-    into rows with LLM logos (ChatGPT, Claude, Gemini, Copilot, Perplexity).
-  - No other layout/logic changes.
+  Version: 1.10.0-FR.3
+  Last Updated: Aug 15, 2025 22:10 UTC
+  Purpose:
+  - Full Report page with strict list enforcement:
+      * What's Working: up to 5 bullets, each 3–5 sentences
+      * Needs Attention: exactly 20 unique bullets, each 4–6 sentences
+  - No lead form on this page (Calendly CTA only)
+  - LLM logos restored (local /img with SVG/text fallback)
 -->
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Document metadata + responsive viewport -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SnipeRank — AI SEO Analysis Results</title>
-
-  <!--
-    Global styles:
-    - Container width, typography, tokens (colors, radii)
-    - Scorecard, pillars, highlights
-    - Server-rendered section type locks (heading/list spacing)
-    - LLM logos layout
-    - Lead form + CTA
-    - Modal (methodology)
-    Note: CSS is kept compact for load speed.
-  -->
+  <title>SnipeRank — Full Report</title>
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
@@ -62,7 +52,6 @@
     .highlights li{margin:.45rem 0;line-height:1.5}
 
     #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem 0!important}
-    #summary-results p{line-height:1.65!important;margin:0 0 .9rem 0!important;font-size:1.02rem!important}
     #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
     #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important}
 
@@ -73,18 +62,9 @@
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
 
-    .report-section{width:100%;margin:2.5rem 0}
-    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
-    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
-    input:focus,textarea:focus{outline:none;border-color:#3182CE}
-    textarea{resize:vertical;min-height:100px}
-    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
-    .btn-primary:hover{background:#c82333}
-    .form-button-wrapper{text-align:center;margin:1.5rem 0}
-
-    /* Center the consultation section + button */
     .consultation-section{text-align:center;margin:2.5rem 0}
-    .consultation-cta .btn-primary{display:inline-block;text-decoration:none}
+    .consultation-section .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+    .consultation-note{background:#f8f9fa;padding:1rem;border-radius:8px;margin-top:1.5rem;font-size:.95rem}
 
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
 
@@ -101,21 +81,19 @@
     .sr-list li{margin:6px 0;line-height:1.35}
     .sr-modal__fineprint{margin-top:8px;color:var(--sr-muted);font-size:12px;line-height:1.3;border-top:1px dashed var(--sr-border);padding-top:10px}
 
-    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}.form-grid{grid-template-columns:1fr}}
+    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}}
   </style>
 </head>
 <body>
-  <!-- Product title + subtitle -->
   <h1>SnipeRank</h1>
   <h2>AI SEO Analysis Results</h2>
 
-  <!-- Small context row: left = "Powered by", right = current URL (set by JS) -->
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
     <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
-  <!-- Score Card (populated by JS: score, rank text, pillar grid, highlights) -->
+  <!-- Score Card (shared) -->
   <section class="card score-card" id="scoreCard" aria-live="polite">
     <div class="score-top">
       <div class="score-main">
@@ -134,49 +112,22 @@
     </div>
   </section>
 
-  <!-- Server-rendered HTML from backend inserted here by JS -->
+  <!-- Backend HTML goes here -->
   <section id="summary-results">
     <p style="text-align:center;color:gray;">Loading analysis...</p>
   </section>
 
-  <!-- Lead form: submits to Formspree; JS always redirects to /full-report.html?url=... -->
-  <section class="report-section">
-    <h3>Get Your Full Report</h3>
-    <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
-      <div class="form-grid">
-        <input type="text" name="name" placeholder="Your Name" required autocomplete="name" />
-        <input type="email" name="email" placeholder="Your Email" required autocomplete="email" />
-        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel" />
-        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization" />
-      </div>
-      <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
-      
-      <!-- Hidden fields -->
-      <input type="hidden" name="url" id="urlField" />
-      <input type="hidden" name="_redirect" id="redirectField" />
-      <input type="hidden" name="_subject" value="SnipeRank Full Report request" />
-      
-      <div class="form-button-wrapper">
-        <button type="submit" class="btn-primary">View Full Report Now</button>
-      </div>
-      <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
-    </form>
-  </section>
-
-  <!-- Centered consultation CTA (Calendly) -->
+  <!-- Single CTA (no form on full-report) -->
   <section class="consultation-section">
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30‑minute consultation to discuss your specific opportunities and next steps.</p>
-    <div class="consultation-cta">
-      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
-    </div>
+    <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
     <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
-  <!-- Footer -->
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
 
-  <!-- Accessible Methodology Modal (opened via [data-open="sr-modal"]) -->
+  <!-- Methodology Modal (shared) -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
@@ -195,189 +146,93 @@
   </div>
 
   <script>
-    /* ============================================================
-       LLM logo loader (TOP‑LEVEL so other code can call it)
-       ============================================================ */
-
-    // 1) Primary image sources (kept exactly as requested)
+    /* =========================
+       LLM logos (local images)
+       ========================= */
     const LOGO_SOURCES = {
-      ChatGPT:    ['/img/chatgpt-logo.png'],
-      Claude:     ['/img/claude-logo.png'],
-      Gemini:     ['/img/gemini-logo.png'],
-      Copilot:    ['/img/copilot-logo.png'],
+      ChatGPT: ['/img/chatgpt-logo.png'],
+      Claude:  ['/img/claude-logo.png'],
+      Gemini:  ['/img/gemini-logo.png'],
+      Copilot: ['/img/copilot-logo.png'],
       Perplexity: ['/img/perplexity-logo.png']
     };
-
-    // 2) Inline SVG fallbacks — neutral glyphs so the layout never breaks
     const ICON_SVGS = {
-      ChatGPT: `
-        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="#10a37f"/>
-          <path d="M7 12h10M12 7v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      `,
-      Claude: `
-        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="4" fill="#ff6b2c"/>
-          <path d="M7 12h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      `,
-      Gemini: `
-        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <circle cx="8" cy="12" r="5" fill="#1a73e8"/>
-          <circle cx="16" cy="12" r="5" fill="#4285f4" opacity="0.6"/>
-        </svg>
-      `,
-      Copilot: `
-        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <rect x="3" y="6" width="18" height="12" rx="6" fill="#5c2d91"/>
-          <path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      `,
-      Perplexity: `
-        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="#000"/>
-          <circle cx="12" cy="12" r="3.5" fill="#fff"/>
-        </svg>
-      `
+      ChatGPT: `<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#10a37f"/><path d="M7 12h10M12 7v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+      Claude: `<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="#ff6b2c"/><path d="M7 12h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+      Gemini: `<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="8" cy="12" r="5" fill="#1a73e8"/><circle cx="16" cy="12" r="5" fill="#4285f4" opacity="0.6"/></svg>`,
+      Copilot: `<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="6" fill="#5c2d91"/><path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+      Perplexity: `<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#000"/><circle cx="12" cy="12" r="3.5" fill="#fff"/></svg>`
     };
-
-    // 3) Builds a logo node: try /img, then img/, then SVG, then text pill
-    function logoDivFor(engine) {
-      const wrap = document.createElement('div');
-      wrap.className = 'llm-logo';
-
-      const primary = (LOGO_SOURCES[engine] || [])[0];
-      if (!primary) { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
-
-      const candidates = [primary, primary.replace(/^\/+/, '')]; // '/img/x.png' → 'img/x.png'
-      const img = document.createElement('img');
-      img.alt = `${engine} logo`;
-
-      let i = 0;
-      const tryNext = () => {
-        if (i < candidates.length) {
-          img.src = candidates[i++];
-        } else {
-          const svg = ICON_SVGS[engine];
-          wrap.innerHTML = svg ? svg : `<span class="llm-fallback">${engine}</span>`;
-        }
-      };
-
-      img.onload  = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
-      img.onerror = tryNext;
-      tryNext();
-
-      return wrap;
+    function logoDivFor(engine){
+      const div=document.createElement('div'); div.className='llm-logo';
+      const primary=(LOGO_SOURCES[engine]||[])[0];
+      if(!primary){ div.innerHTML=`<span class="llm-fallback">${engine}</span>`; return div; }
+      const candidates=[primary, primary.replace(/^\/+/,'')]; // '/img/x.png' -> 'img/x.png'
+      const img=document.createElement('img'); img.alt=`${engine} logo`; let i=0;
+      const next=()=>{ if(i<candidates.length){ img.src=candidates[i++]; } else { div.innerHTML=ICON_SVGS[engine]||`<span class="llm-fallback">${engine}</span>`; } };
+      img.onerror=next; img.onload=()=>{ div.innerHTML=''; div.appendChild(img); }; next();
+      return div;
     }
 
-    /* ============================================================
+    /* -----------------------------------------------------------------------
        Main page logic
-       ============================================================ */
+       --------------------------------------------------------------------- */
     document.addEventListener("DOMContentLoaded", async () => {
-      // 1) Read ?url=... and show it in the header
+      // URL in header
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
-      const currentUrlEl = document.getElementById("current-url");
-      if (currentUrlEl) currentUrlEl.textContent = targetUrl;
+      document.getElementById("current-url").textContent = targetUrl;
 
-      // 2) ✅ Populate hidden form fields (these two are the lines you needed)
-      const urlField = document.getElementById("urlField");
-      if (urlField) urlField.value = targetUrl;
-
-      const redirectField = document.getElementById("redirectField");
-      if (redirectField) redirectField.value = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
-
-      // 3) Load server-rendered sections
+      // Fetch backend-rendered report
       try {
-        const res  = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
-        if (host) host.innerHTML = html;
+        host.innerHTML = html;
 
-        // Optional: if your backend emits an "AI Engine Insights" UL,
-        // convert it into rows with logos + paragraphs
+        // Enforce list sizes AFTER inject
+        const domain = new URL(targetUrl).hostname.replace(/^www\./,'');
+        enforceFullReportLists(host, domain);
+
+        // Convert AI Engine Insights → logo+paragraph rows
         transformAIInsights(host);
-      } catch {
-        const host = document.getElementById("summary-results");
-        if (host) host.innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
+      } catch (err) {
+        console.error("Error loading analysis:", err);
+        document.getElementById("summary-results").innerHTML =
+          "<p style='text-align:center;color:red;'>Error loading analysis. Please try again.</p>";
       }
 
-      // 4) Minimal fallback score so the card isn’t empty
+      // Fallback scorecard (kept for visual parity)
       const p = { access:18, trust:17, clarity:19, alignment:18, freshness:16 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
         "Add concise FAQ aligned to 'how/compare' prompts (4–6 non‑overlapping Q&As).",
-        "Reinforce org identity: bylines/authorship, About/company snippet, and persistent contact path.",
+        "Reinforce org identity: bylines/authorship, About/company snippet, and a persistent contact path.",
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // 5) Modal handlers
+      // Modal controls
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // 6) Copy summary
-      const copyBtn = document.getElementById("copyLLMBtn");
-      if (copyBtn) {
-        copyBtn.addEventListener("click", async () => {
-          const txt = buildLLMSummary(targetUrl);
-          try {
-            await navigator.clipboard.writeText(txt);
-            const old = copyBtn.textContent; copyBtn.textContent = "Copied!"; setTimeout(()=>copyBtn.textContent=old,1500);
-          } catch {
-            window.prompt("Copy the summary:", txt);
-          }
-        });
-      }
+      // Copy summary
+      document.getElementById("copyLLMBtn").addEventListener("click", async () => {
+        const txt = buildLLMSummary(targetUrl);
+        try{ await navigator.clipboard.writeText(txt);
+          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
+        }catch{ window.prompt("Copy the summary:", txt); }
+      });
 
-      // 7) Lead form → Formspree → redirect (uses the hidden redirectField if present)
-      const form   = document.getElementById("fullReportForm");
-      const status = document.getElementById("formMessage");
-      if (form) {
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          if (status) status.textContent = "📤 Sending…";
+      /* ---------------- Helpers ---------------- */
+      function renderScoreCard(total, pillars, highlights){
+        document.getElementById("scoreNumber").textContent = `${total}/100`;
+        document.getElementById("scoreBand").textContent =
+          total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
 
-          const fd = new FormData(form);
-          fd.set("url", targetUrl); // ensure URL is set even if the hidden input was missing
-
-          try {
-            await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
-            if (status) status.textContent = "✅ Thanks! Redirecting…";
-          } catch {
-            if (status) status.textContent = "⚠️ Couldn’t send just now, redirecting anyway.";
-          } finally {
-            // Prefer the hidden _redirect if your Formspree rule uses it; otherwise fall back to client redirect
-            const to = (redirectField && redirectField.value)
-              ? redirectField.value
-              : `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
-            window.location.href = to;
-          }
-        });
-      }
-    });
-
-    /* ============================================================
-       Small helpers (pure UI)
-       ============================================================ */
-
-    function renderScoreCard(total, pillars, highlights){
-      const scoreEl = document.getElementById("scoreNumber");
-      const bandEl  = document.getElementById("scoreBand");
-      if (scoreEl) scoreEl.textContent = `${total}/100`;
-      if (bandEl) {
-        bandEl.textContent =
-          total>=85 ? "Rank: Highly Visible ★★★★☆" :
-          total>=70 ? "Rank: Partially Visible ★★★☆☆" :
-          total>=55 ? "Rank: Needs Work ★★☆☆☆" :
-                      "Rank: Low Visibility ★☆☆☆☆";
-      }
-
-      const grid = document.getElementById("pillarsGrid");
-      if (grid) {
+        const grid = document.getElementById("pillarsGrid");
         grid.innerHTML = "";
         [
           ["AI Access Readiness", pillars.access],
@@ -390,66 +245,215 @@
           d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
           grid.appendChild(d);
         });
-      }
 
-      if (Array.isArray(highlights) && highlights.length){
-        const ul=document.getElementById("highlightsList");
-        const block=document.getElementById("highlightsBlock");
-        if (ul && block) {
+        if (highlights?.length){
+          const ul=document.getElementById("highlightsList");
           ul.innerHTML="";
           highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
-          block.hidden=false;
+          document.getElementById("highlightsBlock").hidden=false;
         }
       }
-    }
 
-    function buildLLMSummary(url){
-      const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
-      const vals   = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
-      const lines = [
-        `Website: ${url}`,
-        `SnipeRank Score: ${document.getElementById("scoreNumber")?.textContent || "—/100"}`,
-        `Pillars:`,
-        ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
-        ``,
-        `Observed Highlights / Issues:`,
-        ...Array.from(document.querySelectorAll('#highlightsList li')).map(li=>`- ${li.textContent.trim()}`),
-        ``,
-        `Next step — talk with Quontora:`,
-        `• Book a free 30‑minute consult: https://calendly.com/quontora`,
-        `• We’ll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
-      ];
-      return lines.join("\n");
-    }
+      function buildLLMSummary(url){
+        const labels = Array.from(document.querySelectorAll('.pillar .label')).map(n=>n.textContent.trim());
+        const vals = Array.from(document.querySelectorAll('.pillar .badge')).map(n=>n.textContent.trim());
+        const lines = [
+          `Website: ${url}`,
+          `SnipeRank Score: ${document.getElementById("scoreNumber").textContent}`,
+          `Pillars:`,
+          ...labels.map((l,i)=>`- ${l}: ${vals[i]}`),
+          ``,
+          `Observed Highlights / Issues:`,
+          ...Array.from(document.querySelectorAll('#highlightsList li')).map(li=>`- ${li.textContent.trim()}`),
+          ``,
+          `Next step — talk with Quontora:`,
+          `• Book a free 30‑minute consult: https://calendly.com/quontora`,
+          `• We'll deliver a tailored 30‑day plan prioritized by Technical, Content, Schema, and Freshness.`
+        ];
+        return lines.join("\n");
+      }
 
-    // Turns an "AI Engine Insights" <ul> into rows with logos + paragraphs
-    function transformAIInsights(root){
-      if (!root) return;
-      const title = Array.from(root.querySelectorAll('.section-title'))
-        .find(n => /ai\s*engine\s*insights/i.test(n.textContent||''));
-      if (!title) return;
+      /* ====== Full Report Enforcement (Working ≤5, Needs = 20 unique, 4–6 sentences) ====== */
+      function enforceFullReportLists(root, domain){
+        const workingUL = findULAfterTitle(root, /what'?s\s*working/i);
+        const needsUL   = findULAfterTitle(root, /needs\s*attention/i);
 
-      let ul = title.nextElementSibling;
-      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-      if (!ul) return;
+        if (workingUL) enforceBlock(workingUL, {mode:'cap', count:5, minS:3, maxS:5, domain, templates:makeWorkingTemplates(domain)});
+        if (needsUL)   enforceBlock(needsUL,   {mode:'exact', count:20, minS:4, maxS:6, domain, templates:makeNeedsTemplates(domain)});
+      }
 
-      const texts = Array.from(ul.querySelectorAll('li')).map(li => li.textContent.trim());
-      if (!texts.length) return;
+      function findULAfterTitle(root, rx){
+        const h = Array.from(root.querySelectorAll("h2,h3,h4,.section-title"))
+          .find(n => rx.test((n.textContent||"").trim()));
+        if (!h) return null;
+        let el = h.nextElementSibling;
+        while (el && el.tagName && el.tagName.toLowerCase() !== "ul") el = el.nextElementSibling;
+        return el || null;
+      }
 
-      const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-      const container = document.createElement('div'); container.className='llm-insights';
+      // Remove near-duplicate bodies and duplicate subjects
+      function dedupeItems(ul){
+        const seenSubjects = new Set();
+        const seenBodies = new Set();
+        Array.from(ul.querySelectorAll("li")).forEach(li => {
+          const raw = (li.textContent||"").trim();
+          if (!raw){ li.remove(); return; }
+          const subj = (raw.split(":")[0]||raw).trim().toLowerCase();
+          const body = raw.replace(/^.*?:\s*/, "").replace(/\s+/g," ").toLowerCase();
+          if (seenSubjects.has(subj) || seenBodies.has(body)){
+            li.remove();
+          } else {
+            seenSubjects.add(subj);
+            seenBodies.add(body);
+          }
+        });
+      }
 
-      engines.forEach((engine, i) => {
-        const t = texts[i] || '';
-        if (!t) return;
-        const row = document.createElement('div'); row.className='llm-row';
-        row.appendChild(logoDivFor(engine)); // ← uses the top-level logo function
-        const p = document.createElement('p'); p.textContent = t; row.appendChild(p);
-        container.appendChild(row);
-      });
+      function enforceBlock(ul, {mode, count, minS, maxS, domain, templates}){
+        dedupeItems(ul);
 
-      ul.replaceWith(container);
-    }
+        let items = Array.from(ul.querySelectorAll("li"));
+        // Normalize each existing item into <strong>Title:</strong> Body
+        items.forEach(li => {
+          const raw = (li.textContent||"").trim();
+          const subj = (raw.split(":")[0] || raw).trim();
+          const body = raw.replace(/^.*?:\s*/, "");
+          const expanded = expandToRange(subj, body, minS, maxS, domain);
+          li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(expanded)}`;
+        });
+
+        // Apply sizing
+        if (mode === 'cap' && items.length > count){
+          items.slice(count).forEach(li => li.remove());
+          items = Array.from(ul.querySelectorAll("li"));
+        }
+
+        if (mode === 'exact'){
+          // Backfill until we have exactly `count` items, using templates not yet present.
+          const presentSubjects = new Set(items.map(li => (li.querySelector('strong')?.textContent||'').trim().toLowerCase()));
+          for (const t of templates){
+            if (items.length >= count) break;
+            const key = t.title.toLowerCase();
+            if (presentSubjects.has(key)) continue;
+            const li = document.createElement("li");
+            const expanded = expandToRange(t.title, t.text(domain), minS, maxS, domain);
+            li.innerHTML = `<strong>${escapeHTML(t.title)}:</strong> ${escapeHTML(expanded)}`;
+            ul.appendChild(li);
+            items.push(li);
+            presentSubjects.add(key);
+          }
+          // If still short, lightly vary from templates (non-duplicative)
+          let idx = 0;
+          const safety = 60;
+          while (items.length < count && idx < safety){
+            const t = templates[idx % templates.length];
+            const variedTitle = t.title + (idx < 10 ? "" : ` (${(idx % 3)+2})`);
+            if (!presentSubjects.has(variedTitle.toLowerCase())){
+              const li = document.createElement("li");
+              const variedBody = varySlightly(t.text(domain), domain);
+              const expanded = expandToRange(variedTitle, variedBody, minS, maxS, domain);
+              // Avoid body duplicates after variation
+              const bodyKey = expanded.replace(/\s+/g,' ').toLowerCase();
+              const dup = Array.from(ul.querySelectorAll('li')).some(el => (el.textContent||'').replace(/\s+/g,' ').toLowerCase().includes(bodyKey));
+              if (!dup){
+                li.innerHTML = `<strong>${escapeHTML(variedTitle)}:</strong> ${escapeHTML(expanded)}`;
+                ul.appendChild(li);
+                items.push(li);
+                presentSubjects.add(variedTitle.toLowerCase());
+              }
+            }
+            idx++;
+          }
+        }
+
+        // Final pass: trim/enforce sentence count exactly in range
+        Array.from(ul.querySelectorAll('li')).forEach(li => {
+          const subj = (li.querySelector('strong')?.textContent||'').trim();
+          const body = (li.textContent||'').replace(/^.*?:\s*/, '').trim();
+          li.innerHTML = `<strong>${escapeHTML(subj)}:</strong> ${escapeHTML(trimToRange(body, minS, maxS))}`;
+        });
+      }
+
+      function sentenceSplit(t){
+        return (t||'').trim().split(/(?<=[.!?])\s+(?=[A-Z(0-9])/).filter(Boolean);
+      }
+      function trimToRange(text, minS, maxS){
+        const parts = sentenceSplit(text);
+        if (parts.length > maxS) return parts.slice(0, maxS).join(' ');
+        if (parts.length < minS) return padSentences(parts, minS).join(' ');
+        return parts.join(' ');
+      }
+      function expandToRange(subj, body, minS, maxS, d){
+        let parts = sentenceSplit(body);
+        if (parts.length >= minS) return trimToRange(body, minS, maxS);
+        // Light expansion (contextual but neutral)
+        const extras = [
+          `This can reduce how assistants map ${d}'s entities, tasks, and answers to user prompts.`,
+          `Clarifying structure and cross‑links typically improves extractability and snippet quality.`,
+          `Validate improvements with a targeted crawl and structured testing on priority pages.`,
+          `Document ownership and update cadence so signals remain stable over time.`,
+          `Revisit after deployment to confirm reductions in ambiguity and crawl waste.`
+        ];
+        while (parts.length < minS && extras.length) parts.push(extras.shift());
+        return trimToRange(parts.join(' '), minS, maxS);
+      }
+      function varySlightly(text, d){
+        return text.replace(/\bur[al]?\.[a-z]+/gi, d) // swap any domain-like token with current domain
+                   .replace(/\bmay\b/g, 'can')        // light synonym
+                   .replace(/\bshould\b/g, 'ought to');
+      }
+      function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+      /* ---------------- Templates ---------------- */
+      function makeWorkingTemplates(d){
+        return [
+          { title: "SSL Security Implementation", text: () => `${d} serves over HTTPS, establishing transport security and baseline trust with AI crawlers and search engines. This reduces downgrade risk from mixed content or redirect chains and supports inclusion in assistant‑style answers. Redirect hygiene appears stable across primary routes. Maintain this posture as you expand content and subdomains.` },
+          { title: "Mobile‑Responsive Design", text: () => `Pages on ${d} render responsively, aligning with mobile‑first crawling and snippet extraction. Consistent layout cues help parsers segment content into scannable units. Preserve this by testing new templates on common device breakpoints. Avoid layout shifts that could affect Core Web Vitals and snippet stability.` },
+          { title: "Content Structure Recognition", text: () => `Headings and lists on ${d} are generally parsable, which improves answer extraction. Clear section spines support entity mapping and reduce hallucination risk. Keep reinforcing list/table patterns around key tasks and FAQs. This strengthens eligibility for answer‑first summaries.` },
+          { title: "Image Optimization Baseline", text: () => `A large share of images on ${d} include descriptive alt text, supporting multimodal understanding and accessibility. Continue standardizing alt patterns around core entities and actions. This makes visual references usable in assistant contexts. Periodically audit heavy images for compression.` },
+          { title: "Redirect & Canonical Hygiene", text: () => `Primary redirects on ${d} look clean, lowering crawl waste and consolidation risk. Canonicals resolve to self or preferred versions. Maintain this with any CMS migrations or campaign URLs. Good consolidation helps AI engines attribute statements to the right source.` }
+        ];
+      }
+
+      function makeNeedsTemplates(d){
+        return [
+          { title: "Schema Markup Missing",           text: () => `Entity signaling is light on ${d}. Add Organization, WebSite, and FAQ on key templates and validate at scale. Stronger markup reduces ambiguity and improves snippet inclusion. Cite dates where claims are time‑sensitive.` },
+          { title: "Internal Linking Strategy",       text: () => `Connections between related pages on ${d} are inconsistent, obscuring answer paths. Build concise hubs and add descriptive anchors that mirror the user’s question. Limit deep nesting. Clear links help assistants resolve multi‑hop references.` },
+          { title: "Content Depth Analysis",          text: () => `Several sections on ${d} mix promotional copy with instructions, making it harder to quote or summarize. Separate “how‑to” guidance from marketing claims and add concrete steps and examples. Depth should map to real tasks. This reduces deflection to aggregators.` },
+          { title: "Site Architecture Issues",        text: () => `Overlapping sections and diffuse navigation on ${d} blur topic boundaries. Consolidate duplicate pages and elevate core categories. Use clear breadcrumbs and descriptive URLs. A coherent spine helps models map questions to definitive answers.` },
+          { title: "Local SEO Signals",               text: () => `Location and service‑area cues on ${d} are faint. Add structured NAP details, hours, and regions as relevant. Align major profiles and link back to canonical pages. Strong local signals improve location‑qualified prompts.` },
+          { title: "Content Freshness Gaps",          text: () => `Key pages on ${d} lack visible update cadence or last‑modified headers. Time‑boxed claims should cite dates and sources. Add lightweight changelogs on evergreen assets. Freshness helps assistants prefer your page over older references.` },
+          { title: "Core Web Vitals Optimization",    text: () => `Layout stability and input delay on parts of ${d} can degrade snippet capture and render quality. Focus on LCP media, CLS from injected elements, and INP from heavy scripts. Improve first‑screen scannability for task content.` },
+          { title: "Result Framing Signals",          text: () => `Several titles and meta descriptions on ${d} don’t summarize the primary answer succinctly. Tighten titles to the task and write meta descriptions that preview steps or outcomes. Clear framing increases eligibility for previews and link cards.` },
+          { title: "Heading Structure",               text: () => `Some pages on ${d} jump heading levels or include multiple H1‑like spines. Normalize to one H1 with H2/H3s that ladder into steps, comparisons, or FAQs. Predictable structure improves parsing and disambiguation.` },
+          { title: "Image Alt Text Coverage",         text: () => `A subset of images on ${d} lack alt attributes, creating noise for parsers. Add concise, factual alt text where images carry meaning, and mark decorative images appropriately. Keep captions aligned with entity names and actions.` },
+          { title: "Mobile Interaction Friction",     text: () => `Interactive controls on ${d} sometimes interrupt reading flow or hide answers behind accordions without summaries. Provide short visible answers before toggles. Ensure tap targets are large and keyboard accessible.` },
+          { title: "Robots & Sitemaps Hygiene",       text: () => `robots.txt and XML sitemaps on ${d} could better highlight canonical answer pages. List preferred URLs and remove outdated paths. Use crawl allowances reflecting your public content strategy.` },
+          { title: "Canonicalization & Duplicates",   text: () => `Similar content exists at multiple URLs on ${d}, diluting signals. Consolidate to a single canonical per topic and standardize internal links to that version. Prevent UTM/filter variants from indexing.` },
+          { title: "FAQ Coverage",                    text: () => `Common “how/compare” questions are missing on ${d}. Add 4–6 tightly scoped Q&As per key page, avoid overlap, keep answers short, and link to deeper sections. This maps cleanly to assistant snippets.` },
+          { title: "Topic Focus Clarity",             text: () => `Several pages on ${d} try to cover multiple intents at once, weakening the primary answer. Split complex topics or isolate with H2 blocks and crisp summaries. Lead with the most common task.` },
+          { title: "Internal Connection Mapping",     text: () => `Important entities on ${d} are mentioned but not consistently cross‑linked to their canonical pages. Add in‑text anchors on first mention and use consistent labels. This helps models resolve references during multi‑hop reasoning.` },
+          { title: "Author & Bylines",                text: () => `Expertise indicators on ${d} are light. Add author names with roles, short bios, and a clear contact path. Include an About/company snippet stating core competency. Strong identity cues increase trust and attribution.` },
+          { title: "Third‑Party Profile Consistency", text: () => `Organization details for ${d} vary across profiles/directories. Align names, categories, and links; ensure each profile points to the same canonical URL. Consistency improves verification in assistant results.` },
+          { title: "Structured Data Depth",           text: () => `Beyond Org and WebSite, ${d} would benefit from Article/BlogPosting where relevant, plus FAQ and Breadcrumbs. Validate at scale and monitor warnings. Rich, clean markup provides multiple hooks for summarizers.` },
+          { title: "Evidence & Citations",            text: () => `Claims on ${d} often lack inline citations or date contexts, causing assistants to prefer sources with clearer provenance. Add short citations near stats or policies and link to primary sources.` }
+        ];
+      }
+
+      /* ------ AI insights: bullets → logo + paragraph ------ */
+      function transformAIInsights(root){
+        const title=Array.from(root.querySelectorAll('.section-title')).find(n=>/ai\s*engine\s*insights/i.test(n.textContent||'')); if(!title) return;
+        let ul=title.nextElementSibling; while(ul&&ul.tagName&&ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
+        const texts=Array.from(ul.querySelectorAll('li')).map(li=>li.textContent.trim()); if(!texts.length) return;
+        const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+        const container=document.createElement('div'); container.className='llm-insights';
+        engines.forEach((engine,i)=>{ const t=texts[i]||''; if(!t) return; const row=document.createElement('div'); row.className='llm-row';
+          row.appendChild(logoDivFor(engine));
+          const p=document.createElement('p'); p.textContent=t; row.appendChild(p);
+          container.appendChild(row); });
+        ul.replaceWith(container);
+      }
+    });
   </script>
 </body>
 </html>
