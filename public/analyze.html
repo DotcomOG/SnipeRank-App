@@ -232,6 +232,43 @@
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         document.getElementById("summary-results").innerHTML = html;
+        
+        /* === Transform "AI Engine Insights" bullets → rows with logo + paragraph === */
+        function transformAIInsights(root){
+          // Find the heading that says "AI Engine Insights"
+          const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
+            .find(n => /ai\s*engine\s*insights/i.test((n.textContent||'').trim()));
+          if (!title) return;
+
+          // Find the first <ul> after that heading
+          let ul = title.nextElementSibling;
+          while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+          if (!ul) return;
+
+          // Collect bullets in order: ChatGPT, Claude, Gemini, Copilot, Perplexity
+          const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
+          if (!bullets.length) return;
+
+          const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+          const container = document.createElement('div');
+          container.className = 'llm-insights';
+
+          engines.forEach((engine, i) => {
+            const text = bullets[i];
+            if (!text) return;
+            const row = document.createElement('div');
+            row.className = 'llm-row';
+            // uses your existing strict local /img loader
+            row.appendChild(logoDivFor(engine));
+            const p = document.createElement('p');
+            p.textContent = text;
+            row.appendChild(p);
+            container.appendChild(row);
+          });
+
+          // Replace the <ul> with our logo+paragraph layout
+          ul.replaceWith(container);
+        }
 
         // (existing analyze extras left untouched)
       } catch {
