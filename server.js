@@ -350,21 +350,21 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
 
   const qualityScore = calculateQualityScore(pagesData);
   
-  // Determine targets
+  // Determine targets based on report type and score
   let workingTarget, needsTarget;
   if (reportType === 'analyze') {
     workingTarget = 5;
     needsTarget = 10;
-  } else {
+  } else { // full-report
     if (qualityScore >= 80) {
-      workingTarget = 15;
-      needsTarget = 15;
+      workingTarget = Math.max(15, working.length);
+      needsTarget = Math.max(15, needsAttention.length);
     } else if (qualityScore >= 60) {
-      workingTarget = 10;
-      needsTarget = 20;
+      workingTarget = Math.max(10, working.length);
+      needsTarget = Math.max(20, needsAttention.length);
     } else {
-      workingTarget = 5;
-      needsTarget = 25;
+      workingTarget = Math.max(5, working.length);
+      needsTarget = Math.max(25, needsAttention.length);
     }
   }
 
