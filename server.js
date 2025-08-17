@@ -1,6 +1,6 @@
 // server.js — v2.0.1 - 100% DYNAMIC ANALYSIS - SYNTAX CLEAN
 // ZERO hardcoded templates - everything based on actual multi-page crawling
-// Every website gets unique, specific analysis based on real data
+// Every website gets unique, specific analysis based on real data V-2
 
 import express from 'express';
 import cors from 'cors';
