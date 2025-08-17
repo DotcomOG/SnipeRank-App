@@ -1,4 +1,5 @@
-// server.js — v1.9.20
+// server.js — v1.9.21
+// Fixed duplicate descriptions issue - each analysis category now gets unique content
 // Adds /api/score so the scorecard + LLM section use REAL backend data.
 // Safe to drop in. Uses ESM. Works with Node >=22 (Render uses 24.x).
 
@@ -47,6 +48,51 @@ const uniqueByTitle = (arr = []) => {
 
 function expandIssue({ title, description = '' }, host) {
   const src = `${title} ${description}`.toLowerCase();
+  
+  // Create unique descriptions for each issue type
+  if (/content depth/.test(src)) {
+    return {
+      title,
+      description: `Content depth analysis reveals that some topics on ${host} may benefit from expanded coverage. AI systems favor comprehensive resources that answer related questions within a single source. Consider adding more detailed explanations, examples, and supporting information to key pages.`
+    };
+  }
+  
+  if (/site architecture/.test(src)) {
+    return {
+      title,
+      description: `Site architecture review indicates that ${host}'s navigation structure could be optimized for better AI crawling. Clear hierarchies and logical URL patterns help AI systems understand content relationships and importance. Consider improving internal linking and page organization.`
+    };
+  }
+  
+  if (/local seo/.test(src)) {
+    return {
+      title,
+      description: `Local SEO signal analysis shows that ${host} has opportunities to strengthen geographic relevance markers. AI systems use location data to serve relevant results for location-based queries. Adding consistent NAP (Name, Address, Phone) information and local schema markup would improve local visibility.`
+    };
+  }
+  
+  if (/content freshness/.test(src)) {
+    return {
+      title,
+      description: `Content freshness evaluation indicates that ${host} could benefit from more regular updates to demonstrate current expertise. AI systems favor recently updated content for time-sensitive topics. Consider adding publication dates, update timestamps, and refreshing older content with current information.`
+    };
+  }
+  
+  if (/internal linking/.test(src)) {
+    return {
+      title,
+      description: `Internal linking strategy assessment reveals opportunities to better guide AI crawlers through ${host}'s content hierarchy. Strategic internal links help establish content authority and topic relationships. Focus on linking to cornerstone content and using descriptive anchor text.`
+    };
+  }
+  
+  if (/core web vitals/.test(src)) {
+    return {
+      title,
+      description: `Core Web Vitals analysis shows that ${host} has opportunities to improve user experience metrics. AI systems increasingly factor page experience into rankings. Focus on optimizing Largest Contentful Paint (LCP), Cumulative Layout Shift (CLS), and Interaction to Next Paint (INP) scores.`
+    };
+  }
+  
+  // Existing specific patterns
   const label =
     /h1|heading/.test(src) ? 'Topic focus clarity' :
     /link/.test(src) ? 'Internal connection mapping' :
@@ -56,6 +102,7 @@ function expandIssue({ title, description = '' }, host) {
     /(vitals|lcp|cls|inp|speed|core web vitals)/.test(src) ? 'Experience smoothness' :
     /(mobile|responsive)/.test(src) ? 'Contextual layout fit' :
     'Signal coherence';
+    
   const s1 = `${label} on ${host}: signal variance detected across sampled pages.`;
   const s2 = `This may reduce how AI systems map ${host}'s intent, entities, and answer paths against competitive queries.`;
   const s3 = `Indicative only; implementation specifics are deferred to a guided session for ${host}.`;
@@ -79,7 +126,7 @@ function buildEngineInsights(host, isOverride) {
       `Claude favors narrative clarity and ethical sourcing; ${host} benefits when authorship and source intent are explicit.`,
       `Sections that open with context, action, and outcome help triage what to quote or summarize.`,
       `If ${host} mixes promotional copy with how-to steps, the model may downweight for instructional prompts.`,
-      `Consistent “who/what/where” clarifiers reduce ambiguity in multi-hop reasoning.`,
+      `Consistent "who/what/where" clarifiers reduce ambiguity in multi-hop reasoning.`,
       `Expect stable parsing${isOverride ? ' given coherent identity signals' : ''}; sharper task framing lifts eligibility for stepwise answers.`
     ].join(' ') },
     { description: [
@@ -256,7 +303,7 @@ app.get('/report.html', async (req, res) => {
     <ul>${a.working.map(x => li(x.title, x.description)).join('')}</ul>
     <div class="section-title">🚨 Needs Attention</div>
     <ul>${a.needsAttention.map(x => li(x.title, x.description)).join('')}</ul>
-    <div class="section-title">📡 AI Engine Insights</div>
+    <div class="section-title">🤖 AI Engine Insights</div>
     <ul>${a.insights.map(x => `<li>${x.description}</li>`).join('')}</ul>
   `;
   res.setHeader('Content-Type', 'text/html');
@@ -287,11 +334,11 @@ app.get('/api/score', async (req, res) => {
   ];
 
   const logos = {
-    ChatGPT:    "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg",
-    Claude:     "https://upload.wikimedia.org/wikipedia/commons/4/45/Claude_logo.svg",
-    Gemini:     "https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Gemini_logo.svg",
-    Copilot:    "https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_Copilot_logo.svg",
-    Perplexity: "https://upload.wikimedia.org/wikipedia/commons/0/04/Perplexity_AI_logo.svg"
+    ChatGPT:    "/img/chatgpt-logo.png",
+    Claude:     "/img/claude-logo.png",
+    Gemini:     "/img/gemini-logo.png",
+    Copilot:    "/img/copilot-logo.png",
+    Perplexity: "/img/perplexity-logo.png"
   };
   const order = ["ChatGPT","Claude","Gemini","Copilot","Perplexity"];
   const insights = (a.insights || []).map((x, i) => {
