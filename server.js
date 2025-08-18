@@ -1,5 +1,4 @@
-// server.js — v2.2.0 Dynamic-only findings (no static padding), enforced counts/length
-
+// server.js — v2.2.1 Fixed spaces and count issues
 
 import express from 'express';
 import cors from 'cors';
@@ -25,7 +24,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (_req, res) => res.send('SnipeRank Backend v2.2 — Dynamic-only analysis, enforced counts/length'));
+app.get('/', (_req, res) => res.send('SnipeRank Backend v2.2.1 — Fixed spaces and counts'));
 
 // ===== Helpers (kept) =====
 const OVERRIDE = new Set(['yoramezra.com', 'quontora.com']);
@@ -52,25 +51,28 @@ const stdev = (arr) => {
   return Math.round(Math.sqrt(v));
 };
 
-// Enforce minimum sentences per description without static filler: we derive extra
-// sentences by referencing additional dynamic facets of the SAME metric (variance,
-// range, distribution). This keeps it site-specific and non-actionable.
+// FIXED: Keep spaces, just ensure minimum sentence count
 function ensureSentenceCount(descParts, minSentences) {
-  // descParts: array of already-built short, site-derived sentences (strings without trailing spaces)
-  const out = [...descParts.map(s => s.trim().replace(/\s+/g, ''))];
+  const out = [...descParts.map(s => s.trim())]; // KEEP SPACES!
+  
   while (out.length < minSentences) {
-    // If we run short, repeat the least-referenced facet in a different framing (still site stats).
     const last = out[out.length - 1] || 'Signals vary across the sample.';
-    // Light paraphrase to avoid static boilerplate while not adding instructions:
+    // Light paraphrase to avoid repetition
     const paraphrased = last
       .replace(/\bshows\b/gi, 'indicates')
       .replace(/\bappears\b/gi, 'presents')
-      .replace(/\bvar(y|ies)\b/gi, 'fluctuates')
+      .replace(/\bvaries?\b/gi, 'fluctuates')
       .replace(/\bmay\b/gi, 'can')
       .replace(/\bcould\b/gi, 'can');
-    if (paraphrased !== last) out.push(paraphrased);
-    else out.push('Distribution isn’t uniform across the crawled pages.');
+    
+    if (paraphrased !== last && !out.includes(paraphrased)) {
+      out.push(paraphrased);
+    } else {
+      out.push('Distribution varies across the crawled pages.');
+      break;
+    }
   }
+  
   return out.join(' ');
 }
 
@@ -218,12 +220,17 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
   if (!pagesData || pagesData.length === 0) {
     return {
       working: [],
-      needsAttention: [{ title: 'Site Crawl Failed', description: ensureSentenceCount([`The crawl for ${host} did not return analyzable pages.`], reportType === 'analyze' ? 2 : 4) }],
+      needsAttention: [{ title: 'Site Crawl Failed', description: `The crawl for ${host} did not return analyzable pages. This could indicate server issues, access restrictions, or connectivity problems.` }],
       qualityScore: 30
     };
   }
 
   const total = pagesData.length;
+  const isAnalyze = reportType === 'analyze';
+  
+  // FIXED: Use correct targets
+  const workingTarget = isAnalyze ? 5 : 10;
+  const needsTarget = isAnalyze ? 10 : 20;
 
   // Aggregate metrics
   const httpsPages = pagesData.filter(p => p.hasSSL).length;
@@ -234,7 +241,6 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
 
   const wordsArr = pagesData.map(p => p.wordCount);
   const avgWords = avg(wordsArr);
-  const sdWords = stdev(wordsArr);
   const thin = pagesData.filter(p => p.wordCount < 300);
 
   const h1Single = pagesData.filter(p => p.h1Count === 1);
@@ -243,27 +249,16 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
 
   const intLinksArr = pagesData.map(p => p.internalLinkCount);
   const avgInt = avg(intLinksArr);
-  const sdInt = stdev(intLinksArr);
   const weakInt = pagesData.filter(p => p.internalLinkCount < 3);
 
   const schemaPages = pagesData.filter(p => p.hasSchema).length;
 
   const imgAltRatios = pagesData.map(p => (p.imageCount ? Math.round((p.imageAltCount / p.imageCount) * 100) : 100));
   const avgAltPct = avg(imgAltRatios);
-  const lowAltPages = pagesData.filter(p => (p.imageCount > 0 && (p.imageAltCount / p.imageCount) < 0.7));
 
   const crumbs = pagesData.filter(p => p.breadcrumbs).length;
   const navPct = pct(pagesData.filter(p => p.hasNav).length, total);
   const footPct = pct(pagesData.filter(p => p.hasFooter).length, total);
-
-  const contactPhone = pagesData.filter(p => p.contactInfo.phone).length;
-  const contactEmail = pagesData.filter(p => p.contactInfo.email).length;
-  const contactAddr = pagesData.filter(p => p.contactInfo.address).length;
-
-  const socialAvg = avg(pagesData.map(p => p.socialLinkCount));
-  const formsAvg = avg(pagesData.map(p => p.formCount));
-  const buttonsAvg = avg(pagesData.map(p => p.buttonCount));
-  const extLinksAvg = avg(pagesData.map(p => p.externalLinkCount));
 
   // Build candidates (dynamic, site-specific)
   const W = [];
@@ -273,329 +268,192 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
   if (httpsPages === total) {
     W.push({
       title: 'Complete HTTPS Security',
-      description: ensureSentenceCount([
-        `All ${total} sampled pages on ${host} resolved over HTTPS.`,
-        `Security consistency helps previews carry trust without calling attention to transport gaps.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `All ${total} sampled pages on ${host} resolved over HTTPS. Security consistency helps previews carry trust without calling attention to transport gaps.`
     });
   }
   if (pct(titleOK.length, total) >= 95 && longTitles.length === 0 && dupTitleCount === 0) {
     W.push({
       title: 'Title Coverage & Differentiation',
-      description: ensureSentenceCount([
-        `${pct(titleOK.length, total)}% of pages present distinct, scannable titles on ${host}.`,
-        `Uniform titling avoids collisions and keeps previews legible across contexts.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${pct(titleOK.length, total)}% of pages present distinct, scannable titles on ${host}. Uniform titling avoids collisions and keeps previews legible across contexts.`
     });
   }
   if (pct(metaOK.length, total) >= 80) {
     W.push({
       title: 'Meta Description Presence',
-      description: ensureSentenceCount([
-        `${pct(metaOK.length, total)}% of pages expose descriptive previews on ${host}.`,
-        `This steadies how summaries situate the page before deeper reading.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${pct(metaOK.length, total)}% of pages expose descriptive previews on ${host}. This steadies how summaries situate the page before deeper reading.`
     });
   }
   if (schemaPages >= Math.ceil(total * 0.7)) {
     W.push({
       title: 'Structured Data Footprint',
-      description: ensureSentenceCount([
-        `${pct(schemaPages, total)}% of pages declare typed context on ${host}.`,
-        `Typed signals often help third-party readers keep names and roles straight.`
-      ], reportType === 'analyze' ? 2 : 4)
-    });
-  }
-  if (crumbs >= Math.ceil(total * 0.6)) {
-    W.push({
-      title: 'Breadcrumb Context',
-      description: ensureSentenceCount([
-        `${pct(crumbs, total)}% of pages show hierarchical traces on ${host}.`,
-        `This makes section boundaries easier to infer when content is quoted in isolation.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${pct(schemaPages, total)}% of pages declare typed context on ${host}. Typed signals often help third-party readers keep names and roles straight.`
     });
   }
   if (avgInt >= 6 && weakInt.length === 0) {
     W.push({
       title: 'Internal Path Consistency',
-      description: ensureSentenceCount([
-        `Pages on ${host} average ~${avgInt} internal links with few thinly connected outliers.`,
-        `Continuity between related sections tends to hold even when readers enter mid-stream.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `Pages on ${host} average ~${avgInt} internal links with few thinly connected outliers. Continuity between related sections tends to hold even when readers enter mid-stream.`
     });
   }
   if (avgAltPct >= 85) {
     W.push({
       title: 'Image Alt Coverage',
-      description: ensureSentenceCount([
-        `Alt attributes are present for most imagery on ${host} (avg ~${avgAltPct}%).`,
-        `Descriptive text helps multimodal readers track references when visuals are suppressed.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `Alt attributes are present for most imagery on ${host} (avg ~${avgAltPct}%). Descriptive text helps multimodal readers track references when visuals are suppressed.`
+    });
+  }
+  if (avgWords >= 600) {
+    W.push({
+      title: 'Substantial Content Depth',
+      description: `Pages on ${host} average ${avgWords} words, providing substantial context for AI systems. Rich content supports detailed responses and reduces hallucination risk.`
+    });
+  }
+  if (h1Single.length === total) {
+    W.push({
+      title: 'Clear Heading Structure',
+      description: `All pages on ${host} use single H1 headings, creating clear topic hierarchies. This structure helps AI systems identify primary themes accurately.`
+    });
+  }
+  if (navPct >= 90 && footPct >= 90) {
+    W.push({
+      title: 'Consistent Site Architecture',
+      description: `Navigation and footer elements appear consistently across ${host} (${navPct}% nav, ${footPct}% footer). Predictable structure aids content understanding.`
+    });
+  }
+  if (crumbs >= Math.ceil(total * 0.6)) {
+    W.push({
+      title: 'Breadcrumb Navigation',
+      description: `${pct(crumbs, total)}% of pages show hierarchical traces on ${host}. This makes section boundaries easier to infer when content is quoted in isolation.`
     });
   }
 
-  // Needs candidates (distinct facets per metric)
+  // Needs candidates
   if (httpsPages !== total) {
     N.push({
       title: 'HTTPS Gaps',
-      description: ensureSentenceCount([
-        `${httpsPages}/${total} pages used HTTPS on ${host}.`,
-        `Split transport surfaces as hesitation in places where consistency is assumed.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${httpsPages}/${total} pages used HTTPS on ${host}. Mixed security protocols can reduce trust signals and affect AI citation preferences.`
     });
   }
   if (titleOK.length < total) {
     N.push({
       title: 'Missing Title Tags',
-      description: ensureSentenceCount([
-        `${total - titleOK.length} pages published without a <title> on ${host}.`,
-        `Untitled entries flatten the first impression and blur how results are grouped.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${total - titleOK.length} pages published without titles on ${host}. Missing titles reduce topic clarity and search visibility for AI systems.`
     });
   }
   if (longTitles.length > 0) {
     N.push({
       title: 'Overlong Titles',
-      description: ensureSentenceCount([
-        `${longTitles.length} pages exceed common preview widths on ${host}.`,
-        `Overspill trims emphasis where readers glance first.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${longTitles.length} pages exceed optimal title length on ${host}. Lengthy titles may be truncated in AI responses and search results.`
     });
   }
   if (dupTitleCount > 0) {
     N.push({
       title: 'Duplicate Titles',
-      description: ensureSentenceCount([
-        `${dupTitleCount} title collisions were observed across ${host}.`,
-        `Collisions make it unclear which page should carry a query’s center of gravity.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${dupTitleCount} title collisions were observed across ${host}. Duplicate titles confuse topic identification and dilute page authority.`
     });
   }
   if (pct(metaOK.length, total) < 80) {
     N.push({
       title: 'Thin Preview Coverage',
-      description: ensureSentenceCount([
-        `${pct(metaOK.length, total)}% of pages include a meta description on ${host}.`,
-        `Sparse previews leave summarizers to infer intent from surrounding fragments.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${pct(metaOK.length, total)}% of pages include meta descriptions on ${host}. Missing previews force AI systems to generate their own summaries.`
     });
   }
   if (thin.length > 0) {
     N.push({
       title: 'Thin Content Segments',
-      description: ensureSentenceCount([
-        `${thin.length}/${total} pages land under 300 words on ${host}.`,
-        `Short stretches lose connective tissue when quoted outside their template.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${thin.length}/${total} pages contain under 300 words on ${host}. Thin content provides insufficient context for comprehensive AI analysis.`
     });
   }
-  if (avgWords < 600) {
+  if (avgWords < 400) {
     N.push({
       title: 'Shallow Average Coverage',
-      description: ensureSentenceCount([
-        `Average page depth is ~${avgWords} words on ${host}.`,
-        `Brevity keeps the thread light when multiple entities compete for focus.`
-      ], reportType === 'analyze' ? 2 : 4)
-    });
-  }
-  if (sdWords > 450) {
-    N.push({
-      title: 'Content Depth Variance',
-      description: ensureSentenceCount([
-        `Depth varies widely (σ≈${sdWords} words) across ${host}.`,
-        `Irregularity makes sections feel disjointed when stitched into summaries.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `Average page depth is ${avgWords} words on ${host}. Brief content limits AI systems' ability to provide detailed, accurate responses.`
     });
   }
   if (h1None.length > 0) {
     N.push({
-      title: 'Missing H1',
-      description: ensureSentenceCount([
-        `${h1None.length} pages lack a primary heading on ${host}.`,
-        `Without a spine, skimmers don’t get a reliable first anchor.`
-      ], reportType === 'analyze' ? 2 : 4)
+      title: 'Missing H1 Headings',
+      description: `${h1None.length} pages lack primary headings on ${host}. Missing H1s make topic identification difficult for AI content analysis.`
     });
   }
   if (h1Multi.length > 0) {
     N.push({
       title: 'Multiple H1 Anchors',
-      description: ensureSentenceCount([
-        `${h1Multi.length} pages carry more than one H1 on ${host}.`,
-        `Competing anchors blunt where attention is meant to land first.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${h1Multi.length} pages carry multiple H1 headings on ${host}. Multiple H1s create ambiguity about the primary page topic.`
     });
   }
   if (avgInt < 6) {
     N.push({
-      title: 'Weak Internal Linking Average',
-      description: ensureSentenceCount([
-        `Internal links average ~${avgInt} per page on ${host}.`,
-        `Sparse trails make related context feel farther than it is.`
-      ], reportType === 'analyze' ? 2 : 4)
+      title: 'Weak Internal Linking',
+      description: `Internal links average ${avgInt} per page on ${host}. Sparse internal linking reduces content discoverability and topical authority.`
     });
   }
   if (weakInt.length > 0) {
     N.push({
       title: 'Isolated Pages',
-      description: ensureSentenceCount([
-        `${weakInt.length} pages expose fewer than three internal links on ${host}.`,
-        `Isolation interrupts how themes thread from one section to the next.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `${weakInt.length} pages have fewer than 3 internal links on ${host}. Isolated pages are harder for AI systems to contextualize within site themes.`
     });
   }
   if (schemaPages < Math.ceil(total * 0.7)) {
     N.push({
       title: 'Schema Coverage Gaps',
-      description: ensureSentenceCount([
-        `Typed context appears on ${pct(schemaPages, total)}% of pages for ${host}.`,
-        `Sparse typing leaves names and roles to guesswork in secondary views.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `Structured data appears on ${pct(schemaPages, total)}% of pages for ${host}. Limited schema markup reduces AI understanding of content types and relationships.`
     });
   }
-  if (avgAltPct < 85) {
+  if (avgAltPct < 70) {
     N.push({
-      title: 'Alt-Text Coverage',
-      description: ensureSentenceCount([
-        `Alt attributes average ~${avgAltPct}% across imagery on ${host}.`,
-        `Where visuals carry meaning, missing labels break the thread for non-visual reads.`
-      ], reportType === 'analyze' ? 2 : 4)
+      title: 'Image Alt-Text Coverage',
+      description: `Alt attributes average ${avgAltPct}% across imagery on ${host}. Missing alt text limits accessibility and multimodal AI understanding.`
     });
   }
-  if (lowAltPages.length > 0) {
-    N.push({
-      title: 'Low-Label Image Clusters',
-      description: ensureSentenceCount([
-        `${lowAltPages.length} pages show weak labeling relative to image count on ${host}.`,
-        `These pockets make object references harder to follow when excerpted.`
-      ], reportType === 'analyze' ? 2 : 4)
-    });
-  }
-  if (crumbs < Math.ceil(total * 0.6)) {
+  if (crumbs < Math.ceil(total * 0.4)) {
     N.push({
       title: 'Breadcrumb Absence',
-      description: ensureSentenceCount([
-        `Only ${pct(crumbs, total)}% of pages expose breadcrumb context on ${host}.`,
-        `Without visible hierarchy, section borders blur when quotes travel.`
-      ], reportType === 'analyze' ? 2 : 4)
+      description: `Only ${pct(crumbs, total)}% of pages show breadcrumb navigation on ${host}. Missing breadcrumbs make site hierarchy unclear to AI systems.`
     });
   }
   if (navPct < 80 || footPct < 80) {
     N.push({
-      title: 'Template Consistency',
-      description: ensureSentenceCount([
-        `Global elements appear inconsistently on ${host} (nav ~${navPct}%, footer ~${footPct}%).`,
-        `Uneven framing shifts how readers orient between otherwise similar views.`
-      ], reportType === 'analyze' ? 2 : 4)
-    });
-  }
-  if (contactPhone + contactEmail + contactAddr < Math.ceil(total * 0.6)) {
-    N.push({
-      title: 'Contact Footprint Thin',
-      description: ensureSentenceCount([
-        `Direct contact cues surface sparingly across ${host}.`,
-        `Identity signals feel quieter than expected when pages are cited out of context.`
-      ], reportType === 'analyze' ? 2 : 4)
-    });
-  }
-  if (socialAvg === 0 && extLinksAvg > 0) {
-    N.push({
-      title: 'Outbound Emphasis without Profile Echo',
-      description: ensureSentenceCount([
-        `External references average ~${extLinksAvg} per page, while social profile traces are minimal on ${host}.`,
-        `When citations point outward, the brand echo can fade unless origin remains visible.`
-      ], reportType === 'analyze' ? 2 : 4)
-    });
-  }
-  if (formsAvg > 0 && buttonsAvg > 0 && avgWords < 400) {
-    N.push({
-      title: 'Interaction Weight vs Copy',
-      description: ensureSentenceCount([
-        `Interactive elements are common (≈${formsAvg} forms, ≈${buttonsAvg} buttons per page) while average copy is light on ${host}.`,
-        `Action-first layouts compress narrative when sampled mid-task.`
-      ], reportType === 'analyze' ? 2 : 4)
+      title: 'Template Inconsistency',
+      description: `Global elements vary across pages on ${host} (nav ${navPct}%, footer ${footPct}%). Inconsistent structure complicates AI content parsing.`
     });
   }
 
-  // Enforce targets
-  const qualityScore = calculateQualityScore(pagesData);
-  const isAnalyze = reportType === 'analyze';
-  const workingTarget = isAnalyze ? 5 : 7;
-  const needsTarget = isAnalyze ? 10 : (qualityScore >= 80 ? 15 : (qualityScore >= 60 ? 20 : 25));
-  const minSent = isAnalyze ? 2 : 4;
+  // Additional needs items for full reports
+  if (!isAnalyze) {
+    const contactPhone = pagesData.filter(p => p.contactInfo.phone).length;
+    const contactEmail = pagesData.filter(p => p.contactInfo.email).length;
+    const contactAddr = pagesData.filter(p => p.contactInfo.address).length;
+    const socialAvg = avg(pagesData.map(p => p.socialLinkCount));
+    const extLinksAvg = avg(pagesData.map(p => p.externalLinkCount));
+    
+    if (contactPhone + contactEmail + contactAddr < Math.ceil(total * 0.6)) {
+      N.push({
+        title: 'Limited Contact Information',
+        description: `Contact details appear sparingly across ${host}. Clear contact information helps establish authority and trustworthiness for AI citations.`
+      });
+    }
+    if (socialAvg === 0) {
+      N.push({
+        title: 'Missing Social Signals',
+        description: `Social media links are absent from ${host}. Social signals can enhance credibility and provide additional verification pathways.`
+      });
+    }
+    if (extLinksAvg > 8) {
+      N.push({
+        title: 'High External Link Density',
+        description: `External links average ${extLinksAvg} per page on ${host}. Excessive external linking may signal lower content authority to AI systems.`
+      });
+    }
+  }
 
-  // Deduplicate by title and trim/extend from dynamic pool only
+  // Trim to targets and ensure quality
   const Wuniq = uniqueByTitle(W).slice(0, workingTarget);
   const Nuniq = uniqueByTitle(N).slice(0, needsTarget);
 
-  // If short (rare), derive more dynamic angles from the same metrics — NEVER static pads:
-  function addIfNeeded(arr, need, maker) {
-    while (arr.length < need) {
-      const next = maker(arr.length);
-      if (!next) break;
-      if (!arr.find(x => x.title.toLowerCase() === next.title.toLowerCase())) arr.push(next);
-      else break;
-    }
-  }
-
-  addIfNeeded(Wuniq, workingTarget, (i) => {
-    // extra working variants drawn from variance/coverage facets actually measured
-    if (i === 0 && avgWords >= 600) {
-      return {
-        title: 'Narrative Coverage',
-        description: ensureSentenceCount([
-          `Average depth near ~${avgWords} words suggests stories hold together on ${host}.`,
-          `Longer spans keep context attached when quoted briefly elsewhere.`
-        ], minSent)
-      };
-    }
-    if (i === 1 && sdInt < 2 && avgInt >= 5) {
-      return {
-        title: 'Link Density Stability',
-        description: ensureSentenceCount([
-          `Internal link density varies little across pages (σ≈${sdInt}) on ${host}.`,
-          `Predictable trails reduce dead-ends when navigating laterally.`
-        ], minSent)
-      };
-    }
-    return null;
-  });
-
-  addIfNeeded(Nuniq, needsTarget, (i) => {
-    // extra needs variants from measured dispersion/outliers
-    if (i === 0 && sdInt > 4) {
-      return {
-        title: 'Link Density Variance',
-        description: ensureSentenceCount([
-          `Internal linking fluctuates widely across ${host} (σ≈${sdInt}).`,
-          `The jumpiness makes some areas feel disconnected while others are dense.`
-        ], minSent)
-      };
-    }
-    if (i === 1 && buttonsAvg > 8) {
-      return {
-        title: 'Control Clustering',
-        description: ensureSentenceCount([
-          `Interface controls cluster (~${buttonsAvg} per page) on ${host}.`,
-          `Dense control regions can eclipse narrative when skimmed by summarizers.`
-        ], minSent)
-      };
-    }
-    if (i === 2 && extLinksAvg > 6) {
-      return {
-        title: 'External Link Concentration',
-        description: ensureSentenceCount([
-          `Outbound linking averages ~${extLinksAvg} per page on ${host}.`,
-          `Heavy outward emphasis can nudge attention away from the canonical source.`
-        ], minSent)
-      };
-    }
-    return null;
-  });
-
   return {
-    working: Wuniq.slice(0, workingTarget),
-    needsAttention: Nuniq.slice(0, needsTarget),
-    qualityScore
+    working: Wuniq,
+    needsAttention: Nuniq,
+    qualityScore: calculateQualityScore(pagesData)
   };
 }
 
@@ -636,7 +494,7 @@ async function analyzeWebsite(url, reportType = 'analyze') {
     console.error('Analysis failed:', error.message);
     const fallback = {
       working: [],
-      needsAttention: [{ title: 'Analysis Incomplete', description: ensureSentenceCount([`${host} crawl fell short — only partial signals were observable.`], reportType === 'analyze' ? 2 : 4) }],
+      needsAttention: [{ title: 'Analysis Incomplete', description: `${host} crawl fell short — only partial signals were observable. This may indicate server issues or access restrictions.` }],
       qualityScore: 60
     };
     return {
@@ -725,4 +583,4 @@ if (sendLinkHandler) {
   app.post('/api/send-link', sendLinkHandler);
 }
 
-app.listen(PORT, () => console.log(`SnipeRank Backend v2.2 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`SnipeRank Backend v2.2.1 running on port ${PORT}`));
