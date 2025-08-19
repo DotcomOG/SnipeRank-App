@@ -1,4 +1,4 @@
-// server.js — v2.3.0 Dynamic-only findings + banded counts + sentence enforcement
+// server.js — v2.3.1 Dynamic-only findings + banded counts + sentence enforcement (paragraph fix)
 
 import express from 'express';
 import cors from 'cors';
@@ -24,7 +24,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (_req, res) => res.send('SnipeRank Backend v2.3.0 — Dynamic-only findings with banded counts'));
+app.get('/', (_req, res) => res.send('SnipeRank Backend v2.3.1 — Dynamic-only findings with banded counts'));
 
 
 // ===== Helpers =====
@@ -54,7 +54,8 @@ function splitSents(t) {
   return (t || '')
     .replace(/\s+/g, ' ')
     .trim()
-    .split(/(?<=[.!?])\s+(?=[A-Z(0-9])/)
+    // FIXED: split after punctuation and before A–Z / 0–9 / '('
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9(])/)
     .filter(Boolean);
 }
 function addObfuscation(domain, salt = 0) {
@@ -70,11 +71,24 @@ function addObfuscation(domain, salt = 0) {
 }
 function polish(desc, mode, domain, salt = 0) {
   const sents = splitSents(desc);
-  const [MIN, MAX] = (mode === 'analyze') ? [2, 3] : [4, 6];
-  let out = sents.slice(0, Math.max(MIN, Math.min(MAX, sents.length)));
-  while (out.length < MIN) out.push(addObfuscation(domain, salt + out.length));
-  out = out.slice(0, MAX);
-  return out.join(' ');
+  if (mode === 'analyze') {
+    const MIN = 2, MAX = 3;
+    let out = sents.slice(0, Math.max(MIN, Math.min(MAX, sents.length)));
+    while (out.length < MIN) out.push(addObfuscation(domain, salt + out.length));
+    out = out.slice(0, MAX);
+    return out.join(' ');
+  }
+  // full-report → return HTML paragraphs (1–3)
+  const normalized = sents.length ? sents : [addObfuscation(domain, salt)];
+  const targetTotal = Math.max(3, Math.min(9, normalized.length));
+  const chunk = Math.max(3, Math.ceil(targetTotal / 2));
+  const paras = [];
+  for (let i = 0; i < targetTotal; i += chunk) {
+    paras.push(normalized.slice(i, i + chunk).join(' '));
+  }
+  while (paras.length < 1) paras.push(`${(desc || '').trim()} ${addObfuscation(domain, salt + paras.length)}`);
+  if (paras.length > 3) paras.length = 3;
+  return paras.map(p => `<p>${p}</p>`).join('');
 }
 
 
@@ -496,9 +510,8 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
   let Nuniq = dedupeByTitle(N);
 
   // ---- length/texture enforcement (anti‑checklist polish) ----
-  // analyze: 2–3 sentences; full: 1–3 paragraphs (soft max)
+  // analyze: 2–3 sentences; full: 1–3 paragraphs (HTML)
   const polish = (raw, mode, domain, idx) => {
-    // guard against trailing spaces stripping meaning; keep cadence
     const base = String(raw || '').trim();
     const neutralize = (s) =>
       s
@@ -506,10 +519,7 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
         .replace(/\b(should|must|need to|have to|recommend(ed)?)\b/gi, 'tends to')
         .replace(/\b(best practice|checklist|steps|how to)\b/gi, 'pattern');
 
-    const sentences = base
-      .replace(/\s+/g, ' ')
-      .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
-      .map(s => neutralize(s));
+    const sentences = splitSents(base).map(s => neutralize(s));
 
     const padSentence = () => {
       const fillers = [
@@ -526,17 +536,17 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
       return sentences.join(' ');
     }
 
-    // full-report → paragraphs (1–3)
-    // group ~3–4 sentences per paragraph softly
-    const targetTotal = clamp(sentences.length, 3, 9);
+    // full-report → paragraphs (1–3) as HTML
+    const normalized = sentences.length ? sentences : [padSentence()];
+    const targetTotal = Math.max(3, Math.min(9, normalized.length));
     const chunk = Math.max(3, Math.ceil(targetTotal / 2));
     const paras = [];
     for (let i = 0; i < targetTotal; i += chunk) {
-      paras.push(sentences.slice(i, i + chunk).join(' '));
+      paras.push(normalized.slice(i, i + chunk).join(' '));
     }
     while (paras.length < 1) paras.push(`${neutralize(base)} ${padSentence()}`);
     if (paras.length > 3) paras.length = 3;
-    return paras.join('\n\n'); // HTML <ul><li> will render line breaks inside <li>
+    return paras.map(p => `<p>${p}</p>`).join('');
   };
 
   // ---- growth to hit exact targets (synthesizes neutral, site-tied items) ----
@@ -558,7 +568,6 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
       const [title, body] = seeds[i % seeds.length];
       const suffix = (i >= seeds.length) ? ` • v${Math.floor(i / seeds.length) + 2}` : '';
       const candidate = { title: `${title}${suffix}`, description: body };
-      // avoid title collisions
       if (!arr.some(x => x.title.toLowerCase() === candidate.title.toLowerCase())) {
         arr.push(candidate);
       }
@@ -613,6 +622,7 @@ async function analyzeWebsite(url, reportType = 'analyze') {
     console.error('Analysis failed:', error.message);
     const fallback = {
       working: [],
+      // use top-level polish in 'full' mode — now returns HTML <p>…</p>
       needsAttention: [{ title: 'Analysis Incomplete', description: polish(`${host} crawl fell short — only partial signals were observable. This reads more like access posture than content posture.`, 'full', host) }],
       qualityScore: 60
     };
@@ -702,4 +712,4 @@ if (sendLinkHandler) {
   app.post('/api/send-link', sendLinkHandler);
 }
 
-app.listen(PORT, () => console.log(`SnipeRank Backend v2.3.0 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`SnipeRank Backend v2.3.1 running on port ${PORT}`));
