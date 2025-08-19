@@ -1,14 +1,9 @@
-<!--
-  Version: 1.12.0 (logos+insights transform kept)
-  Purpose: Fetches backend HTML, injects, then converts AI Insights bullets
-           into logo rows using PNGs from /img only.
--->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Version: analyze.html v1.11.0 (logos fixed, LLM paragraphs preserved) -->
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SnipeRank — AI SEO Analysis Results</title>
 
   <style>
@@ -120,6 +115,7 @@
     <p style="text-align:center;color:gray;">Loading analysis...</p>
   </section>
 
+  <!-- Short report includes the "Get Full Report" form -->
   <section class="report-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
@@ -130,6 +126,7 @@
         <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
+      <!-- Hidden fields -->
       <input type="hidden" name="url" id="urlField"/>
       <input type="hidden" name="_subject" value="SnipeRank Full Report request"/>
       <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
@@ -137,8 +134,9 @@
     </form>
   </section>
 
-  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
+  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
+  <!-- Modal (unchanged content) -->
   <div id="sr-modal" class="sr-modal" aria-hidden="true" role="dialog" aria-labelledby="sr-modal-title">
     <div class="sr-modal__backdrop" data-close></div>
     <div class="sr-modal__panel" role="document">
@@ -157,7 +155,7 @@
   </div>
 
   <script>
-    // ===== LLM logos: /img PNGs only (fallback = text pill) =====
+    /* ===== LLM logos: strict local PNGs under /img (no external/icon fallbacks) ===== */
     const LOGO_SOURCES = {
       ChatGPT: '/img/chatgpt-logo.png',
       Claude: '/img/claude-logo.png',
@@ -166,16 +164,17 @@
       Perplexity: '/img/perplexity-logo.png',
     };
     function logoDivFor(engine){
-      const wrap = document.createElement('div'); wrap.className = 'llm-logo';
+      const wrap = document.createElement('div');
+      wrap.className = 'llm-logo';
       const p = LOGO_SOURCES[engine];
       if (!p) { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
       const img = document.createElement('img'); img.alt = `${engine} logo`; img.src = p;
-      img.onload = () => { wrap.innerHTML=''; wrap.appendChild(img); };
       img.onerror = () => { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; };
+      wrap.appendChild(img);
       return wrap;
     }
 
-    // Convert AI Engine Insights <ul><li>…</li></ul> → logo rows
+    /* === Transform "AI Engine Insights" bullets → rows with logo + (multi‑sentence) text === */
     function transformAIInsights(root){
       const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
         .find(n => /ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
@@ -184,30 +183,33 @@
       while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
       if (!ul) return;
 
-      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
+      // IMPORTANT: use innerHTML so paragraphs (from server) are preserved
+      const bullets = Array.from(ul.querySelectorAll('li')).map(li => li.innerHTML.trim());
       if (!bullets.length) return;
 
       const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
       const container = document.createElement('div'); container.className = 'llm-insights';
 
       engines.forEach((engine, i) => {
-        const text = bullets[i]; if (!text) return;
+        const html = bullets[i]; if (!html) return;
         const row = document.createElement('div'); row.className = 'llm-row';
         row.appendChild(logoDivFor(engine));
-        const p = document.createElement('p'); p.textContent = text;
-        row.appendChild(p); container.appendChild(row);
+        const body = document.createElement('div'); body.innerHTML = html;
+        row.appendChild(body);
+        container.appendChild(row);
       });
-
       ul.replaceWith(container);
     }
 
-    // ------------------ Main ------------------
+    // -----------------------------------------------------------------------
+    // Main page logic
+    // -----------------------------------------------------------------------
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Load server-rendered analysis and transform insights
+      // Load server-rendered analysis (short report)
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
@@ -218,7 +220,7 @@
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // Simple local score card preview (does not affect backend)
+      // Score card fallback (unchanged placeholder)
       const p = { access:18, trust:17, clarity:19, alignment:18, freshness:16 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
@@ -265,16 +267,24 @@
         status.textContent = "🤖 Analyzing...";
         const fd = new FormData(form);
         fd.set("url", targetUrl);
-        try { await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } }); status.textContent = "✅ Thanks! Redirecting…"; }
-        catch { status.textContent = "⚠️ Couldn't send just now, redirecting anyway."; }
-        finally { window.location.href = `/full-report.html?url=${encodeURIComponent(targetUrl)}`; }
+        try {
+          await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
+          status.textContent = "✅ Thanks! Redirecting…";
+        } catch {
+          status.textContent = "⚠️ Couldn't send just now, redirecting anyway.";
+        } finally {
+          const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+          window.location.href = next;
+        }
       });
 
       function renderScoreCard(total, pillars, highlights){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent =
           total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
-        const grid = document.getElementById("pillarsGrid"); grid.innerHTML = "";
+
+        const grid = document.getElementById("pillarsGrid");
+        grid.innerHTML = "";
         [
           ["AI Access Readiness", pillars.access],
           ["Trust & Verification Signals", pillars.trust],
@@ -286,8 +296,10 @@
           d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
           grid.appendChild(d);
         });
+
         if (highlights?.length){
-          const ul=document.getElementById("highlightsList"); ul.innerHTML="";
+          const ul=document.getElementById("highlightsList");
+          ul.innerHTML="";
           highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
           document.getElementById("highlightsBlock").hidden=false;
         }
