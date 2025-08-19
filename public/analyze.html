@@ -1,11 +1,3 @@
-<!--
-  Version: 1.10.2-logofix+logos
-  Last Updated: Aug 14, 2025
-  Changes (logos-only):
-  - logoDivFor now forces PNGs from /img/* with a single fallback to "img/*"
-  - Removed any SVG/icon fallbacks; if both paths fail, show text pill only
--->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -210,21 +202,42 @@
       return wrap;
     }
 
-    /* === Transform "AI Engine Insights" bullets → rows with logo + paragraph === */
+    /* === Transform "AI Engine Insights" bullets → rows with logo + paragraph (hardened) === */
     function transformAIInsights(root){
-      // Find the heading that says "AI Engine Insights"
-      const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
-        .find(n => /ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
-      if (!title) return;
+      // 1) Find the heading whose text (ignoring emoji) includes "AI Engine Insights"
+      const headings = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'));
+      const title = headings.find(n => {
+        const t = (n.textContent || '').replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu,'').trim().toLowerCase();
+        return t.includes('ai engine insights');
+      });
+      if (!title) { return; }
 
-      // Find the first <ul> after that heading
-      let ul = title.nextElementSibling;
-      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-      if (!ul) return;
+      // 2) Find the FIRST <ul> that appears after that title (skip wrappers)
+      let cursor = title.nextSibling;
+      let ul = null;
+      while (cursor && !ul) {
+        if (cursor.nodeType === 1) { // element node
+          const el = cursor;
+          if (el.tagName && el.tagName.toLowerCase() === 'ul') {
+            ul = el;
+          } else {
+            const inner = el.querySelector && el.querySelector('ul');
+            if (inner) ul = inner;
+          }
+        }
+        cursor = cursor.nextSibling;
+      }
 
-      // Collect bullets in order: ChatGPT, Claude, Gemini, Copilot, Perplexity
-      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
-      if (!bullets.length) return;
+      // Fallback: use the last <ul> under root if none found
+      if (!ul) {
+        const lists = root.querySelectorAll('ul');
+        ul = lists[lists.length - 1] || null;
+      }
+      if (!ul) { return; }
+
+      // 3) Collect bullets and render rows w/ logos
+      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent || '').trim());
+      if (!bullets.length) { return; }
 
       const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
       const container = document.createElement('div');
@@ -242,14 +255,13 @@
         container.appendChild(row);
       });
 
-      // Replace the <ul> with our logo+paragraph layout
+      // 4) Replace the <ul> with our logo+paragraph layout
       ul.replaceWith(container);
     }
 
     // -----------------------------------------------------------------------
     // Main page logic (existing behavior preserved)
     // -----------------------------------------------------------------------
-    
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
@@ -260,10 +272,10 @@
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
 
-        // >>> CORRECTED: inject, then transform bullets -> logos
-        const host = document.getElementById("summary-results");
-        host.innerHTML = html;
-        transformAIInsights(host);
+        // >>> CORRECTED: inject, then transform bullets -> logos (avoid shadowing)
+        const summaryHost = document.getElementById("summary-results");
+        summaryHost.innerHTML = html;
+        transformAIInsights(summaryHost);
         // <<< END insertion
 
       } catch {
@@ -305,7 +317,15 @@
           `• Book a free 30-minute consult: https://calendly.com/quontora`,
           `• We'll deliver a tailored 30-day plan prioritized by Technical, Content, Schema, and Freshness.`
         ].join("\n");
-        try{ await navigator.clipboard.writeText(txt); const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);}catch{ window.prompt("Copy the summary:", txt); }
+        try{
+          await navigator.clipboard.writeText(txt);
+          const b=document.getElementById("copyLLMBtn");
+          const old=b.textContent;
+          b.textContent="Copied!";
+          setTimeout(()=>b.textContent=old,1500);
+        }catch{
+          window.prompt("Copy the summary:", txt);
+        }
       });
 
       // Lead form (unchanged behavior)
