@@ -186,6 +186,16 @@ function calculateQualityScore(pagesData) {
   return Math.min(100, Math.max(30, Math.round(score)));
 }
 
+// ---- banded targets for item counts (used by generateCompleteAnalysis) ----
+function targetsFor(reportType, score) {
+  // analyze (short report) is fixed
+  if (reportType === 'analyze') return { working: 5, needs: 10 };
+
+  // full-report bands
+  if (score < 60)  return { working: 5, needs: 25 };  // low score (worst sites)
+  if (score < 80)  return { working: 7, needs: 20 };  // medium score (average)
+  return              { working: 10, needs: 15 };      // high score (best sites)
+}
 
 // ===== AI Insights (dynamic) =====
 function generateAIInsights(pagesData, host) {
@@ -227,15 +237,19 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
     };
   }
 
-  const total = pagesData.length;
-  const isAnalyze = reportType === 'analyze';
+    const total = pagesData.length;
+    const isAnalyze = reportType === 'analyze';
+    const score = calculateQualityScore(pagesData);
 
-  // Aggregate metrics
-  const httpsPages = pagesData.filter(p => p.hasSSL).length;
-  const titleOK = pagesData.filter(p => p.title.length > 0);
-  const metaOK = pagesData.filter(p => p.metaDesc.length > 0);
-  const longTitles = pagesData.filter(p => p.title.length > 60);
-  const dupTitleCount = total - new Set(pagesData.map(p => p.title)).size;
+    // Banded counts per spec
+    const { working: workingTarget, needs: needsTarget } = targetsFor(reportType, score);
+
+    // Aggregate metrics
+    const httpsPages = pagesData.filter(p => p.hasSSL).length;
+    const titleOK = pagesData.filter(p => p.title.length > 0);
+    const metaOK = pagesData.filter(p => p.metaDesc.length > 0);
+    const longTitles = pagesData.filter(p => p.title.length > 60);
+    const dupTitleCount = total - new Set(pagesData.map(p => p.title)).size;
 
   const wordsArr = pagesData.map(p => p.wordCount);
   const avgWords = avg(wordsArr);
@@ -409,18 +423,17 @@ function generateCompleteAnalysis(pagesData, host, reportType) {
       }
       i++;
     }
-    // polish each
-    return arr.map((x, k) => ({ ...x, description: polish(x.description, mode, domain, k) })).slice(0, target);
-  };
+      // polish each
+      return arr.map((x, k) => ({ ...x, description: polish(x.description, mode, domain, k) })).slice(0, target);
+      };
 
-  Wuniq = grow(Wuniq, workingTarget, host, isAnalyze ? 'analyze' : 'full');
-  Nuniq = grow(Nuniq, needsTarget, host, isAnalyze ? 'analyze' : 'full');
+      // enforce banded counts with your grow/polish pipeline
+      Wuniq = grow(Wuniq, workingTarget, host, isAnalyze ? 'analyze' : 'full');
+      Nuniq = grow(Nuniq, needsTarget, host, isAnalyze ? 'analyze' : 'full');
 
-  // Recompute quality to return (respect override later)
-  let qualityScore = calculateQualityScore(pagesData);
-
-  return { working: Wuniq, needsAttention: Nuniq, qualityScore };
-}
+      // use the score computed at the top of this function
+      return { working: Wuniq, needsAttention: Nuniq, qualityScore: score };
+    }
 
 
 // ===== MAIN ANALYZER =====
