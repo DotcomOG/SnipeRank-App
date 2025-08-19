@@ -1,9 +1,14 @@
+<!--
+  Version: 1.12.0 (logos+insights transform kept)
+  Purpose: Fetches backend HTML, injects, then converts AI Insights bullets
+           into logo rows using PNGs from /img only.
+-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Document metadata + responsive viewport -->
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SnipeRank — AI SEO Analysis Results</title>
 
   <style>
@@ -125,21 +130,11 @@
         <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
-      <!-- Hidden fields -->
       <input type="hidden" name="url" id="urlField"/>
       <input type="hidden" name="_subject" value="SnipeRank Full Report request"/>
       <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
       <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
-  </section>
-
-  <section class="consultation-section">
-    <h3>Ready to Improve Your AI Visibility?</h3>
-    <p>After reviewing your analysis, book a free 30-minute consultation to discuss your specific opportunities and next steps.</p>
-    <div class="consultation-cta">
-      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
-    </div>
-    <p class="consultation-note"><strong>What we'll cover:</strong> Your AI SEO opportunities, implementation timeline, and how to get found by ChatGPT, Gemini, and other AI platforms.</p>
   </section>
 
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 11.</div>
@@ -162,7 +157,7 @@
   </div>
 
   <script>
-    // ===== LLM logos: actual logos from /img directory only =====
+    // ===== LLM logos: /img PNGs only (fallback = text pill) =====
     const LOGO_SOURCES = {
       ChatGPT: '/img/chatgpt-logo.png',
       Claude: '/img/claude-logo.png',
@@ -170,119 +165,60 @@
       Copilot: '/img/copilot-logo.png',
       Perplexity: '/img/perplexity-logo.png',
     };
-
-    /**
-     * Builds a logo node for a given engine.
-     * - Try loading from /img/ directory
-     * - If it fails, show a text pill with the engine name
-     */
     function logoDivFor(engine){
-      const wrap = document.createElement('div');
-      wrap.className = 'llm-logo';
-
-      const logoPath = LOGO_SOURCES[engine];
-      if (!logoPath) {
-        wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-        return wrap;
-      }
-
-      const img = document.createElement('img');
-      img.alt = `${engine} logo`;
-      img.src = logoPath;
-
-      img.onload = () => {
-        wrap.innerHTML = '';
-        wrap.appendChild(img);
-      };
-      
-      img.onerror = () => {
-        wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
-      };
-
+      const wrap = document.createElement('div'); wrap.className = 'llm-logo';
+      const p = LOGO_SOURCES[engine];
+      if (!p) { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
+      const img = document.createElement('img'); img.alt = `${engine} logo`; img.src = p;
+      img.onload = () => { wrap.innerHTML=''; wrap.appendChild(img); };
+      img.onerror = () => { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; };
       return wrap;
     }
 
-    /* === Transform "AI Engine Insights" bullets → rows with logo + paragraph (hardened) === */
+    // Convert AI Engine Insights <ul><li>…</li></ul> → logo rows
     function transformAIInsights(root){
-      // 1) Find the heading whose text (ignoring emoji) includes "AI Engine Insights"
-      const headings = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'));
-      const title = headings.find(n => {
-        const t = (n.textContent || '').replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu,'').trim().toLowerCase();
-        return t.includes('ai engine insights');
-      });
-      if (!title) { return; }
+      const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
+        .find(n => /ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
+      if (!title) return;
+      let ul = title.nextElementSibling;
+      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+      if (!ul) return;
 
-      // 2) Find the FIRST <ul> that appears after that title (skip wrappers)
-      let cursor = title.nextSibling;
-      let ul = null;
-      while (cursor && !ul) {
-        if (cursor.nodeType === 1) { // element node
-          const el = cursor;
-          if (el.tagName && el.tagName.toLowerCase() === 'ul') {
-            ul = el;
-          } else {
-            const inner = el.querySelector && el.querySelector('ul');
-            if (inner) ul = inner;
-          }
-        }
-        cursor = cursor.nextSibling;
-      }
-
-      // Fallback: use the last <ul> under root if none found
-      if (!ul) {
-        const lists = root.querySelectorAll('ul');
-        ul = lists[lists.length - 1] || null;
-      }
-      if (!ul) { return; }
-
-      // 3) Collect bullets and render rows w/ logos
-      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent || '').trim());
-      if (!bullets.length) { return; }
+      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
+      if (!bullets.length) return;
 
       const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-      const container = document.createElement('div');
-      container.className = 'llm-insights';
+      const container = document.createElement('div'); container.className = 'llm-insights';
 
       engines.forEach((engine, i) => {
-        const text = bullets[i];
-        if (!text) return;
-        const row = document.createElement('div');
-        row.className = 'llm-row';
+        const text = bullets[i]; if (!text) return;
+        const row = document.createElement('div'); row.className = 'llm-row';
         row.appendChild(logoDivFor(engine));
-        const p = document.createElement('p');
-        p.textContent = text;
-        row.appendChild(p);
-        container.appendChild(row);
+        const p = document.createElement('p'); p.textContent = text;
+        row.appendChild(p); container.appendChild(row);
       });
 
-      // 4) Replace the <ul> with our logo+paragraph layout
       ul.replaceWith(container);
     }
 
-    // -----------------------------------------------------------------------
-    // Main page logic (existing behavior preserved)
-    // -----------------------------------------------------------------------
+    // ------------------ Main ------------------
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Load server-rendered analysis
+      // Load server-rendered analysis and transform insights
       try {
         const res = await fetch(`https://sniperank-app2.onrender.com/report.html?url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
-
-        // >>> CORRECTED: inject, then transform bullets -> logos (avoid shadowing)
-        const summaryHost = document.getElementById("summary-results");
-        summaryHost.innerHTML = html;
-        transformAIInsights(summaryHost);
-        // <<< END insertion
-
+        const host = document.getElementById("summary-results");
+        host.innerHTML = html;
+        transformAIInsights(host);
       } catch {
         document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
 
-      // Fallback score (unchanged)
+      // Simple local score card preview (does not affect backend)
       const p = { access:18, trust:17, clarity:19, alignment:18, freshness:16 };
       renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, [
         "Ensure consistent schema coverage (Org, WebSite, FAQ) across key templates.",
@@ -291,14 +227,14 @@
         "Favor lists/Q&A/tables so AI can extract answers without parsing dense paragraphs."
       ]);
 
-      // Modal controls (unchanged)
+      // Modal controls
       document.addEventListener('click', (e) => {
         if (e.target.closest('[data-open="sr-modal"]')) document.getElementById('sr-modal').setAttribute('aria-hidden','false');
         if (e.target.matches('[data-close]')) document.getElementById('sr-modal').setAttribute('aria-hidden','true');
       });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') document.getElementById('sr-modal').setAttribute('aria-hidden','true'); });
 
-      // Copy summary (unchanged)
+      // Copy summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
         const labels = Array.from(document.querySelectorAll('.pillar .label')).map(el => el.textContent.trim());
@@ -317,45 +253,28 @@
           `• Book a free 30-minute consult: https://calendly.com/quontora`,
           `• We'll deliver a tailored 30-day plan prioritized by Technical, Content, Schema, and Freshness.`
         ].join("\n");
-        try{
-          await navigator.clipboard.writeText(txt);
-          const b=document.getElementById("copyLLMBtn");
-          const old=b.textContent;
-          b.textContent="Copied!";
-          setTimeout(()=>b.textContent=old,1500);
-        }catch{
-          window.prompt("Copy the summary:", txt);
-        }
+        try{ await navigator.clipboard.writeText(txt); const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);}catch{ window.prompt("Copy the summary:", txt); }
       });
 
-      // Lead form (unchanged behavior)
+      // Lead form
       const form = document.getElementById("fullReportForm");
       const status = document.getElementById("formMessage");
       document.getElementById("urlField").value = targetUrl;
-
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         status.textContent = "🤖 Analyzing...";
         const fd = new FormData(form);
         fd.set("url", targetUrl);
-        try {
-          await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
-          status.textContent = "✅ Thanks! Redirecting…";
-        } catch {
-          status.textContent = "⚠️ Couldn't send just now, redirecting anyway.";
-        } finally {
-          const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
-          window.location.href = next;
-        }
+        try { await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } }); status.textContent = "✅ Thanks! Redirecting…"; }
+        catch { status.textContent = "⚠️ Couldn't send just now, redirecting anyway."; }
+        finally { window.location.href = `/full-report.html?url=${encodeURIComponent(targetUrl)}`; }
       });
 
       function renderScoreCard(total, pillars, highlights){
         document.getElementById("scoreNumber").textContent = `${total}/100`;
         document.getElementById("scoreBand").textContent =
           total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
-
-        const grid = document.getElementById("pillarsGrid");
-        grid.innerHTML = "";
+        const grid = document.getElementById("pillarsGrid"); grid.innerHTML = "";
         [
           ["AI Access Readiness", pillars.access],
           ["Trust & Verification Signals", pillars.trust],
@@ -367,10 +286,8 @@
           d.innerHTML = `<span class="label">${label}</span><span class="badge">${val}/20</span>`;
           grid.appendChild(d);
         });
-
         if (highlights?.length){
-          const ul=document.getElementById("highlightsList");
-          ul.innerHTML="";
+          const ul=document.getElementById("highlightsList"); ul.innerHTML="";
           highlights.forEach(h=>{ const li=document.createElement("li"); li.textContent=h; ul.appendChild(li); });
           document.getElementById("highlightsBlock").hidden=false;
         }
