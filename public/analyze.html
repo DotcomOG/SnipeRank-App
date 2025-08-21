@@ -1,3 +1,9 @@
+// analyze.html — v2.6.0  (fix: Needs banding 25/20/15; no extra floor)
+// Analyze = 3 sentences/item + 1‑paragraph LLM
+// Full‑report = long paragraphs/item + 2‑paragraph LLM
+// Working banded 5/7/10; Needs banded 25/20/15
+// ChatGPT
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,89 +16,118 @@
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
       --muted:#666; --border:#e5e5e5;
-      --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
-      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
+      --sr-text:#111; --sr-bg:#fff;
     }
     *{box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
-    h1{font-size:4rem;font-weight:700;margin:0 0 .25em;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem}
-    p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
+    h1{font-size:3rem;font-weight:800;margin:0 0 .5rem}
+    h2{font-size:1.4rem;font-weight:700;margin:0 0 1rem}
+    p{font-size:1.05rem;line-height:1.68;margin:0 0 1rem}
 
-    .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
-    .powered-by,.for-url{color:var(--muted);font-size:.95rem}
-    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
-    .for-url strong{color:#000}
+    .info-row{display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem;color:#666}
+    .info-row a{color:#3182CE;text-decoration:none;font-weight:600}
 
-    .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
-    .score-card{padding:1rem;margin-bottom:2.25rem}
-    .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
-    .score-main{display:flex;align-items:baseline;gap:.5rem}
-    .score-number{font-size:2.25rem;font-weight:800}
-    .score-band{color:var(--muted);font-size:.95rem}
-    .btn-row{display:flex;gap:.5rem;align-items:center}
-    .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
-    .btn-ghost:hover{background:#f2f2f2}
-    .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
-    .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
-    .pillar .label{font-weight:600}
-    .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
-    .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
-    .highlights h4{margin:0 0 .55rem;font-size:1.2rem;font-weight:800}
-    .highlights ul{margin:0;padding-left:1rem}
-    .highlights li{margin:.45rem 0;line-height:1.5}
-
+    /* Rendered report styles */
     #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem!important}
-    #summary-results p{line-height:1.65!important;margin:0 0 .9rem!important;font-size:1.02rem!important}
+    #summary-results p{line-height:1.68!important;margin:0 0 .9rem!important;font-size:1.03rem!important}
     #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
-    #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important}
+    #summary-results li{line-height:1.68!important;margin:.55rem 0!important;font-size:1.03rem!important;white-space:pre-line}
 
+    /* LLM rows */
     .llm-insights{margin:.4rem 0 1.2rem}
     .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
     .llm-row:last-child{border-bottom:0}
     .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-
-    .report-section{width:100%;margin:2.5rem 0}
-    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
-    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
-    input:focus,textarea:focus{outline:none;border-color:#3182CE}
-    textarea{resize:vertical;min-height:100px}
-    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
-    .btn-primary:hover{background:#c82333}
-    .form-button-wrapper{text-align:center;margin:1.5rem 0}
-
-    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
-
-    .sr-modal{position:fixed;inset:0;display:none;z-index:9999}
-    .sr-modal[aria-hidden="false"]{display:block}
-    .sr-modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.3)}
-    .sr-modal__panel{position:relative;max-width:720px;width:calc(100% - 32px);margin:6vh auto;background:var(--sr-bg);color:var(--sr-text);border:1px solid var(--sr-border);border-radius:var(--sr-radius);box-shadow:var(--sr-shadow);padding:20px;max-height:90vh;overflow-y:auto}
-    .sr-modal__close{position:absolute;top:10px;right:10px;border:1px solid var(--sr-border);background:#fff;border-radius:999px;width:32px;height:32px;line-height:28px;font-size:18px;cursor:pointer;text-align:center}
-    .sr-modal__header h2{margin:0 0 4px;font-size:18px;font-weight:700}
-    .sr-modal__sub{margin:0 0 12px;color:var(--sr-muted);font-size:14px;line-height:1.35}
-    .sr-pill{background:var(--sr-pill-bg);border:1px solid var(--sr-border);border-radius:12px;padding:12px 14px;margin-bottom:var(--sr-gap)}
-    .sr-pill__title{margin:0 0 6px;font-size:15px;font-weight:700}
-    .sr-list{margin:0;padding-left:18px}
-    .sr-list li{margin:6px 0;line-height:1.35}
-    .sr-modal__fineprint{margin-top:8px;color:var(--sr-muted);font-size:12px;line-height:1.3;border-top:1px dashed var(--sr-border);padding-top:10px}
-
-    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-  <h1>SnipeRank</h1>
-  <h2>AI SEO Analysis Results</h2>
+  <h1>AI SEO Snapshot</h1>
+  <h2>Analyze</h2>
 
   <div class="info-row">
-    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
+    <div>Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+    <div>Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
-  <section class="card score-card" id="scoreCard" aria-live="polite">
-    <div class="score-top">
-      <div class="score-main">
-        <div class="score-number" id="scoreNumber">—</div>
-        <div the score card and highlights ... [output truncated for brevity]]
+  <section id="summary-results">
+    <p style="text-align:center;color:gray;">Loading analysis…</p>
+  </section>
 
+  <script>
+    // Strict local logos from /img (+relative fallback)
+    const LOGO_SOURCES = {
+      ChatGPT: '/img/chatgpt-logo.png',
+      Claude: '/img/claude-logo.png',
+      Gemini: '/img/gemini-logo.png',
+      Copilot: '/img/copilot-logo.png',
+      Perplexity: '/img/perplexity-logo.png',
+    };
+    function logoDivFor(engine){
+      const wrap = document.createElement('div'); wrap.className = 'llm-logo';
+      const p = LOGO_SOURCES[engine];
+      if(!p){ wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
+      const img = document.createElement('img'); img.alt = `${engine} logo`;
+      const candidates = [p, p.replace(/^\/+/, '')];
+      let i = 0;
+      const tryNext = ()=>{ if(i < candidates.length){ img.src = candidates[i++]; } else { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; } };
+      img.onload = ()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
+      img.onerror = tryNext;
+      tryNext();
+      return wrap;
+    }
+
+    function transformAIInsights(root){
+      const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
+        .find(n => /ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
+      if (!title) return;
+      let ul = title.nextElementSibling;
+      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+      if (!ul) return;
+
+      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
+      if (!bullets.length) return;
+
+      const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+      const container = document.createElement('div'); container.className = 'llm-insights';
+
+      engines.forEach((engine, i) => {
+        const text = bullets[i]; if (!text) return;
+        const row = document.createElement('div'); row.className = 'llm-row';
+        row.appendChild(logoDivFor(engine));
+        const p = document.createElement('p'); p.textContent = text;
+        row.appendChild(p); container.appendChild(row);
+      });
+      ul.replaceWith(container);
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetUrl = urlParams.get("url") || "https://example.com";
+      document.getElementById("current-url").textContent = targetUrl;
+
+      try {
+        // Auto-detect whether this is served by the Node app
+        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method: 'HEAD' }).catch(()=>null);
+        const apiBase = probe && probe.ok ? '' : 'https://sniperank-app2.onrender.com';
+
+        const res = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`, {
+          method: 'GET',
+          headers: { 'Accept': 'text/html' }
+        });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const html = await res.text();
+
+        const host = document.getElementById("summary-results");
+        host.innerHTML = html;
+        transformAIInsights(host);
+      } catch (err) {
+        console.error('[SnipeRank] analyze load failed:', err);
+        document.getElementById("summary-results").innerHTML =
+          "<p style='text-align:center;color:red'>Error loading analysis.</p>";
+      }
+    });
+  </script>
+</body>
+</html>
