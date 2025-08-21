@@ -117,105 +117,61 @@
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
   <script>
-    // ===== LLM logos from /img =====
-    const LOGO_SOURCES = {
-      ChatGPT:'/img/chatgpt-logo.png', Claude:'/img/claude-logo.png',
-      Gemini:'/img/gemini-logo.png', Copilot:'/img/copilot-logo.png', Perplexity:'/img/perplexity-logo.png'
-    };
-    function logoDivFor(engine){
-      const wrap=document.createElement('div'); wrap.className='llm-logo';
-      const p=LOGO_SOURCES[engine]; if(!p){wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`;return wrap;}
-      const img=document.createElement('img'); img.alt=`${engine} logo`; img.src=p;
-      img.onload=()=>{wrap.innerHTML=''; wrap.appendChild(img)}; img.onerror=()=>{wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`}; return wrap;
-    }
-    function transformAIInsights(root){
-      const title=[...root.querySelectorAll('h2,h3,h4,.section-title')].find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim())); if(!title) return;
-      let ul=title.nextElementSibling; while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
-      const bullets=[...ul.querySelectorAll('li')].map(li=>(li.textContent||'').trim()); if(!bullets.length)return;
-      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity']; const box=document.createElement('div'); box.className='llm-insights';
-      engines.forEach((e,i)=>{const t=bullets[i]; if(!t)return; const row=document.createElement('div'); row.className='llm-row'; row.appendChild(logoDivFor(e)); const p=document.createElement('p'); p.textContent=t; row.appendChild(p); box.appendChild(row);});
-      ul.replaceWith(box);
-    }
+    // Minimal wiring: static backend base + cache‑busted fetch + redirect form
+    const API_BASE = "https://sniperank-app2.onrender.com";
 
-    function renderScoreCard(total, pillars, highlights){
-      document.getElementById("scoreNumber").textContent = `${total}/100`;
-      document.getElementById("scoreBand").textContent =
-        total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
-      const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
-      [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
-        .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
-      if(highlights?.length){const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{const li=document.createElement("li"); li.textContent=h; ul.appendChild(li);}); document.getElementById("highlightsBlock").hidden=false;}
-    }
-      document.addEventListener("DOMContentLoaded", () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const targetUrl = urlParams.get("url") || "https://example.com";
-        const form = document.getElementById("fullReportForm");
-        const status = document.getElementById("formMessage");
-        const urlField = document.getElementById("urlField");
-        if (urlField) urlField.value = targetUrl;
+    document.addEventListener("DOMContentLoaded", async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetUrl = urlParams.get("url") || "https://example.com";
+      const isHttps = /^https?:\/\//i.test(targetUrl);
+      const normalized = isHttps ? targetUrl : `https://${targetUrl}`;
 
-        if (form) {
-          form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            status.textContent = "📤 Sending…";
+      // show URL
+      const cur = document.getElementById("current-url");
+      if (cur) cur.textContent = normalized;
 
-            // optional: fire-and-forget your backend email (don’t block redirect)
-            try {
-              await fetch("/api/send-link", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: form.name.value,
-                  email: form.email.value,
-                  phone: form.phone.value,
-                  company: form.company.value,
-                  message: form.message.value,
-                  url: targetUrl,
-                })
-              });
-            } catch (_) { /* ignore; we still redirect */ }
-
-            // ALWAYS redirect on same origin so Vercel serves the file
-            window.location.href = `/full-report.html?url=${encodeURIComponent(targetUrl)}&v=${Date.now()}`;
-          });
-        }
-      });
-
-      // decide local vs remote backend
-      const probe=await fetch('/api/score?url=' + encodeURIComponent('https://example.com'),{method:'HEAD'}).catch(()=>null);
-      const apiBase=(probe&&probe.ok)?'':'https://sniperank-app2.onrender.com';
-
-      // report
-      try{
-        const res=await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`,{headers:{'Accept':'text/html'}});
-        const html=await res.text();
-        const host=document.getElementById("summary-results"); host.innerHTML=html; transformAIInsights(host);
-      }catch{document.getElementById("summary-results").innerHTML="<p style='text-align:center;color:red'>Error loading analysis.</p>";}
-
-      // score
-      try{
-        const res=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
-        const data=await res.json();
-        const p=data.pillars||{access:18,trust:17,clarity:19,alignment:18,freshness:16};
-        renderScoreCard(data.score || (p.access+p.trust+p.clarity+p.alignment+(p.freshness||16)), p, (data.highlights||[]).slice(0,4));
-      }catch{
-        const p={access:18,trust:17,clarity:19,alignment:18,freshness:16};
-        renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, []);
+      // load server-rendered analysis (short/analyze)
+      try {
+        const resp = await fetch(
+          `${API_BASE}/report.html?url=${encodeURIComponent(normalized)}&report=analyze&v=${Date.now()}`
+        );
+        const html = await resp.text();
+        document.getElementById("summary-results").innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        document.getElementById("summary-results").innerHTML =
+          "<p style='color:red; text-align:center;'>Error loading analysis</p>";
       }
 
-      // form wiring
-      const form=document.getElementById("fullReportForm"); document.getElementById("urlField").value=targetUrl;
-      form.addEventListener("submit",(e)=>{e.preventDefault(); const next=`/full-report.html?url=${encodeURIComponent(targetUrl)}`; window.location.href=next;});
+      // form: ALWAYS redirect to full-report on submit (no Formspree jump)
+      const form = document.getElementById("fullReportForm");
+      if (form) {
+        const urlField = document.getElementById("urlField");
+        if (urlField) urlField.value = normalized;
 
-      // copy summary
-      document.getElementById("copyLLMBtn").addEventListener("click", async ()=>{
-        const scoreText=document.getElementById("scoreNumber").textContent||"—/100";
-        const labels=[...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
-        const vals=[...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
-        const highlights=[...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
-        const txt=[`Website: ${targetUrl}`,`SnipeRank Score: ${scoreText}`,`Pillars:`,...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),``,`Observed Highlights / Issues:`,...highlights.map(h=>`- ${h}`)].join("\n");
-        try{await navigator.clipboard.writeText(txt);}catch{window.prompt("Copy the summary:",txt);}
-      });
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          // (optional) fire‑and‑forget your email endpoint; don't block redirect
+          try {
+            await fetch(`${API_BASE}/api/send-link`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: form.name?.value || "",
+                email: form.email?.value || "",
+                phone: form.phone?.value || "",
+                company: form.company?.value || "",
+                message: form.message?.value || "",
+                url: normalized
+              })
+            });
+          } catch (_) {}
+
+          // same‑origin redirect so Vercel serves the HTML file
+          window.location.href = `/full-report.html?url=${encodeURIComponent(normalized)}&v=${Date.now()}`;
+        });
+      }
     });
   </script>
 </body>

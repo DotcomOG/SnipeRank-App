@@ -1,4 +1,4 @@
-// server.js — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode)
+// server.js — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode) GPT
 // - Uses ?report=analyze|full to size both bullets and LLM insights
 // - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
 
