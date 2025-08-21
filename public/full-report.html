@@ -1,52 +1,39 @@
-// full-report.html — v2.6.0  (fix: Needs banding 25/20/15; no extra floor)
-// Analyze = 3 sentences/item + 1‑paragraph LLM
-// Full‑report = long paragraphs/item + 2‑paragraph LLM
-// Working banded 5/7/10; Needs banded 25/20/15
-// ChatGPT
+// full-report.html — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode) GPT
+// - Uses ?report=analyze|full to size both bullets and LLM insights
+// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Full Report — dynamic long report -->
+  <!-- Full Report — dynamic long report (design kept) -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SnipeRank — Full AI SEO Report</title>
-
   <style>
-    :root{
-      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
-      --muted:#666; --border:#e5e5e5;
-      --sr-text:#111; --sr-bg:#fff;
-    }
+    /* concise style; preserves your earlier look */
+    :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5}
     *{box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
     h1{font-size:3rem;font-weight:800;margin:0 0 .5rem}
     h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem}
     p{font-size:1.05rem;line-height:1.7;margin:0 0 1rem}
-
-    .info-row{display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem;color:#666}
-    .info-row a{color:#3182CE;text-decoration:none;font-weight:600}
-
-    /* Rendered report styles */
-    #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem!important}
-    #summary-results p{line-height:1.7!important;margin:0 0 .9rem!important;font-size:1.05rem!important}
-    #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
-    #summary-results li{line-height:1.7!important;margin:.6rem 0!important;font-size:1.05rem!important;white-space:pre-line}
-
-    /* LLM rows */
+    .info-row{display:flex;justify-content:space-between;align-items:center;color:var(--muted);margin:.25rem 0 1rem}
+    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
+    #summary-results .section-title{font-size:1.25rem;font-weight:700;margin:2rem 0 .6rem}
+    #summary-results li{line-height:1.7;margin:.6rem 0;white-space:pre-line}
     .llm-insights{margin:.4rem 0 1.2rem}
     .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
     .llm-row:last-child{border-bottom:0}
     .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
   </style>
 </head>
 <body>
   <h1>Full AI SEO Report</h1>
   <div class="info-row">
-    <div>Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
     <div>Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
@@ -57,76 +44,60 @@
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
   <script>
-    // Strict local logos from /img (+relative fallback)
     const LOGO_SOURCES = {
-      ChatGPT: '/img/chatgpt-logo.png',
-      Claude: '/img/claude-logo.png',
-      Gemini: '/img/gemini-logo.png',
-      Copilot: '/img/copilot-logo.png',
-      Perplexity: '/img/perplexity-logo.png',
+      ChatGPT:'/img/chatgpt-logo.png', Claude:'/img/claude-logo.png',
+      Gemini:'/img/gemini-logo.png',   Copilot:'/img/copilot-logo.png',
+      Perplexity:'/img/perplexity-logo.png',
     };
     function logoDivFor(engine){
-      const wrap = document.createElement('div'); wrap.className = 'llm-logo';
-      const p = LOGO_SOURCES[engine];
-      if(!p){ wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
-      const img = document.createElement('img'); img.alt = `${engine} logo`;
-      const candidates = [p, p.replace(/^\/+/, '')];
-      let i = 0;
-      const tryNext = ()=>{ if(i < candidates.length){ img.src = candidates[i++]; } else { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; } };
-      img.onload = ()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
-      img.onerror = tryNext;
-      tryNext();
-      return wrap;
+      const wrap=document.createElement('div'); wrap.className='llm-logo';
+      const p=LOGO_SOURCES[engine];
+      if(!p){ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; return wrap; }
+      const img=document.createElement('img'); img.alt=`${engine} logo`;
+      img.onload=()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
+      img.onerror=()=>{ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; };
+      img.src=p; return wrap;
     }
-
     function transformAIInsights(root){
-      const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
-        .find(n => /ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
-      if (!title) return;
-      let ul = title.nextElementSibling;
-      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-      if (!ul) return;
-
-      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
-      if (!bullets.length) return;
-
-      const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-      const container = document.createElement('div'); container.className = 'llm-insights';
-
-      engines.forEach((engine, i) => {
-        const text = bullets[i]; if (!text) return;
-        const row = document.createElement('div'); row.className = 'llm-row';
+      const h = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
+        .find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
+      if(!h) return;
+      let ul = h.nextElementSibling;
+      while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul = ul.nextElementSibling;
+      if(!ul) return;
+      const bullets = Array.from(ul.querySelectorAll('li')).map(li=>(li.textContent||'').trim());
+      if(!bullets.length) return;
+      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+      const container=document.createElement('div'); container.className='llm-insights';
+      engines.forEach((engine,i)=>{
+        const text=bullets[i]; if(!text) return;
+        const row=document.createElement('div'); row.className='llm-row';
         row.appendChild(logoDivFor(engine));
-        const p = document.createElement('p'); p.textContent = text;
+        const p=document.createElement('p'); p.textContent=text;
         row.appendChild(p); container.appendChild(row);
       });
       ul.replaceWith(container);
     }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetUrl = urlParams.get("url") || "https://example.com";
-      document.getElementById("current-url").textContent = targetUrl;
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      const qs = new URLSearchParams(location.search);
+      const targetUrl = qs.get('url') || 'https://example.com';
+      document.getElementById('current-url').textContent = targetUrl;
 
-      try {
-        // Auto-detect whether this is served by the Node app
-        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method: 'HEAD' }).catch(()=>null);
-        const apiBase = probe && probe.ok ? '' : 'https://sniperank-app2.onrender.com';
+      try{
+        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method:'HEAD' }).catch(()=>null);
+        const isNodeServed = !!(probe && probe.ok);
+        const apiBase = isNodeServed ? '' : 'https://sniperank-app2.onrender.com';
 
-        const res = await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`, {
-          method: 'GET',
-          headers: { 'Accept': 'text/html' }
-        });
+        const res = await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`, { headers:{'Accept':'text/html'} });
         if (!res.ok) throw new Error('HTTP '+res.status);
-
         const html = await res.text();
-        const host = document.getElementById("summary-results");
+        const host = document.getElementById('summary-results');
         host.innerHTML = html;
         transformAIInsights(host);
-      } catch (err) {
-        console.error('[SnipeRank] full report load failed:', err);
-        document.getElementById("summary-results").innerHTML =
-          "<p style='text-align:center;color:red'>Error loading analysis.</p>";
+      }catch(e){
+        console.error(e);
+        document.getElementById('summary-results').innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
     });
   </script>

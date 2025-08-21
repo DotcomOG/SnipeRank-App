@@ -1,8 +1,6 @@
-// server.js — v2.4.2  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode)
-// - Uses ?report=analyze|full to size both bullets and LLM insights (fallback: referer, else analyze)
-// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded (5/7/10)
-// - Analyze: fixed 5 Working / 10 Needs; every item exactly 3 sentences; LLM = 1 compact paragraph
-// - Defensive try/catch to avoid 5xx on crawl/parse issues
+// server.js — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode)
+// - Uses ?report=analyze|full to size both bullets and LLM insights
+// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
 
 import express from 'express';
 import cors from 'cors';
@@ -10,12 +8,6 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { fileURLToPath } from 'url';
 import path from 'path';
-
-let sendLinkHandler = null;
-try {
-  const mod = await import('./api/send-link.js');
-  sendLinkHandler = mod?.default || null;
-} catch {}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,58 +18,80 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (_req, res) => res.send('SnipeRank Backend v2.4.2 — dynamic-only, banded, mode-sized'));
-
-const OVERRIDE = new Set(['yoramezra.com', 'quontora.com']);
-const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
-const avg = (arr) => (arr.length ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : 0);
-const stdev = (arr) => {
+// ---- helpers ----
+const OVERRIDE = new Set(['yoramezra.com','quontora.com']);
+const hostOf = (u)=>{ try{ return new URL(u).hostname.replace(/^www\./,''); }catch{ return ''; } };
+const clamp = (n,lo,hi)=>Math.max(lo,Math.min(hi,n));
+const pct = (num,den)=> den ? Math.round((num/den)*100) : 0;
+const avg = (arr)=> arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : 0;
+const stdev = (arr)=> {
   if (arr.length < 2) return 0;
-  const m = arr.reduce((s, v) => s + v, 0) / arr.length;
-  const v = arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1);
+  const m = arr.reduce((s,v)=>s+v,0)/arr.length;
+  const v = arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1);
   return Math.round(Math.sqrt(v));
 };
-const uniqueByTitle = (arr = []) => {
-  const seen = new Set(), out = [];
-  for (const it of arr) {
-    const k = (it.title || '').trim().toLowerCase();
-    if (!k || seen.has(k)) continue;
-    seen.add(k); out.push(it);
+const uniqueByTitle = (arr=[])=>{
+  const seen=new Set(); const out=[];
+  for (const it of arr){
+    const k=(it.title||'').trim().toLowerCase();
+    if(!k || seen.has(k)) continue; seen.add(k); out.push(it);
   }
   return out;
 };
-const highScore = () => ({ pillars: { access: 22, trust: 23, clarity: 22, alignment: 22 }, score: 89 });
+const highScore = ()=>({ pillars:{access:22,trust:23,clarity:22,alignment:22}, score:89 });
 
-const splitSents = (t) => String(t||'').replace(/\s+/g,' ').trim()
-  .split(/(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
-
-const addObfuscation = (domain, salt=0) => {
-  const pool = [
+const splitSents = (t)=> String(t||'').replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
+const addObfuscation = (domain, salt=0)=>{
+  const pool=[
     `Treat this as directional heat rather than a checklist for ${domain}.`,
-    `Local template choices on ${domain} likely govern the trade‑offs seen here.`,
-    `Signals are suggestive, not prescriptive; nuance sits in the page furniture.`,
-    `Interpretation depends on context outside the crawl scope for ${domain}.`,
-    `These patterns sketch tendencies; specifics hinge on internal conventions.`,
+    `Signals are suggestive, not prescriptive; nuance lives in the page furniture.`,
+    `Interpretation depends on context outside this crawl for ${domain}.`,
+    `These patterns sketch tendencies; specifics hinge on template choices.`,
     `Consider this a lens on tendencies, not a step‑by‑step recipe.`,
   ];
   return pool[salt % pool.length];
 };
 
-// ——— crawler ———
-async function crawlSitePages(startUrl, maxPages = 10) {
+// enforce by mode:
+// analyze → exactly 3 sentences
+// full    → 1–3 paragraphs, each paragraph 3–5 sentences (soft)
+function polish(desc, mode, domain, salt=0){
+  const sents = splitSents(desc);
+  if (mode === 'analyze'){
+    const out = [...sents];
+    while (out.length < 3) out.push(addObfuscation(domain, salt+out.length));
+    return out.slice(0,3).join(' ');
+  }
+  // full
+  const src = sents.length ? sents : [addObfuscation(domain, salt)];
+  while (src.length < 6) src.push(addObfuscation(domain, salt+src.length));
+  const paras = [];
+  let i=0;
+  while (i < src.length && paras.length < 3){
+    const take = Math.min( Math.max(3, Math.ceil((src.length-i)/ (2 - (paras.length===0?0:1))) ), 5 );
+    paras.push(src.slice(i, i+take).join(' '));
+    i += take;
+  }
+  if (!paras.length) paras.push(addObfuscation(domain, salt));
+  return paras.slice(0,3).join('\n\n'); // will render as multi-line inside <li>
+}
+
+// ---- crawler ----
+async function crawlSitePages(startUrl, maxPages=10){
   const host = hostOf(startUrl);
   const visited = new Set();
   const pages = [];
   const queue = [startUrl];
 
-  while (queue.length && pages.length < maxPages) {
+  while (queue.length && pages.length < maxPages){
     const current = queue.shift();
-    if (!current || visited.has(current)) continue;
-    try {
+    if (visited.has(current)) continue;
+    try{
       visited.add(current);
-      const resp = await axios.get(current, { timeout: 10000, headers: { 'User-Agent': 'SnipeRank SEO Analyzer Bot' }});
+      const resp = await axios.get(current, {
+        timeout: 8000,
+        headers: { 'User-Agent': 'SnipeRank SEO Analyzer Bot' }
+      });
       const $ = cheerio.load(resp.data);
       const bodyText = $('body').text().replace(/\s+/g,' ').trim();
       const words = bodyText.split(' ').filter(Boolean);
@@ -98,6 +112,8 @@ async function crawlSitePages(startUrl, maxPages = 10) {
         hasSchema: $('script[type="application/ld+json"]').length > 0,
         hasNav: $('nav').length > 0,
         hasFooter: $('footer').length > 0,
+        formCount: $('form').length,
+        buttonCount: $('button, input[type="submit"], .btn, [role="button"]').length,
         socialLinkCount: $('a[href*="facebook"], a[href*="twitter"], a[href*="linkedin"], a[href*="instagram"]').length,
         contactInfo: {
           phone: $('a[href^="tel:"], .phone').length > 0,
@@ -110,390 +126,306 @@ async function crawlSitePages(startUrl, maxPages = 10) {
       };
       pages.push(pageData);
 
-      if (pageData.level < 3 && pages.length < maxPages) {
+      if (pageData.level < 3 && pages.length < maxPages){
         $('a[href]').each((_, link) => {
           const href = $(link).attr('href');
           if (!href) return;
-          let fullUrl = '';
-          try {
-            if (href.startsWith('/')) fullUrl = new URL(href, startUrl).href;
-            else if (href.includes(host)) fullUrl = href.split('#')[0].split('?')[0];
-            if (fullUrl &&
-                !visited.has(fullUrl) &&
-                !queue.includes(fullUrl) &&
-                !fullUrl.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i)) {
-              queue.push(fullUrl);
-            }
-          } catch {}
+          if (href.startsWith('/') || href.includes(host)){
+            let full;
+            try{
+              if (href.startsWith('/')) full = new URL(href, startUrl).href;
+              else if (href.includes(host)) full = href.split('#')[0].split('?')[0];
+              if (full &&
+                !visited.has(full) &&
+                !queue.includes(full) &&
+                !full.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i)
+              ) queue.push(full);
+            }catch{}
+          }
         });
       }
-    } catch (e) {
+    }catch(e){
       console.log(`Failed to crawl ${current}:`, e.message);
     }
   }
   return pages;
 }
 
-// ——— score ———
-function calculateQualityScore(pagesData) {
-  if (!pagesData || pagesData.length === 0) return 30;
+// ---- scoring & targets ----
+function calculateQualityScore(pages){
+  if (!pages || !pages.length) return 30;
   let score = 40;
-  const total = pagesData.length;
+  const total = pages.length;
 
-  const httpsPages = pagesData.filter(p => p.hasSSL).length;
+  const httpsPages = pages.filter(p=>p.hasSSL).length;
   score += (httpsPages / total) * 10;
 
-  const avgWords = pagesData.reduce((s, p) => s + p.wordCount, 0) / total;
+  const avgWords = pages.reduce((s,p)=>s+p.wordCount,0)/total;
   if (avgWords >= 600) score += 12;
   else if (avgWords >= 400) score += 8;
   else if (avgWords >= 200) score += 4;
 
-  const properH1Pages = pagesData.filter(p => p.h1Count === 1).length;
-  score += (properH1Pages / total) * 8;
+  const properH1 = pages.filter(p=>p.h1Count===1).length;
+  score += (properH1/total) * 8;
 
-  const avgLinks = pagesData.reduce((s, p) => s + p.internalLinkCount, 0) / total;
+  const avgLinks = pages.reduce((s,p)=>s+p.internalLinkCount,0)/total;
   if (avgLinks >= 6) score += 10;
   else if (avgLinks >= 3) score += 6;
 
-  const schemaPages = pagesData.filter(p => p.hasSchema).length;
-  score += (schemaPages / total) * 8;
+  const schemaPages = pages.filter(p=>p.hasSchema).length;
+  score += (schemaPages/total) * 8;
 
   return Math.min(100, Math.max(30, Math.round(score)));
 }
 
-// ——— band targets ———
-function targetsFor(reportType, score) {
-  if (reportType === 'analyze') return { working: 5, needs: 10 };
-  // full-report (min is 15 for Needs, per your correction)
-  if (score < 60)  return { working: 5, needs: 25 };  // low
-  if (score < 80)  return { working: 7, needs: 20 };  // medium
-  return              { working: 10, needs: 15 };      // high
+function targetsFor(reportType, score){
+  if (reportType === 'analyze') return { working: 5, needs: 10 }; // fixed for short
+  // full-report banding
+  if (score < 60)  return { working: 5, needs: 25 };
+  if (score < 85)  return { working: 7, needs: 20 };
+  return              { working: 10, needs: 15 };
 }
 
-// ——— LLM insights (mode-sized) ———
-function generateAIInsights(pagesData, host, mode='analyze') {
-  const analyzeLLM = (text) => {
-    // 1 compact paragraph ~3–5 sentences max
-    const s = splitSents(text);
-    while (s.length < 3) s.push(addObfuscation(host, s.length));
-    return [s.slice(0,5).join(' ')];
-  };
-  const fullLLM = (text) => {
-    // 1–2 substantive paragraphs
-    const s = splitSents(text);
-    while (s.length < 6) s.push(addObfuscation(host, s.length));
-    const mid = Math.ceil(s.length/2);
-    const paras = [ s.slice(0, mid).join(' '), s.slice(mid).join(' ') ];
-    return paras;
-  };
-
-  if (!pagesData || pagesData.length === 0) {
-    const msg = `Crawl didn’t surface pages for ${host}. Access posture, not content posture, seems to be the limiter.`;
-    const pack = mode === 'analyze' ? analyzeLLM(msg) : fullLLM(msg);
-    return ['ChatGPT','Claude','Gemini','Copilot','Perplexity'].map((_,i)=>({ description: pack.join('\n\n') }));
+// ---- AI insights (length by mode) ----
+function generateAIInsights(pages, host, mode='analyze'){
+  if (!pages || !pages.length){
+    const short = `Unable to analyze ${host} — crawl didn’t surface enough content to read.`;
+    const make = ()=>({ description: mode==='analyze' ? short : `${short} In practice, this reads like an access posture rather than a content posture. Signals exist, but not in a way that holds steady across lifts.` });
+    return [make(),make(),make(),make(),make()];
   }
 
-  const total = pagesData.length;
-  const avgWords = Math.round(pagesData.reduce((s, p) => s + p.wordCount, 0) / total);
-  const schemaPages = pagesData.filter(p => p.hasSchema).length;
-  const properH1Pages = pagesData.filter(p => p.h1Count === 1).length;
-  const avgLinks = Math.round(pagesData.reduce((s, p) => s + p.internalLinkCount, 0) / total);
-  const metaPages = pagesData.filter(p => p.metaDesc.length > 0).length;
-  const httpsPages = pagesData.filter(p => p.hasSSL).length;
+  const total = pages.length;
+  const avgWords = Math.round(pages.reduce((s,p)=>s+p.wordCount,0)/total);
+  const schemaPages = pages.filter(p=>p.hasSchema).length;
+  const properH1 = pages.filter(p=>p.h1Count===1).length;
+  const avgLinks = Math.round(pages.reduce((s,p)=>s+p.internalLinkCount,0)/total);
+  const metaPages = pages.filter(p=>p.metaDesc.length>0).length;
+  const httpsPages = pages.filter(p=>p.hasSSL).length;
 
-  const texts = [
-    `ChatGPT review across ${total} pages on ${host} notes ${properH1Pages === total ? 'steady single‑spine headings' : `${properH1Pages}/${total} pages with single‑spine headings`}. ${avgWords >= 500 ? 'Coverage runs ample for context' : 'Coverage leans compact in places'}, which shapes how claims hold together when lifted. ${schemaPages >= total * 0.8 ? 'Typed hints tend to travel well; ' : 'Typed hints thin in spots; '}previews ${metaPages >= total * 0.8 ? 'frame intent reliably.' : 'drift more often than they anchor.'}`,
-    `Claude view of ${host} observes ${schemaPages >= total * 0.7 ? 'typed context at scale' : 'typed context that runs light'}, with ${httpsPages === total ? 'uniform transport hygiene' : 'mixed transport hygiene'} setting trust tone. ${avgLinks >= 6 ? 'Trails feel cohesive' : 'Trails feel brittle'} and that distance affects what quotations look like out of context.`,
-    `Gemini perspective on ${host} sees ${schemaPages >= total * 0.8 ? 'broad schema' : 'schema gaps'} and ${avgLinks >= 5 ? 'link density that maps adjacency' : 'sparser linking that obscures adjacency'}. Headings ${properH1Pages >= total * 0.8 ? 'land consistently' : 'compete periodically'}, which nudges how summaries are stitched.`,
-    `Copilot pass finds ${properH1Pages >= total * 0.8 ? 'clear landing spots' : 'competing anchors'} across the set, with ${avgWords >= 500 ? 'coverage that carries examples' : 'coverage that thins under pressure'}. ${httpsPages === total ? 'Trust cues hold even as context shifts.' : 'Trust cues fluctuate with protocol mix.'}`,
-    `Perplexity read notes ${metaPages >= total * 0.8 ? 'previews that frame the task' : 'previews that leave edges undefined'} and ${avgLinks >= 4 ? 'connectivity that supports fact‑checking trails' : 'thin trails that shorten verification paths'}. ${schemaPages >= total * 0.6 ? 'Typed context helps names keep their shape.' : 'Un‑typed pockets let names smudge at the edges.'}`
+  const bits = [
+    `Across ${total} pages on ${host}, headings ${properH1===total?'hold a single spine':'vary in number page to page'}, and content sits around ${avgWords} words on average. Typed hints ${schemaPages>=total*0.8?'travel well':'thin out in places'}, while previews ${metaPages>=total*0.8?'frame intent consistently':'come and go'}.`,
+    `Internal trails average ~${avgLinks} per page, which ${avgLinks>=5?'brings adjacent ideas into reach quickly':'stretches the hop distance a bit'}. Transport ${httpsPages===total?'stays uniform':'mixes in a few un‑locked paths'}, which can color how quotes and pointers are carried forward.`
   ];
 
-  const format = mode === 'analyze' ? analyzeLLM : fullLLM;
-  return texts.map(t => ({ description: format(t).join('\n\n') }));
+  const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+  return engines.map((_,i)=>{
+    if (mode==='analyze'){
+      // one paragraph (3–4 sentences)
+      const sents = splitSents(bits.join(' '));
+      while (sents.length < 4) sents.push(addObfuscation(host, i+sents.length));
+      return { description: sents.slice(0,4).join(' ') };
+    }
+    // full → two paragraphs
+    const pad = addObfuscation(host, i);
+    return { description: `${bits[0]}\n\n${bits[1]} ${pad}` };
+  });
 }
 
-// ——— dynamic analysis ———
-function generateCompleteAnalysis(pagesData, host, reportType) {
-  if (!pagesData || pagesData.length === 0) {
+// ---- dynamic analysis ----
+function generateCompleteAnalysis(pages, host, reportType){
+  if (!pages || !pages.length){
     return {
       working: [],
-      needsAttention: [{
-        title: 'Site Crawl Failed',
-        description: `The crawl for ${host} didn’t surface analyzable pages. That reads more like access posture than content posture.`
-      }],
+      needsAttention: [{ title:'Site Crawl Failed', description: polish(`The crawl for ${host} didn’t surface analyzable pages. That usually feels like a closed door rather than a blank room.`, reportType, host) }],
       qualityScore: 30
     };
   }
 
-  const total = pagesData.length;
-  const isAnalyze = reportType === 'analyze';
-  const score = calculateQualityScore(pagesData);
-  const { working: workingTarget, needs: needsTarget } = targetsFor(reportType, score);
+  const total = pages.length;
+  const httpsPages = pages.filter(p=>p.hasSSL).length;
+  const titleOK = pages.filter(p=>p.title.length>0);
+  const metaOK  = pages.filter(p=>p.metaDesc.length>0);
+  const longTitles = pages.filter(p=>p.title.length>60);
+  const dupTitle = total - new Set(pages.map(p=>p.title)).size;
 
-  // aggregate
-  const httpsPages   = pagesData.filter(p => p.hasSSL).length;
-  const titleOK      = pagesData.filter(p => p.title.length > 0);
-  const metaOK       = pagesData.filter(p => p.metaDesc.length > 0);
-  const longTitles   = pagesData.filter(p => p.title.length > 60);
-  const dupTitleCnt  = total - new Set(pagesData.map(p => p.title)).size;
+  const wordsArr = pages.map(p=>p.wordCount);
+  const avgWordsV = avg(wordsArr);
+  const spreadV = stdev(wordsArr);
+  const thinPages = pages.filter(p=>p.wordCount<300);
 
-  const wordsArr     = pagesData.map(p => p.wordCount);
-  const avgWords     = avg(wordsArr);
-  const wordSpread   = stdev(wordsArr);
-  const thinPages    = pagesData.filter(p => p.wordCount < 300);
+  const h1Singles = pages.filter(p=>p.h1Count===1);
+  const h1None = pages.filter(p=>p.h1Count===0);
+  const h1Multi = pages.filter(p=>p.h1Count>1);
 
-  const h1Singles    = pagesData.filter(p => p.h1Count === 1);
-  const h1None       = pagesData.filter(p => p.h1Count === 0);
-  const h1Multi      = pagesData.filter(p => p.h1Count > 1);
+  const intArr = pages.map(p=>p.internalLinkCount);
+  const avgInt = avg(intArr);
+  const weakInt = pages.filter(p=>p.internalLinkCount<3);
 
-  const intLinksArr  = pagesData.map(p => p.internalLinkCount);
-  const avgInt       = avg(intLinksArr);
-  const weakInt      = pagesData.filter(p => p.internalLinkCount < 3);
+  const schemaPages = pages.filter(p=>p.hasSchema).length;
+  const imgAltPctArr = pages.map(p => (p.imageCount ? Math.round((p.imageAltCount/p.imageCount)*100) : 100));
+  const avgAltPct = avg(imgAltPctArr);
 
-  const schemaPages  = pagesData.filter(p => p.hasSchema).length;
+  const crumbs = pages.filter(p=>p.breadcrumbs).length;
+  const navPct = pct(pages.filter(p=>p.hasNav).length, total);
+  const footPct = pct(pages.filter(p=>p.hasFooter).length, total);
 
-  const imgAltPctArr = pagesData.map(p => (p.imageCount ? Math.round((p.imageAltCount / p.imageCount) * 100) : 100));
-  const avgAltPct    = avg(imgAltPctArr);
+  const extLinksAvg = avg(pages.map(p=>p.externalLinkCount));
+  const socialAvg = avg(pages.map(p=>p.socialLinkCount));
+  const contactPhone = pages.filter(p=>p.contactInfo.phone).length;
+  const contactEmail = pages.filter(p=>p.contactInfo.email).length;
+  const contactAddr  = pages.filter(p=>p.contactInfo.address).length;
 
-  const crumbs       = pagesData.filter(p => p.breadcrumbs).length;
-  const navPct       = pct(pagesData.filter(p => p.hasNav).length, total);
-  const footPct      = pct(pagesData.filter(p => p.hasFooter).length, total);
+  const W=[], N=[];
 
-  const extLinksAvg  = avg(pagesData.map(p => p.externalLinkCount));
-  const socialAvg    = avg(pagesData.map(p => p.socialLinkCount));
-  const contactPhone = pagesData.filter(p => p.contactInfo.phone).length;
-  const contactEmail = pagesData.filter(p => p.contactInfo.email).length;
-  const contactAddr  = pagesData.filter(p => p.contactInfo.address).length;
+  // working (dynamic)
+  if (httpsPages===total) W.push({ title:'Complete HTTPS Security', description:`Every sampled page resolves over HTTPS. The floor feels solid; readers don’t step around mixed locks to get the gist.` });
+  if (pct(titleOK.length,total)>=95 && longTitles.length===0 && dupTitle===0) W.push({ title:'Title Coverage & Differentiation', description:`${pct(titleOK.length,total)}% of pages present distinct, scannable titles. Previews hold their edges without colliding labels.` });
+  if (pct(metaOK.length,total)>=80) W.push({ title:'Meta Description Presence', description:`${pct(metaOK.length,total)}% of pages bring a short preface. Most entries arrive with a hint rather than a cold open.` });
+  if (schemaPages>=Math.ceil(total*0.7)) W.push({ title:'Structured Data Footprint', description:`${pct(schemaPages,total)}% of pages declare typed context. Names and roles tend to keep their shape when lifted elsewhere.` });
+  if (avgInt>=6 && !weakInt.length) W.push({ title:'Internal Path Consistency', description:`Cross‑links cluster around ~${avgInt} per page with few outliers. Nearby ideas don’t feel far away.` });
+  if (avgAltPct>=85) W.push({ title:'Image Alt Coverage', description:`Alt text lands on most imagery (~${avgAltPct}% on average). When visuals drop out, the thread usually remains intact.` });
+  if (avgWordsV>=600) W.push({ title:'Substantial Content Depth', description:`Average depth sits near ${avgWordsV} words (σ≈${spreadV}). Sections read like chapters, not captions.` });
+  if (h1Singles.length===total) W.push({ title:'Clear Heading Spine', description:`Pages carry a single H1. Primary topics stand alone instead of competing for the mic.` });
+  if (navPct>=90 && footPct>=90) W.push({ title:'Template Consistency', description:`Global furniture shows up reliably (nav ${navPct}%, footer ${footPct}%). Orientation tends to persist from page to page.` });
+  if (crumbs>=Math.ceil(total*0.6)) W.push({ title:'Breadcrumb Traces', description:`${pct(crumbs,total)}% of pages expose a trail. Sections announce where they live in the larger map.` });
 
-  const W = [];
-  const N = [];
+  // needs (dynamic)
+  if (httpsPages!==total) N.push({ title:'HTTPS Gaps', description:`${httpsPages}/${total} pages travel with locks. The rest step out without them, and the tone changes when they do.` });
+  if (titleOK.length<total) N.push({ title:'Missing Titles', description:`${total-titleOK.length} pages publish without a nameplate. Untitled entries tend to blur at the doorway.` });
+  if (longTitles.length>0) N.push({ title:'Overlong Titles', description:`${longTitles.length} pages let titles run long. Edges get trimmed, and the key phrase can fall outside the frame.` });
+  if (dupTitle>0) N.push({ title:'Duplicate Titles', description:`${dupTitle} collisions show up across the set. Different rooms sharing the same label invite mix‑ups.` });
+  if (pct(metaOK.length,total)<80) N.push({ title:'Thin Previews', description:`Only ${pct(metaOK.length,total)}% of pages bring a summary. Without that preface, the first line has to do extra work.` });
+  if (thinPages.length>0) N.push({ title:'Thin Sections', description:`${thinPages.length}/${total} pages land under 300 words. Skimming turns into skipping when the thread is that short.` });
+  if (avgWordsV<400) N.push({ title:'Shallow Average Depth', description:`Coverage averages ${avgWordsV} words (σ≈${spreadV}). Ideas arrive, but they don’t stay long.` });
+  if (h1None.length>0) N.push({ title:'Missing H1', description:`${h1None.length} pages step onstage without a lead heading. The scene opens mid‑conversation.` });
+  if (h1Multi.length>0) N.push({ title:'Multiple H1 Anchors', description:`${h1Multi.length} pages carry more than one lead. Two spotlights on the same stage split attention.` });
+  if (avgInt<6) N.push({ title:'Sparse Trails', description:`Internal links average ${avgInt} per page. Hops between related ideas feel longer than they need to.` });
+  if (weakInt.length>0) N.push({ title:'Isolated Pages', description:`${weakInt.length} pages sit with fewer than three connections. They read like side paths that don’t loop back.` });
+  if (schemaPages<Math.ceil(total*0.7)) N.push({ title:'Typed Context Gaps', description:`Typed signals reach ${pct(schemaPages,total)}% of pages. Where typing fades, names and roles smudge at the edges.` });
+  if (avgAltPct<70) N.push({ title:'Alt‑Text Thin Spots', description:`Alt attributes average ~${avgAltPct}% across imagery. When captions go missing, pictures turn into placeholders.` });
+  if (crumbs<Math.ceil(total*0.4)) N.push({ title:'Few Breadcrumbs', description:`Only ${pct(crumbs,total)}% of pages show a trail. Without that line, sections float more than they stack.` });
+  if (navPct<80 || footPct<80) N.push({ title:'Template Drift', description:`Global elements fluctuate (nav ${navPct}%, footer ${footPct}%). The room changes shape more often than expected.` });
 
-  // Working (neutral phrasing)
-  if (httpsPages === total) W.push({ title:'Complete HTTPS Security', description:`Every sampled page on ${host} resolves over HTTPS. The floor feels solid; readers don’t step around mixed locks to get the gist.`});
-  if (pct(titleOK.length,total) >= 95 && longTitles.length===0 && dupTitleCnt===0) W.push({ title:'Title Coverage & Differentiation', description:`${pct(titleOK.length,total)}% of pages present distinct, scannable titles on ${host}. Previews hold their edges without colliding labels.`});
-  if (pct(metaOK.length,total) >= 80) W.push({ title:'Meta Description Presence', description:`${pct(metaOK.length,total)}% of pages bring a short preface on ${host}. Most entries arrive with a hint rather than a cold open.`});
-  if (schemaPages >= Math.ceil(total*0.7)) W.push({ title:'Structured Data Footprint', description:`${pct(schemaPages,total)}% of pages declare typed context. Names and roles tend to keep their shape when lifted elsewhere.`});
-  if (avgInt >= 6 && weakInt.length===0) W.push({ title:'Internal Path Consistency', description:`Cross‑links cluster around ~${avgInt} per page with few outliers on ${host}. Nearby ideas don’t feel far away.`});
-  if (avgAltPct >= 85) W.push({ title:'Image Alt Coverage', description:`Alt text lands on most imagery (~${avgAltPct}% on average). When visuals drop out, the thread usually remains intact.`});
-  if (avgWords >= 600) W.push({ title:'Substantial Content Depth', description:`Average depth sits near ${avgWords} words with a spread around ~${wordSpread}. Sections read like chapters, not captions.`});
-  if (h1Singles.length === total) W.push({ title:'Clear Heading Spine', description:`Pages carry a single H1 across ${host}. Primary topics stand alone instead of competing for the mic.`});
-  if (navPct >= 90 && footPct >= 90) W.push({ title:'Template Consistency', description:`Global furniture shows up reliably (nav ${navPct}%, footer ${footPct}%). Orientation tends to persist from page to page.`});
-  if (crumbs >= Math.ceil(total*0.6)) W.push({ title:'Breadcrumb Traces', description:`${pct(crumbs,total)}% of pages expose a trail. Sections announce where they live in the larger map.`});
+  // full-only extra surface
+  if (contactPhone+contactEmail+contactAddr < Math.ceil(total*0.6)) N.push({ title:'Light Contact Footprint', description:`Direct touchpoints surface intermittently. When the handshake isn’t obvious, trust has to travel farther.` });
+  if (socialAvg===0) N.push({ title:'Quiet Social Surface', description:`Social paths don’t present themselves here. The broader footprint feels thinner than the site’s center of gravity.` });
+  if (extLinksAvg>8) N.push({ title:'High External Link Density', description:`Outbound references average ~${extLinksAvg} per page. The narrative steps outside the room more than it stays in it.` });
 
-  // Needs (neutral)
-  if (httpsPages !== total) N.push({ title:'HTTPS Gaps', description:`${httpsPages}/${total} pages travel with locks on ${host}. The rest step out without them, and the tone changes when they do.`});
-  if (titleOK.length < total) N.push({ title:'Missing Titles', description:`${total - titleOK.length} pages publish without a nameplate. Untitled entries tend to blur at the doorway.`});
-  if (longTitles.length > 0) N.push({ title:'Overlong Titles', description:`${longTitles.length} pages let titles run long. Edges get trimmed, and the key phrase can fall outside the frame.`});
-  if (dupTitleCnt > 0) N.push({ title:'Duplicate Titles', description:`${dupTitleCnt} collisions show up across ${host}. Different rooms sharing the same label invite mix‑ups.`});
-  if (pct(metaOK.length,total) < 80) N.push({ title:'Thin Previews', description:`Only ${pct(metaOK.length,total)}% of pages bring a summary. Without that preface, the first line has to do extra work.`});
-  if (thinPages.length > 0) N.push({ title:'Thin Sections', description:`${thinPages.length}/${total} pages land under 300 words. Skimming turns into skipping when the thread is that short.`});
-  if (avgWords < 400) N.push({ title:'Shallow Average Depth', description:`Coverage averages ${avgWords} words with a spread near ~${wordSpread}. Ideas arrive, but they don’t stay long.`});
-  if (h1None.length > 0) N.push({ title:'Missing H1', description:`${h1None.length} pages step onstage without a lead heading. The scene opens mid‑conversation.`});
-  if (h1Multi.length > 0) N.push({ title:'Multiple H1 Anchors', description:`${h1Multi.length} pages carry more than one lead. Two spotlights on the same stage split attention.`});
-  if (avgInt < 6) N.push({ title:'Sparse Trails', description:`Internal links average ${avgInt} per page. Hops between related ideas feel longer than they need to.`});
-  if (weakInt.length > 0) N.push({ title:'Isolated Pages', description:`${weakInt.length} pages sit with fewer than three connections. They read like side paths that don’t loop back.`});
-  if (schemaPages < Math.ceil(total*0.7)) N.push({ title:'Typed Context Gaps', description:`Typed signals reach ${pct(schemaPages,total)}% of pages on ${host}. Where typing thins out, names and roles can smudge.`});
-  if (avgAltPct < 70) N.push({ title:'Alt‑Text Thin Spots', description:`Alt attributes average ~${avgAltPct}% across imagery. When captions go missing, pictures turn into placeholders.`});
-  if (crumbs < Math.ceil(total*0.4)) N.push({ title:'Few Breadcrumbs', description:`Only ${pct(crumbs,total)}% of pages show a trail. Without that line, sections float more than they stack.`});
-  if (navPct < 80 || footPct < 80) N.push({ title:'Template Drift', description:`Global elements fluctuate (nav ${navPct}%, footer ${footPct}%). The room changes shape more often than expected.`});
+  // count banding
+  const score = calculateQualityScore(pages);
+  const { working: wTarget, needs: nTarget } = targetsFor((reportType||'analyze'), score);
 
-  if (!isAnalyze) {
-    if (contactPhone + contactEmail + contactAddr < Math.ceil(total*0.6)) N.push({ title:'Light Contact Footprint', description:`Direct touchpoints surface intermittently across ${host}. When the handshake isn’t obvious, trust has to travel farther.`});
-    if (socialAvg === 0) N.push({ title:'Quiet Social Surface', description:`Social paths don’t present themselves here. The broader footprint feels thinner than the site’s center of gravity.`});
-    if (extLinksAvg > 8) N.push({ title:'High External Link Density', description:`Outbound references average ~${extLinksAvg} per page. The narrative steps outside the room more than it stays in it.`});
-  }
+  // grow with neutral seeds if short
+  const seeds = [
+    ['Texture Spread', `Depth varies (σ≈${spreadV}). A caption in one room becomes a chapter in the next.`],
+    ['Trail Density', `Trails settle around ~${avgInt} links per page. Hop distance sets how quickly adjacent ideas come into view.`],
+    ['Caption Footing', `Alt coverage hovers near ~${avgAltPct}%. Where captions thin, lifted visuals feel more like placeholders than references.`],
+    ['Typing Footprint', `Typed context reaches ${pct(schemaPages,total)}% of pages. Where typing fades, names and roles blur at the edges.`],
+    ['Preview Cadence', `Summaries cover ${pct(metaOK.length,total)}% of entries. Intros show up often enough to set the scene, but not always.`]
+  ];
 
-  // dedupe
-  let Wuniq = uniqueByTitle(W);
-  let Nuniq = uniqueByTitle(N);
+  let Wuniq = uniqueByTitle(W), Nuniq = uniqueByTitle(N);
 
-  // length / texture polish
-  const polish = (raw, mode, domain, idx) => {
-    const base = String(raw||'').trim();
-    const neutralize = (s) =>
-      s.replace(/\b(add|fix|implement|optimi[sz]e|update|improve|create|use|ensure|increase|decrease)\b/gi, 'shape')
-       .replace(/\b(should|must|need to|have to|recommend(ed)?)\b/gi, 'tends to')
-       .replace(/\b(best practice|checklist|steps|how to)\b/gi, 'pattern');
-    const s = splitSents(neutralize(base));
-
-    if (mode === 'analyze') {
-      while (s.length < 3) s.push(addObfuscation(domain, idx + s.length));
-      return s.slice(0,3).join(' ');
-    }
-    // full → long paragraphs (1–3); aim 6–10 sentences split across 1–2 paras
-    while (s.length < 6) s.push(addObfuscation(domain, idx + s.length));
-    const goal = Math.min(10, Math.max(6, s.length));
-    const cut = s.slice(0, goal);
-    const mid = Math.ceil(cut.length/2);
-    const paras = [ cut.slice(0, mid).join(' '), cut.slice(mid).join(' ') ];
-    return paras.join('\n\n');
-  };
-
-  const grow = (arr, target, domain, mode) => {
-    if (arr.length >= target) {
-      return arr.map((x,k)=>({ ...x, description: polish(x.description, mode, domain, k)})).slice(0,target);
-    }
-    const seeds = [
-      ['Texture Spread', `Depth varies (σ≈${wordSpread}). A caption in one room becomes a chapter in the next.`],
-      ['Trail Density', `Trails settle around ~${avgInt} links per page. Hop distance sets how quickly adjacent ideas come into view.`],
-      ['Caption Footing', `Alt coverage hovers near ~${avgAltPct}%. Where captions thin, lifted visuals feel more like placeholders than references.`],
-      ['Typing Footprint', `Typed context reaches ${pct(schemaPages,total)}% of pages. Where typing fades, names and roles blur at the edges.`],
-      ['Preview Cadence', `Summaries cover ${pct(metaOK.length,total)}% of entries. Intros show up often enough to set the scene, but not always.`],
-    ];
-    let i = 0;
-    while (arr.length < target && i < seeds.length * 3) {
-      const [t,d] = seeds[i % seeds.length];
-      const suffix = (i >= seeds.length) ? ` • v${Math.floor(i/seeds.length)+2}` : '';
-      const cand = { title: `${t}${suffix}`, description: d };
-      if (!arr.some(x => x.title.toLowerCase() === cand.title.toLowerCase())) arr.push(cand);
+  const grow = (arr, target)=>{
+    if (arr.length >= target) return arr;
+    let i=0;
+    while (arr.length < target && i < seeds.length*3){
+      const [t,d]=seeds[i%seeds.length];
+      const suff = (i>=seeds.length)?` • v${Math.floor(i/seeds.length)+2}`:'';
+      const cand = { title: `${t}${suff}`, description: d };
+      if (!arr.some(x=>x.title.toLowerCase()===cand.title.toLowerCase())) arr.push(cand);
       i++;
     }
-    return arr.map((x,k)=>({ ...x, description: polish(x.description, mode, domain, k)})).slice(0,target);
+    return arr;
   };
 
-  Wuniq = grow(Wuniq, workingTarget, host, isAnalyze ? 'analyze' : 'full');
-  Nuniq = grow(Nuniq, needsTarget,   host, isAnalyze ? 'analyze' : 'full');
+  Wuniq = grow(Wuniq, wTarget);
+  Nuniq = grow(Nuniq, nTarget);
+
+  // apply polish by mode
+  const mode = (reportType==='analyze')?'analyze':'full';
+  Wuniq = Wuniq.map((x,i)=> ({...x, description: polish(x.description, mode, host, i)})).slice(0, wTarget);
+  Nuniq = Nuniq.map((x,i)=> ({...x, description: polish(x.description, mode, host, i)})).slice(0, nTarget);
 
   return { working: Wuniq, needsAttention: Nuniq, qualityScore: score };
 }
 
-// ——— main analyzer ———
-async function analyzeWebsite(url, reportType='analyze') {
+// ---- top-level analyze ----
+async function analyzeWebsite(url, reportType='analyze'){
   const host = hostOf(url);
-  try {
-    const maxPages = reportType === 'full' || reportType === 'full-report' ? 15 : 8;
-    const pagesData = await crawlSitePages(url, maxPages);
-    if (pagesData.length === 0) throw new Error('No pages crawled');
+  try{
+    const maxPages = reportType==='full' ? 15 : 8;
+    const pages = await crawlSitePages(url, maxPages);
+    if (!pages.length) throw new Error('No pages crawled');
 
-    let analysis = generateCompleteAnalysis(pagesData, host, reportType);
-
+    let analysis = generateCompleteAnalysis(pages, host, reportType);
     const pillars = {
-      access: clamp(18 + Math.floor((pagesData.reduce((s, p) => s + p.internalLinkCount, 0) / pagesData.length) / 2), 15, 25),
-      trust: clamp(18 + (pagesData.filter(p => p.hasSSL).length === pagesData.length ? 3 : 0), 15, 25),
-      clarity: clamp(18 + (pagesData.filter(p => p.h1Count === 1).length === pagesData.length ? 3 : 0), 15, 25),
-      alignment: clamp(18 + Math.floor((pagesData.filter(p => p.hasSchema).length / pagesData.length) * 4), 15, 25),
+      access: clamp(18 + Math.floor((pages.reduce((s,p)=>s+p.internalLinkCount,0)/pages.length)/2), 15, 25),
+      trust: clamp(18 + (pages.filter(p=>p.hasSSL).length===pages.length ? 3 : 0), 15, 25),
+      clarity: clamp(18 + (pages.filter(p=>p.h1Count===1).length===pages.length ? 3 : 0), 15, 25),
+      alignment: clamp(18 + Math.floor((pages.filter(p=>p.hasSchema).length/pages.length)*4), 15, 25),
     };
 
-    if (OVERRIDE.has(host)) {
-      const override = highScore();
-      Object.assign(pillars, override.pillars);
-      analysis.qualityScore = override.score;
+    if (OVERRIDE.has(host)){
+      const o=highScore();
+      Object.assign(pillars, o.pillars);
+      analysis.qualityScore = o.score;
     }
 
-    const mode = (reportType === 'full' || reportType === 'full-report') ? 'full' : 'analyze';
-    const insights = generateAIInsights(pagesData, host, mode);
+    const insights = generateAIInsights(pages, host, reportType==='analyze'?'analyze':'full');
 
-    return {
-      working: analysis.working,
-      needsAttention: analysis.needsAttention,
-      insights,
-      pillars,
-      score: analysis.qualityScore
-    };
-
-  } catch (error) {
-    console.error('Analysis failed:', error.message);
+    return { ...analysis, pillars, score: analysis.qualityScore, insights };
+  }catch(e){
+    console.error('Analysis failed:', e.message);
     const fallback = {
       working: [],
-      needsAttention: [{ title: 'Analysis Incomplete', description: `Crawl for ${host} fell short — this looks more like an access posture than a content posture.` }],
+      needsAttention: [{ title:'Analysis Incomplete', description: polish(`${host} crawl fell short — only partial signals were observable. This reads more like access posture than content posture.`, 'full', host) }],
       qualityScore: 60
     };
     return {
-      working: fallback.working,
-      needsAttention: fallback.needsAttention,
-      insights: generateAIInsights([], host, reportType),
-      pillars: { access: 15, trust: 15, clarity: 15, alignment: 15 },
-      score: fallback.qualityScore
+      ...fallback,
+      pillars: { access:15, trust:15, clarity:15, alignment:15 },
+      score: fallback.qualityScore,
+      insights: generateAIInsights([], host, reportType==='analyze'?'analyze':'full')
     };
   }
 }
 
-// ——— endpoints ———
-app.get('/report.html', async (req, res) => {
-  try {
-    const url = req.query.url;
-    if (!url) return res.status(400).send('<p style="color:red">Missing URL parameter.</p>');
-    try { new URL(url); } catch { return res.status(400).send('<p style="color:red">Invalid URL format.</p>'); }
+// ---- endpoints ----
+app.get('/', (_req,res)=>res.send('SnipeRank Backend v2.4.1'));
 
-    // report mode: query ?report=full|analyze → referer check → default analyze
-    const qMode = String(req.query.report||'').toLowerCase();
-    const ref = String(req.headers.referer||'').toLowerCase();
-    let reportType = (qMode.includes('full') ? 'full' : (qMode.includes('analyze') ? 'analyze' : ''));
-    if (!reportType) reportType = (ref.includes('full-report') ? 'full' : (ref.includes('analyze') ? 'analyze' : 'analyze'));
+app.get('/report.html', async (req,res)=>{
+  const url = req.query.url;
+  const report = (req.query.report==='full')?'full':'analyze';
+  if (!url) return res.status(400).send('<p style="color:red">Missing URL parameter.</p>');
+  try{ new URL(url); }catch{ return res.status(400).send('<p style="color:red">Invalid URL format.</p>'); }
 
-    const analysis = await analyzeWebsite(url, reportType);
-    const li = (t, d) => `<li><strong>${t}:</strong> ${d}</li>`;
-
-    const html = `
-      <div class="section-title">✅ What's Working</div>
-      <ul>${analysis.working.map(x => li(x.title, x.description)).join('')}</ul>
-      <div class="section-title">🚨 Needs Attention</div>
-      <ul>${analysis.needsAttention.map(x => li(x.title, x.description)).join('')}</ul>
-      <div class="section-title">🤖 AI Engine Insights</div>
-      <ul>${analysis.insights.map(x => `<li>${x.description}</li>`).join('')}</ul>
-    `;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(html);
-  } catch (e) {
-    console.error('/report.html error:', e);
-    return res.status(500).send('<p style="color:red">Server error generating report.</p>');
-  }
+  const analysis = await analyzeWebsite(url, report);
+  const li = (t,d)=> `<li><strong>${t}:</strong> ${d}</li>`;
+  const html = `
+    <div class="section-title">✅ What's Working</div>
+    <ul>${analysis.working.map(x=>li(x.title,x.description)).join('')}</ul>
+    <div class="section-title">🚨 Needs Attention</div>
+    <ul>${analysis.needsAttention.map(x=>li(x.title,x.description)).join('')}</ul>
+    <div class="section-title">🤖 AI Engine Insights</div>
+    <ul>${analysis.insights.map(x=>`<li>${x.description}</li>`).join('')}</ul>
+  `;
+  res.setHeader('Content-Type','text/html');
+  res.send(html);
 });
 
-app.get('/api/score', async (req, res) => {
-  try {
-    const url = req.query.url;
-    if (!url) return res.status(400).json({ error: 'Missing url parameter' });
-    try { new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL format' }); }
+app.get('/api/score', async (req,res)=>{
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error:'Missing url parameter' });
+  try{ new URL(url); }catch{ return res.status(400).json({ error:'Invalid URL format' }); }
 
-    const host = hostOf(url);
-    const analysis = await analyzeWebsite(url, 'analyze');
-    const total = analysis.pillars.access + analysis.pillars.trust + analysis.pillars.clarity + analysis.pillars.alignment;
+  const host = hostOf(url);
+  const analysis = await analyzeWebsite(url, 'analyze');
+  const total = analysis.pillars.access + analysis.pillars.trust + analysis.pillars.clarity + analysis.pillars.alignment;
 
-    const bandText = (score) => {
-      if (score >= 85) return "Rank: Highly Visible ★★★★☆";
-      if (score >= 70) return "Rank: Partially Visible ★★★☆☆";
-      if (score >= 55) return "Rank: Needs Work ★★☆☆☆";
-      return "Rank: Low Visibility ★☆☆☆☆";
-    };
+  const bandText = (s)=> s>=85?"Rank: Highly Visible ★★★★☆": s>=70?"Rank: Partially Visible ★★★☆☆": s>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
 
-    const highlights = analysis.needsAttention.slice(0, 4).map(x => {
-      const first = splitSents(x.description)[0] || x.description;
-      return `${x.title} — ${first}`;
-    });
+  // dynamic highlights: first four needs (first sentence only)
+  const highlights = analysis.needsAttention.slice(0,4).map(x=>{
+    const first = splitSents(x.description)[0] || x.description;
+    return `${x.title} — ${first}`;
+  });
 
-    const logos = {
-      ChatGPT: "/img/chatgpt-logo.png",
-      Claude: "/img/claude-logo.png",
-      Gemini: "/img/gemini-logo.png",
-      Copilot: "/img/copilot-logo.png",
-      Perplexity: "/img/perplexity-logo.png"
-    };
-    const order = ["ChatGPT", "Claude", "Gemini", "Copilot", "Perplexity"];
-    const insights = analysis.insights.map((insight, i) => ({
-      engine: order[i] || "Engine",
-      text: insight.description,
-      logo: logos[order[i]] || ""
-    }));
+  const logos = { ChatGPT:"/img/chatgpt-logo.png", Claude:"/img/claude-logo.png", Gemini:"/img/gemini-logo.png", Copilot:"/img/copilot-logo.png", Perplexity:"/img/perplexity-logo.png" };
+  const order = ["ChatGPT","Claude","Gemini","Copilot","Perplexity"];
+  const insights = analysis.insights.map((ins, i)=>({ engine: order[i]||'Engine', text: ins.description, logo: logos[order[i]]||'' }));
 
-    return res.json({
-      url, host,
-      score: total,
-      pillars: analysis.pillars,
-      highlights,
-      band: bandText(total),
-      override: OVERRIDE.has(host),
-      insights
-    });
-  } catch (e) {
-    console.error('/api/score error:', e);
-    return res.status(500).json({ error: 'Server error generating score' });
-  }
+  res.json({ url, host, score: total, pillars: analysis.pillars, highlights, band: bandText(total), override: OVERRIDE.has(host), insights });
 });
 
-if (sendLinkHandler) {
-  app.post('/api/send-link', sendLinkHandler);
-}
-
-app.listen(PORT, () => console.log(`SnipeRank Backend v2.4.2 running on port ${PORT}`));
+app.listen(PORT, ()=> console.log(`SnipeRank Backend v2.4.1 running on port ${PORT}`));

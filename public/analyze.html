@@ -1,132 +1,152 @@
-// analyze.html — v2.6.0  (fix: Needs banding 25/20/15; no extra floor)
-// Analyze = 3 sentences/item + 1‑paragraph LLM
-// Full‑report = long paragraphs/item + 2‑paragraph LLM
-// Working banded 5/7/10; Needs banded 25/20/15
-// ChatGPT
-
+// analize.html — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode) GPT
+// - Uses ?report=analyze|full to size both bullets and LLM insights
+// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Analyze — dynamic short report -->
+  <!-- Analyze — dynamic short report (unchanged design) -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SnipeRank — AI SEO Analysis Results</title>
-
   <style>
-    :root{
-      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
-      --muted:#666; --border:#e5e5e5;
-      --sr-text:#111; --sr-bg:#fff;
-    }
+    /* (your existing styles preserved) */
+    :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5;--sr-radius:16px;--sr-border:#e6e6e9;--sr-shadow:0 10px 30px rgba(0,0,0,.12);--sr-text:#111;--sr-muted:#5b5b66;--sr-bg:#fff;--sr-pill-bg:#fafafb;--sr-gap:16px}
     *{box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto}
-    h1{font-size:3rem;font-weight:800;margin:0 0 .5rem}
-    h2{font-size:1.4rem;font-weight:700;margin:0 0 1rem}
-    p{font-size:1.05rem;line-height:1.68;margin:0 0 1rem}
-
-    .info-row{display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem;color:#666}
-    .info-row a{color:#3182CE;text-decoration:none;font-weight:600}
-
-    /* Rendered report styles */
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
+    h1{font-size:4rem;font-weight:700;margin:0 0 .25em;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem}
+    p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem}
+    .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
+    .powered-by,.for-url{color:var(--muted);font-size:.95rem}
+    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
+    .for-url strong{color:#000}
     #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem!important}
-    #summary-results p{line-height:1.68!important;margin:0 0 .9rem!important;font-size:1.03rem!important}
+    #summary-results p{line-height:1.65!important;margin:0 0 .9rem!important;font-size:1.02rem!important}
     #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
-    #summary-results li{line-height:1.68!important;margin:.55rem 0!important;font-size:1.03rem!important;white-space:pre-line}
-
-    /* LLM rows */
+    #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important;white-space:pre-line}
     .llm-insights{margin:.4rem 0 1.2rem}
     .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
     .llm-row:last-child{border-bottom:0}
     .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
+    /* simple form */
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit}
+    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer}
+    .form-button-wrapper{text-align:center;margin:1.5rem 0}
+    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
+    @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-  <h1>AI SEO Snapshot</h1>
-  <h2>Analyze</h2>
+  <h1>SnipeRank</h1>
+  <h2>AI SEO Analysis Results</h2>
 
   <div class="info-row">
-    <div>Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div>Analysis for: <strong id="current-url">—</strong></div>
+    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+    <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
   <section id="summary-results">
     <p style="text-align:center;color:gray;">Loading analysis…</p>
   </section>
 
+  <!-- Request full report form (added to analyze) -->
+  <section class="report-section">
+    <h3>Get Your Full Report</h3>
+    <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
+      <div class="form-grid">
+        <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
+        <input type="email" name="email" placeholder="Your Email" required autocomplete="email"/>
+        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel"/>
+        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
+      </div>
+      <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
+      <input type="hidden" name="url" id="urlField"/>
+      <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
+      <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
+    </form>
+  </section>
+
+  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
+
   <script>
-    // Strict local logos from /img (+relative fallback)
+    // /img-only logos
     const LOGO_SOURCES = {
-      ChatGPT: '/img/chatgpt-logo.png',
-      Claude: '/img/claude-logo.png',
-      Gemini: '/img/gemini-logo.png',
-      Copilot: '/img/copilot-logo.png',
-      Perplexity: '/img/perplexity-logo.png',
+      ChatGPT:'/img/chatgpt-logo.png', Claude:'/img/claude-logo.png',
+      Gemini:'/img/gemini-logo.png',   Copilot:'/img/copilot-logo.png',
+      Perplexity:'/img/perplexity-logo.png'
     };
     function logoDivFor(engine){
-      const wrap = document.createElement('div'); wrap.className = 'llm-logo';
-      const p = LOGO_SOURCES[engine];
-      if(!p){ wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
-      const img = document.createElement('img'); img.alt = `${engine} logo`;
-      const candidates = [p, p.replace(/^\/+/, '')];
-      let i = 0;
-      const tryNext = ()=>{ if(i < candidates.length){ img.src = candidates[i++]; } else { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; } };
-      img.onload = ()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
-      img.onerror = tryNext;
-      tryNext();
-      return wrap;
+      const wrap=document.createElement('div'); wrap.className='llm-logo';
+      const p=LOGO_SOURCES[engine];
+      if(!p){ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; return wrap; }
+      const img=document.createElement('img'); img.alt=`${engine} logo`;
+      img.onload=()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
+      img.onerror=()=>{ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; };
+      img.src=p; return wrap;
     }
-
     function transformAIInsights(root){
       const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
-        .find(n => /ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
-      if (!title) return;
+        .find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
+      if(!title) return;
       let ul = title.nextElementSibling;
-      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
-      if (!ul) return;
-
-      const bullets = Array.from(ul.querySelectorAll('li')).map(li => (li.textContent||'').trim());
-      if (!bullets.length) return;
-
-      const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-      const container = document.createElement('div'); container.className = 'llm-insights';
-
-      engines.forEach((engine, i) => {
-        const text = bullets[i]; if (!text) return;
-        const row = document.createElement('div'); row.className = 'llm-row';
+      while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul = ul.nextElementSibling;
+      if(!ul) return;
+      const bullets = Array.from(ul.querySelectorAll('li')).map(li=>(li.textContent||'').trim());
+      if(!bullets.length) return;
+      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+      const container=document.createElement('div'); container.className='llm-insights';
+      engines.forEach((engine,i)=>{
+        const text=bullets[i]; if(!text) return;
+        const row=document.createElement('div'); row.className='llm-row';
         row.appendChild(logoDivFor(engine));
-        const p = document.createElement('p'); p.textContent = text;
+        const p=document.createElement('p'); p.textContent=text;
         row.appendChild(p); container.appendChild(row);
       });
       ul.replaceWith(container);
     }
 
-    document.addEventListener("DOMContentLoaded", async () => {
+    document.addEventListener('DOMContentLoaded', async ()=>{
       const urlParams = new URLSearchParams(window.location.search);
-      const targetUrl = urlParams.get("url") || "https://example.com";
-      document.getElementById("current-url").textContent = targetUrl;
+      const targetUrl = urlParams.get('url') || 'https://example.com';
+      document.getElementById('current-url').textContent = targetUrl;
 
-      try {
-        // Auto-detect whether this is served by the Node app
-        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method: 'HEAD' }).catch(()=>null);
-        const apiBase = probe && probe.ok ? '' : 'https://sniperank-app2.onrender.com';
+      try{
+        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method:'HEAD' }).catch(()=>null);
+        const isNodeServed = !!(probe && probe.ok);
+        const apiBase = isNodeServed ? '' : 'https://sniperank-app2.onrender.com';
 
-        const res = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`, {
-          method: 'GET',
-          headers: { 'Accept': 'text/html' }
-        });
-        if (!res.ok) throw new Error('HTTP '+res.status);
+        const res = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`, { headers:{'Accept':'text/html'} });
         const html = await res.text();
-
-        const host = document.getElementById("summary-results");
+        const host = document.getElementById('summary-results');
         host.innerHTML = html;
         transformAIInsights(host);
-      } catch (err) {
-        console.error('[SnipeRank] analyze load failed:', err);
-        document.getElementById("summary-results").innerHTML =
-          "<p style='text-align:center;color:red'>Error loading analysis.</p>";
+      }catch(e){
+        document.getElementById('summary-results').innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
       }
+
+      // form post (unchanged)
+      const form = document.getElementById("fullReportForm");
+      const status = document.getElementById("formMessage");
+      document.getElementById("urlField").value = targetUrl;
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        status.textContent = "🤖 Analyzing...";
+        const fd = new FormData(form);
+        fd.set("url", targetUrl);
+        try {
+          await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
+          status.textContent = "✅ Thanks! Redirecting…";
+        } catch {
+          status.textContent = "⚠️ Couldn't send just now, redirecting anyway.";
+        } finally {
+          const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
+          window.location.href = next;
+        }
+      });
     });
   </script>
 </body>
