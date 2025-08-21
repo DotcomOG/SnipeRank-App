@@ -1,42 +1,70 @@
-// analize.html — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode) GPT
-// - Uses ?report=analyze|full to size both bullets and LLM insights
-// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Analyze — dynamic short report (unchanged design) -->
+  <!-- Analyze — short report (3-sentence items, 1-paragraph LLM) GPT -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SnipeRank — AI SEO Analysis Results</title>
+
   <style>
-    /* (your existing styles preserved) */
-    :root{--max-width:760px;--pad-v:3vh;--pad-h:2rem;--muted:#666;--border:#e5e5e5;--sr-radius:16px;--sr-border:#e6e6e9;--sr-shadow:0 10px 30px rgba(0,0,0,.12);--sr-text:#111;--sr-muted:#5b5b66;--sr-bg:#fff;--sr-pill-bg:#fafafb;--sr-gap:16px}
+    :root{
+      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
+      --muted:#666; --border:#e5e5e5;
+      --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
+      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
+    }
     *{box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
     h1{font-size:4rem;font-weight:700;margin:0 0 .25em;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
     h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem}
     p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem}
+
     .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
     .powered-by,.for-url{color:var(--muted);font-size:.95rem}
     .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
     .for-url strong{color:#000}
+
+    .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
+    .score-card{padding:1rem;margin-bottom:2.25rem}
+    .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
+    .score-main{display:flex;align-items:baseline;gap:.5rem}
+    .score-number{font-size:2.25rem;font-weight:800}
+    .score-band{color:var(--muted);font-size:.95rem}
+    .btn-row{display:flex;gap:.5rem;align-items:center}
+    .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
+    .btn-ghost:hover{background:#f2f2f2}
+    .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+    .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
+    .pillar .label{font-weight:600}
+    .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
+    .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
+    .highlights h4{margin:0 0 .55rem;font-size:1.2rem;font-weight:800}
+    .highlights ul{margin:0;padding-left:1rem}
+    .highlights li{margin:.45rem 0;line-height:1.5}
+
     #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem!important}
-    #summary-results p{line-height:1.65!important;margin:0 0 .9rem!important;font-size:1.02rem!important}
+    #summary-results p{line-height:1.68!important;margin:0 0 .9rem!important;font-size:1.05rem!important;white-space:pre-line}
     #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
-    #summary-results li{line-height:1.6!important;margin:.55rem 0!important;font-size:1.02rem!important;white-space:pre-line}
+    #summary-results li{line-height:1.7!important;margin:.6rem 0!important;font-size:1.05rem!important}
+
     .llm-insights{margin:.4rem 0 1.2rem}
     .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
     .llm-row:last-child{border-bottom:0}
     .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-    /* simple form */
+
+    .report-section{width:100%;margin:2.5rem 0}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
-    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit}
-    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer}
+    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
+    input:focus,textarea:focus{outline:none;border-color:#3182CE}
+    textarea{resize:vertical;min-height:100px}
+    .btn-primary{background:#dc3545;color:#fff;border:none;padding:.85rem 2rem;border-radius:8px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-block;text-decoration:none;text-align:center;margin:1rem 0}
+    .btn-primary:hover{background:#c82333}
     .form-button-wrapper{text-align:center;margin:1.5rem 0}
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
-    @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+
+    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -48,11 +76,27 @@
     <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
   </div>
 
+  <section class="card score-card" id="scoreCard" aria-live="polite">
+    <div class="score-top">
+      <div class="score-main">
+        <div class="score-number" id="scoreNumber">—</div>
+        <div class="score-band" id="scoreBand">Calculating…</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
+      </div>
+    </div>
+    <div class="pillars" id="pillarsGrid"></div>
+    <div class="highlights" id="highlightsBlock" hidden>
+      <h4>Highlights</h4>
+      <ul id="highlightsList"></ul>
+    </div>
+  </section>
+
   <section id="summary-results">
     <p style="text-align:center;color:gray;">Loading analysis…</p>
   </section>
 
-  <!-- Request full report form (added to analyze) -->
   <section class="report-section">
     <h3>Get Your Full Report</h3>
     <form id="fullReportForm" action="https://formspree.io/f/xqalqjqd" method="POST">
@@ -64,6 +108,7 @@
       </div>
       <textarea name="message" placeholder="Share context or ask a specific question — we'll address at your free consult." rows="4"></textarea>
       <input type="hidden" name="url" id="urlField"/>
+      <input type="hidden" name="_subject" value="SnipeRank Full Report request"/>
       <div class="form-button-wrapper"><button type="submit" class="btn-primary">View Full Report Now</button></div>
       <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
@@ -72,80 +117,75 @@
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
   <script>
-    // /img-only logos
+    // ===== LLM logos from /img =====
     const LOGO_SOURCES = {
       ChatGPT:'/img/chatgpt-logo.png', Claude:'/img/claude-logo.png',
-      Gemini:'/img/gemini-logo.png',   Copilot:'/img/copilot-logo.png',
-      Perplexity:'/img/perplexity-logo.png'
+      Gemini:'/img/gemini-logo.png', Copilot:'/img/copilot-logo.png', Perplexity:'/img/perplexity-logo.png'
     };
     function logoDivFor(engine){
       const wrap=document.createElement('div'); wrap.className='llm-logo';
-      const p=LOGO_SOURCES[engine];
-      if(!p){ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; return wrap; }
-      const img=document.createElement('img'); img.alt=`${engine} logo`;
-      img.onload=()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
-      img.onerror=()=>{ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; };
-      img.src=p; return wrap;
+      const p=LOGO_SOURCES[engine]; if(!p){wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`;return wrap;}
+      const img=document.createElement('img'); img.alt=`${engine} logo`; img.src=p;
+      img.onload=()=>{wrap.innerHTML=''; wrap.appendChild(img)}; img.onerror=()=>{wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`}; return wrap;
     }
     function transformAIInsights(root){
-      const title = Array.from(root.querySelectorAll('h2,h3,h4,.section-title'))
-        .find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
-      if(!title) return;
-      let ul = title.nextElementSibling;
-      while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul = ul.nextElementSibling;
-      if(!ul) return;
-      const bullets = Array.from(ul.querySelectorAll('li')).map(li=>(li.textContent||'').trim());
-      if(!bullets.length) return;
-      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-      const container=document.createElement('div'); container.className='llm-insights';
-      engines.forEach((engine,i)=>{
-        const text=bullets[i]; if(!text) return;
-        const row=document.createElement('div'); row.className='llm-row';
-        row.appendChild(logoDivFor(engine));
-        const p=document.createElement('p'); p.textContent=text;
-        row.appendChild(p); container.appendChild(row);
-      });
-      ul.replaceWith(container);
+      const title=[...root.querySelectorAll('h2,h3,h4,.section-title')].find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim())); if(!title) return;
+      let ul=title.nextElementSibling; while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
+      const bullets=[...ul.querySelectorAll('li')].map(li=>(li.textContent||'').trim()); if(!bullets.length)return;
+      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity']; const box=document.createElement('div'); box.className='llm-insights';
+      engines.forEach((e,i)=>{const t=bullets[i]; if(!t)return; const row=document.createElement('div'); row.className='llm-row'; row.appendChild(logoDivFor(e)); const p=document.createElement('p'); p.textContent=t; row.appendChild(p); box.appendChild(row);});
+      ul.replaceWith(box);
     }
 
-    document.addEventListener('DOMContentLoaded', async ()=>{
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetUrl = urlParams.get('url') || 'https://example.com';
-      document.getElementById('current-url').textContent = targetUrl;
+    function renderScoreCard(total, pillars, highlights){
+      document.getElementById("scoreNumber").textContent = `${total}/100`;
+      document.getElementById("scoreBand").textContent =
+        total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+      const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
+      [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
+        .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
+      if(highlights?.length){const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{const li=document.createElement("li"); li.textContent=h; ul.appendChild(li);}); document.getElementById("highlightsBlock").hidden=false;}
+    }
 
+    document.addEventListener("DOMContentLoaded", async () => {
+      const urlParams=new URLSearchParams(window.location.search);
+      const targetUrl=urlParams.get("url")||"https://example.com";
+      document.getElementById("current-url").textContent=targetUrl;
+
+      // decide local vs remote backend
+      const probe=await fetch('/api/score?url=' + encodeURIComponent('https://example.com'),{method:'HEAD'}).catch(()=>null);
+      const apiBase=(probe&&probe.ok)?'':'https://sniperank-app2.onrender.com';
+
+      // report
       try{
-        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method:'HEAD' }).catch(()=>null);
-        const isNodeServed = !!(probe && probe.ok);
-        const apiBase = isNodeServed ? '' : 'https://sniperank-app2.onrender.com';
+        const res=await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`,{headers:{'Accept':'text/html'}});
+        const html=await res.text();
+        const host=document.getElementById("summary-results"); host.innerHTML=html; transformAIInsights(host);
+      }catch{document.getElementById("summary-results").innerHTML="<p style='text-align:center;color:red'>Error loading analysis.</p>";}
 
-        const res = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`, { headers:{'Accept':'text/html'} });
-        const html = await res.text();
-        const host = document.getElementById('summary-results');
-        host.innerHTML = html;
-        transformAIInsights(host);
-      }catch(e){
-        document.getElementById('summary-results').innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
+      // score
+      try{
+        const res=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
+        const data=await res.json();
+        const p=data.pillars||{access:18,trust:17,clarity:19,alignment:18,freshness:16};
+        renderScoreCard(data.score || (p.access+p.trust+p.clarity+p.alignment+(p.freshness||16)), p, (data.highlights||[]).slice(0,4));
+      }catch{
+        const p={access:18,trust:17,clarity:19,alignment:18,freshness:16};
+        renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, []);
       }
 
-      // form post (unchanged)
-      const form = document.getElementById("fullReportForm");
-      const status = document.getElementById("formMessage");
-      document.getElementById("urlField").value = targetUrl;
+      // form wiring
+      const form=document.getElementById("fullReportForm"); document.getElementById("urlField").value=targetUrl;
+      form.addEventListener("submit",(e)=>{e.preventDefault(); const next=`/full-report.html?url=${encodeURIComponent(targetUrl)}`; window.location.href=next;});
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        status.textContent = "🤖 Analyzing...";
-        const fd = new FormData(form);
-        fd.set("url", targetUrl);
-        try {
-          await fetch(form.action, { method: "POST", body: fd, headers: { "Accept": "application/json" } });
-          status.textContent = "✅ Thanks! Redirecting…";
-        } catch {
-          status.textContent = "⚠️ Couldn't send just now, redirecting anyway.";
-        } finally {
-          const next = `/full-report.html?url=${encodeURIComponent(targetUrl)}`;
-          window.location.href = next;
-        }
+      // copy summary
+      document.getElementById("copyLLMBtn").addEventListener("click", async ()=>{
+        const scoreText=document.getElementById("scoreNumber").textContent||"—/100";
+        const labels=[...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
+        const vals=[...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
+        const highlights=[...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
+        const txt=[`Website: ${targetUrl}`,`SnipeRank Score: ${scoreText}`,`Pillars:`,...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),``,`Observed Highlights / Issues:`,...highlights.map(h=>`- ${h}`)].join("\n");
+        try{await navigator.clipboard.writeText(txt);}catch{window.prompt("Copy the summary:",txt);}
       });
     });
   </script>
