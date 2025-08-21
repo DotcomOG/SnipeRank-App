@@ -1,5 +1,25 @@
+# Node
 node_modules/
-.DS_Store
+npm-debug.log
+yarn-error.log
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Logs
+logs
 *.log
-.vercel
+*.log.*
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Build
+dist/
+out/
+.next/
+.vercel/
