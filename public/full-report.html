@@ -1,6 +1,3 @@
-<!-- full-report.html — v2.4.0 (each item = long paragraph; LLM = 2+ paragraphs) -->
-<!-- - Fetches from /report?report=full -->
-<!-- - Needs Attention minimum 20 items; Working banded by score -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,7 +65,7 @@
       const p = LOGO_SOURCES[engine];
       if(!p){ wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; return wrap; }
       const img = document.createElement('img'); img.alt = `${engine} logo`;
-      const candidates = [p, p.replace(/^\/+/, '')];
+      const candidates = [p, p.replace(/^\/+/,'')];
       let i = 0;
       const tryNext = ()=>{ if(i < candidates.length){ img.src = candidates[i++]; } else { wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`; } };
       img.onload = ()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
@@ -106,13 +103,12 @@
       const targetUrl = urlParams.get("url") || "https://example.com";
       document.getElementById("current-url").textContent = targetUrl;
 
-      // Smart base (same-origin if Node server; else use Render)
       try {
         const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), { method: 'HEAD' }).catch(() => null);
         const isNodeServed = !!(probe && probe.ok);
         const apiBase = isNodeServed ? '' : 'https://sniperank-app2.onrender.com';
 
-        const res = await fetch(`${apiBase}/report.html?url=${encodeURIComponent(targetUrl)}`, {
+        const res = await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`, {
           method: 'GET',
           headers: { 'Accept': 'text/html' }
         });
@@ -131,3 +127,4 @@
   </script>
 </body>
 </html>
+
