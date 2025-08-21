@@ -1,10 +1,25 @@
+# Node
 node_modules/
-.vercel/
-.next/
-dist/
-out/
+npm-debug.log
+yarn-error.log
+
+# Environment
 .env
 .env.local
 .env.*.local
+
+# Logs
+logs
+*.log
+*.log.*
+
+# OS / Editor
 .DS_Store
-Thumbs.db
+.vscode/
+.idea/
+
+# Build
+dist/
+out/
+.next/
+.vercel/
