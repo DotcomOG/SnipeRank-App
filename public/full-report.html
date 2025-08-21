@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Full Report — long report (paragraph bullets, 2-paragraph LLM) GPT -->
+    <!-- Full Report - long report (paragraph bullets, 2-paragraph LLM) GPT -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SnipeRank — Full AI SEO Report</title>
-
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
       --muted:#666; --border:#e5e5e5;
       --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
       --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
+      --btn-red:#dc3545; --btn-red-hover:#c82333;
     }
     *{box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
@@ -33,6 +33,8 @@
     .btn-row{display:flex;gap:.5rem;align-items:center}
     .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
     .btn-ghost:hover{background:#f2f2f2}
+    .btn-primary{background:var(--btn-red);color:#fff;border:none;padding:.85rem 2rem;border-radius:999px;font-size:1.05rem;font-weight:700;cursor:pointer;transition:background .2s;display:inline-block;text-decoration:none;text-align:center}
+    .btn-primary:hover{background:var(--btn-red-hover)}
     .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
     .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
     .pillar .label{font-weight:600}
@@ -91,17 +93,21 @@
     <h3>Ready to Improve Your AI Visibility?</h3>
     <p>After reviewing your analysis, book a free 30-minute consultation to discuss opportunities and next steps.</p>
     <div class="consultation-cta" style="margin:1rem 0 0">
-      <a href="https://calendly.com/quontora" class="btn-ghost" target="_blank" rel="noopener">Schedule Free Consultation</a>
+      <!-- Match red capsule button style -->
+      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
     </div>
   </section>
 
   <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
   <script>
-    // ===== shared helpers (same as analyze) =====
+    // shared helpers
     const LOGO_SOURCES = {
-      ChatGPT:'/img/chatgpt-logo.png', Claude:'/img/claude-logo.png',
-      Gemini:'/img/gemini-logo.png', Copilot:'/img/copilot-logo.png', Perplexity:'/img/perplexity-logo.png'
+      ChatGPT: '/img/chatgpt-logo.png',
+      Claude: '/img/claude-logo.png',
+      Gemini: '/img/gemini-logo.png',
+      Copilot: '/img/copilot-logo.png',
+      Perplexity: '/img/perplexity-logo.png',
     };
     function logoDivFor(engine){
       const wrap=document.createElement('div'); wrap.className='llm-logo';
@@ -117,7 +123,7 @@
       engines.forEach((e,i)=>{const t=bullets[i]; if(!t)return; const row=document.createElement('div'); row.className='llm-row'; row.appendChild(logoDivFor(e)); const p=document.createElement('p'); p.textContent=t; row.appendChild(p); box.appendChild(row);});
       ul.replaceWith(box);
     }
-    function renderScoreCard(total, pillars, highlights){
+    function renderScoreCard(total,pillars,highlights){
       document.getElementById("scoreNumber").textContent = `${total}/100`;
       document.getElementById("scoreBand").textContent =
         total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
@@ -128,35 +134,48 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
-      const urlParams=new URLSearchParams(window.location.search);
-      const targetUrl=urlParams.get("url")||"https://example.com";
-      document.getElementById("current-url").textContent=targetUrl;
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetUrl = urlParams.get("url") || "https://example.com";
+      document.getElementById("current-url").textContent = targetUrl;
 
-      const probe=await fetch('/api/score?url=' + encodeURIComponent('https://example.com'),{method:'HEAD'}).catch(()=>null);
-      const apiBase=(probe&&probe.ok)?'':'https://sniperank-app2.onrender.com';
-
+      // decide local vs remote backend
+      let apiBase='';
       try{
-        const res=await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`,{headers:{'Accept':'text/html'}});
-        const html=await res.text(); const host=document.getElementById("summary-results"); host.innerHTML=html; transformAIInsights(host);
-      }catch{document.getElementById("summary-results").innerHTML="<p style='text-align:center;color:red'>Error loading analysis.</p>";}
+        const probe=await fetch('/api/score?url='+encodeURIComponent('https://example.com'),{method:'HEAD'});
+        if(!probe.ok) throw 0;
+      }catch{ apiBase='https://sniperank-app2.onrender.com'; }
 
+      // score
       try{
-        const res=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
-        const data=await res.json();
-        const p=data.pillars||{access:18,trust:17,clarity:19,alignment:18,freshness:16};
-        renderScoreCard(data.score || (p.access+p.trust+p.clarity+p.alignment+(p.freshness||16)), p, (data.highlights||[]).slice(0,4));
+        const r=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
+        const j=await r.json();
+        renderScoreCard(j.score, j.pillars, j.highlights);
+      }catch{}
+
+      // report HTML + logo rows
+      try{
+        const res=await fetch(`${apiBase}/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const html=await res.text();
+        const host=document.getElementById('summary-results'); host.innerHTML=html; transformAIInsights(host);
       }catch{
-        const p={access:18,trust:17,clarity:19,alignment:18,freshness:16};
-        renderScoreCard(p.access+p.trust+p.clarity+p.alignment+p.freshness, p, []);
+        document.getElementById('summary-results').innerHTML = "<p style='text-align:center;color:red'>Error loading full report.</p>";
       }
 
-      document.getElementById("copyLLMBtn").addEventListener("click", async ()=>{
-        const scoreText=document.getElementById("scoreNumber").textContent||"—/100";
-        const labels=[...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
-        const vals=[...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
-        const highlights=[...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
-        const txt=[`Website: ${targetUrl}`,`SnipeRank Score: ${scoreText}`,`Pillars:`,...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),``,`Observed Highlights / Issues:`,...highlights.map(h=>`- ${h}`)].join("\n");
-        try{await navigator.clipboard.writeText(txt);}catch{window.prompt("Copy the summary:",txt);}
+      // Copy score summary
+      document.getElementById("copyLLMBtn").addEventListener("click", async () => {
+        const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
+        const labels = [...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
+        const vals =   [...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
+        const highlights = [...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
+        const txt = [
+          `Website: ${targetUrl}`,
+          `SnipeRank Score: ${scoreText}`,
+          `Pillars:`, ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
+          ``, `Highlights/Issues:`, ...highlights.map(h=>`- ${h}`)
+        ].join("\n");
+        try{ await navigator.clipboard.writeText(txt);
+          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
+        }catch{ window.prompt("Copy the summary:", txt); }
       });
     });
   </script>
