@@ -146,11 +146,40 @@
         .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
       if(highlights?.length){const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{const li=document.createElement("li"); li.textContent=h; ul.appendChild(li);}); document.getElementById("highlightsBlock").hidden=false;}
     }
+      document.addEventListener("DOMContentLoaded", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUrl = urlParams.get("url") || "https://example.com";
+        const form = document.getElementById("fullReportForm");
+        const status = document.getElementById("formMessage");
+        const urlField = document.getElementById("urlField");
+        if (urlField) urlField.value = targetUrl;
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      const urlParams=new URLSearchParams(window.location.search);
-      const targetUrl=urlParams.get("url")||"https://example.com";
-      document.getElementById("current-url").textContent=targetUrl;
+        if (form) {
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            status.textContent = "📤 Sending…";
+
+            // optional: fire-and-forget your backend email (don’t block redirect)
+            try {
+              await fetch("/api/send-link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: form.name.value,
+                  email: form.email.value,
+                  phone: form.phone.value,
+                  company: form.company.value,
+                  message: form.message.value,
+                  url: targetUrl,
+                })
+              });
+            } catch (_) { /* ignore; we still redirect */ }
+
+            // ALWAYS redirect on same origin so Vercel serves the file
+            window.location.href = `/full-report.html?url=${encodeURIComponent(targetUrl)}&v=${Date.now()}`;
+          });
+        }
+      });
 
       // decide local vs remote backend
       const probe=await fetch('/api/score?url=' + encodeURIComponent('https://example.com'),{method:'HEAD'}).catch(()=>null);
