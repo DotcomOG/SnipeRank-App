@@ -191,9 +191,10 @@ function targetsFor(reportType, score){
 // ---- AI insights (length by mode) ----
 function generateAIInsights(pages, host, mode='analyze'){
   if (!pages || !pages.length){
-    const short = `Unable to analyze ${host} â€" crawl didnâ€™t surface enough content to read.`;
-    const make = ()=>({ description: mode==='analyze' ? short : `${short} In practice, this reads like an access posture rather than a content posture. Signals exist, but not in a way that holds steady across lifts.` });
-    return [make(),make(),make(),make(),make()];
+    const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+    return engines.map(engine => ({
+      description: `Unable to analyze ${host} - ${engine} requires sufficient content access for meaningful evaluation.`
+    }));
   }
 
   const total = pages.length;
@@ -204,23 +205,35 @@ function generateAIInsights(pages, host, mode='analyze'){
   const metaPages = pages.filter(p=>p.metaDesc.length>0).length;
   const httpsPages = pages.filter(p=>p.hasSSL).length;
 
-  const bits = [
-    `Across the analyzed sections of ${host}, headings ${properH1===total?'maintain consistent structure':'show structural variations'}, and content depth averages around ${avgWords} words per section. Schema markup ${schemaPages>=total*0.8?'appears consistently implemented':'shows gaps in coverage'}, while meta descriptions ${metaPages>=total*0.8?'provide consistent previews':'need attention in several areas'}.`,
-    `Internal linking patterns average approximately ${avgLinks} connections per section, which ${avgLinks>=5?'creates strong content relationships':'could benefit from enhancement'}. Security protocols ${httpsPages===total?'maintain consistent standards':'show some inconsistencies'}, which influences how content gets referenced and shared across platforms.`
-  ];
+  // Different insights per engine
+  const insights = {
+    ChatGPT: `Content structure analysis reveals ${properH1===total?'consistent heading hierarchy':'inconsistent heading patterns'} across the analyzed sections of ${host}. The ${avgWords}-word average content depth ${avgWords>=500?'supports comprehensive topic coverage':'may benefit from expansion'}, while internal linking patterns create ${avgLinks>=5?'strong content relationships':'opportunities for enhanced connectivity'}.`,
+    
+    Claude: `Technical infrastructure assessment shows ${httpsPages===total?'consistent security implementation':'mixed security protocols'} throughout ${host}. Schema markup coverage at ${Math.round((schemaPages/total)*100)}% ${schemaPages>=total*0.7?'provides strong semantic signals':'indicates room for structured data enhancement'}, supporting improved content interpretation.`,
+    
+    Gemini: `Meta description analysis indicates ${metaPages>=total*0.8?'comprehensive preview coverage':'gaps in content previews'} across the evaluated sections of ${host}. Content organization demonstrates ${avgWords>=400?'substantial depth per section':'opportunities for content expansion'} with ${avgLinks} average internal connections per area.`,
+    
+    Copilot: `Accessibility and crawling evaluation of ${host} reveals ${properH1===total && httpsPages===total?'strong foundational signals':'areas requiring optimization attention'}. The current ${avgWords}-word content average ${avgWords>=600?'exceeds recommended thresholds':'approaches minimum depth requirements'} for effective indexing.`,
+    
+    Perplexity: `Information architecture analysis shows ${schemaPages>=total*0.6?'adequate structured data implementation':'limited semantic markup presence'} throughout ${host}. Cross-referencing patterns with ${avgLinks} average internal links per section ${avgLinks>=6?'create strong topical clusters':'suggest opportunities for enhanced content connectivity'}.`
+  };
 
-  const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-  return engines.map((_,i)=>{
-    if (mode==='analyze'){
-      // one paragraph (3â€"4 sentences)
-      const sents = splitSents(bits.join(' '));
-      while (sents.length < 4) sents.push(addObfuscation(host, i+sents.length));
-      return { description: sents.slice(0,4).join(' ') };
-    }
-    // full â†' two paragraphs
-    const pad = addObfuscation(host, i);
-    return { description: `${bits[0]}\n\n${bits[1]} ${pad}` };
-  });
+  if (mode === 'full') {
+    // For full mode, add second paragraphs
+    insights.ChatGPT += `\n\nDeeper content analysis reveals patterns in user experience signals and engagement indicators. The current implementation shows potential for optimization in areas where content depth intersects with navigational clarity.`;
+    
+    insights.Claude += `\n\nAdvanced crawling assessment indicates opportunities for enhanced semantic relationships between content sections. The technical foundation supports improved AI understanding through strategic markup expansion.`;
+    
+    insights.Gemini += `\n\nComprehensive structure evaluation suggests potential improvements in content clustering and internal link distribution. The existing framework provides a solid foundation for enhanced topical authority development.`;
+    
+    insights.Copilot += `\n\nExtended technical analysis reveals opportunities for improved content discoverability and indexing efficiency. The current structure supports optimization initiatives focused on semantic clarity and accessibility enhancement.`;
+    
+    insights.Perplexity += `\n\nDetailed information architecture review identifies potential enhancements in cross-content referencing and topic clustering. The existing foundation enables strategic improvements in content relationship mapping.`;
+  }
+
+  return ['ChatGPT','Claude','Gemini','Copilot','Perplexity'].map(engine => ({
+    description: insights[engine]
+  }));
 }
 
 // ---- dynamic analysis ----
