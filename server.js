@@ -1,8 +1,7 @@
-// server.js - v2.5.0 (analyze=50 pages, full=300 pages, no public page counts)
+// server.js - v2.6.0 (analyze=25 pages FAST, full=300 pages deep)
+// - Speed optimized: analyze=25 pages with 5s timeout, full=300 pages with 8s timeout
+// - Prioritized crawling: homepage, key pages first
 // - Uses ?report=analyze|full to size both bullets and LLM insights
-// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
-// - Deep crawling: analyze=50 pages, full=300 pages, 3 levels deep
-// - No page counts in public messaging
 
 import express from 'express';
 import cors from 'cors';
@@ -78,20 +77,46 @@ function polish(desc, mode, domain, salt=0){
   return paras.slice(0,3).join('\n\n'); // will render as multi-line inside <li>
 }
 
-// ---- crawler ----
-async function crawlSitePages(startUrl, maxPages=50){
+// ---- optimized crawler with priority pages ----
+async function crawlSitePages(startUrl, maxPages=25, reportType='analyze'){
   const host = hostOf(startUrl);
   const visited = new Set();
   const pages = [];
+  
+  // Speed optimization: different timeouts for different modes
+  const timeout = reportType === 'analyze' ? 5000 : 8000;
+  
+  // Priority pages for faster, more targeted crawling
+  const priorityPaths = [
+    '',           // homepage
+    '/',          // homepage alt
+    '/about',
+    '/about-us',
+    '/services',
+    '/products',
+    '/contact',
+    '/blog',
+    '/news'
+  ];
+  
+  // Build priority queue
   const queue = [startUrl];
+  priorityPaths.forEach(path => {
+    if (path === '' || path === '/') return; // already have homepage
+    try {
+      const priorityUrl = new URL(path, startUrl).href;
+      if (!queue.includes(priorityUrl)) queue.push(priorityUrl);
+    } catch {}
+  });
 
   while (queue.length && pages.length < maxPages){
     const current = queue.shift();
     if (visited.has(current)) continue;
+    
     try{
       visited.add(current);
       const resp = await axios.get(current, {
-        timeout: 8000,
+        timeout: timeout,
         headers: { 'User-Agent': 'SnipeRank SEO Analyzer Bot' }
       });
       const $ = cheerio.load(resp.data);
@@ -128,7 +153,8 @@ async function crawlSitePages(startUrl, maxPages=50){
       };
       pages.push(pageData);
 
-      if (pageData.level < 3 && pages.length < maxPages){
+      // Only discover more pages if we haven't hit the limit and we're not doing a quick analyze
+      if (pageData.level < 3 && pages.length < maxPages && (reportType === 'full' || pages.length < Math.floor(maxPages * 0.8))){
         $('a[href]').each((_, link) => {
           const href = $(link).attr('href');
           if (!href) return;
@@ -140,7 +166,8 @@ async function crawlSitePages(startUrl, maxPages=50){
               if (full &&
                 !visited.has(full) &&
                 !queue.includes(full) &&
-                !full.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i)
+                !full.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i) &&
+                queue.length < maxPages * 2 // Limit queue size for speed
               ) queue.push(full);
             }catch{}
           }
@@ -148,6 +175,7 @@ async function crawlSitePages(startUrl, maxPages=50){
       }
     }catch(e){
       console.log(`Failed to crawl ${current}:`, e.message);
+      // Continue with other pages instead of stopping
     }
   }
   return pages;
@@ -359,8 +387,9 @@ function generateCompleteAnalysis(pages, host, reportType){
 async function analyzeWebsite(url, reportType='analyze'){
   const host = hostOf(url);
   try{
-    const maxPages = reportType==='full' ? 300 : 50;
-    const pages = await crawlSitePages(url, maxPages);
+    // Speed optimization: 25 pages for analyze (fast), 300 for full (comprehensive)
+    const maxPages = reportType==='full' ? 300 : 25;
+    const pages = await crawlSitePages(url, maxPages, reportType);
     if (!pages.length) throw new Error('No pages crawled');
 
     let analysis = generateCompleteAnalysis(pages, host, reportType);
@@ -397,7 +426,7 @@ async function analyzeWebsite(url, reportType='analyze'){
 }
 
 // ---- endpoints ----
-app.get('/', (_req,res)=>res.send('SnipeRank Backend v2.5.0'));
+app.get('/', (_req,res)=>res.send('SnipeRank Backend v2.6.0 - Speed Optimized'));
 
 app.get('/report.html', async (req,res)=>{
   const url = req.query.url;
@@ -443,4 +472,4 @@ app.get('/api/score', async (req,res)=>{
   res.json({ url, host, score: total, pillars: analysis.pillars, highlights, band: bandText(total), override: OVERRIDE.has(host), insights });
 });
 
-app.listen(PORT, ()=> console.log(`SnipeRank Backend v2.5.0 running on port ${PORT}`));
+app.listen(PORT, ()=> console.log(`SnipeRank Backend v2.6.0 running on port ${PORT}`));
