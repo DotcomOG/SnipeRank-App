@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Analyze short report (paragraph bullets, 2-paragraph LLM) GPT -->
+    <!-- Analyze short report (paragraph bullets, 2-paragraph LLM) Claude -->
     
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SnipeRank — AI SEO Analysis Results</title>
+  <title>SnipeRank â€" AI SEO Analysis Results</title>
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
@@ -59,6 +59,13 @@
     .btn-primary:hover{background:var(--btn-red-hover)}
 
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
+
+    /* Form styling fixes */
+    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
+    input:focus,textarea:focus{outline:none;border-color:#3182CE}
+    textarea{resize:vertical;min-height:100px}
+
+    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}}
   </style>
 </head>
 <body>
@@ -67,14 +74,14 @@
 
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
+    <div class="for-url">Analysis for: <strong id="current-url">â€"</strong></div>
   </div>
 
   <section class="card score-card" id="scoreCard" aria-live="polite">
     <div class="score-top">
       <div class="score-main">
-        <div class="score-number" id="scoreNumber">—</div>
-        <div class="score-band" id="scoreBand">Calculating…</div>
+        <div class="score-number" id="scoreNumber">â€"</div>
+        <div class="score-band" id="scoreBand">Calculatingâ€¦</div>
       </div>
       <div class="btn-row">
         <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
@@ -88,11 +95,12 @@
   </section>
 
   <section id="summary-results">
-    <p style="text-align:center;color:gray;">Loading analysis…</p>
+    <p style="text-align:center;color:gray;">Loading analysisâ€¦</p>
   </section>
 
   <section class="card" style="padding:1rem 1rem 1.5rem">
     <h3 style="margin:.25rem 0 1rem">Get Your Full Report</h3>
+    <p style="color:#666;font-size:.9rem;margin:0 0 1rem;font-style:italic">SnipeRank is taking a deep dive into the site and may take 2-3 minutes to complete.</p>
     <form id="fullReportForm">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
         <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
@@ -100,14 +108,14 @@
         <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel"/>
         <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
       </div>
-      <textarea name="message" placeholder="Share context or ask a specific question — we’ll address at your free consult." rows="3" style="width:100%;margin-bottom:1rem"></textarea>
+      <textarea name="message" placeholder="Share context or ask a specific question â€" weâ€™ll address at your free consult." rows="3" style="width:100%;margin-bottom:1rem"></textarea>
       <input type="hidden" name="url" id="urlField"/>
       <div style="text-align:center"><button type="submit" class="btn-primary">View Full Report Now</button></div>
       <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
     </form>
   </section>
 
-  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
+  <div class="footer">Â© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
   <script>
     // --- LLM logos from /img ---
@@ -146,7 +154,7 @@
     function renderScoreCard(total,pillars,highlights){
       document.getElementById("scoreNumber").textContent = `${total}/100`;
       document.getElementById("scoreBand").textContent =
-        total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+        total>=85?"Rank: Highly Visible â˜…â˜…â˜…â˜…â˜†":total>=70?"Rank: Partially Visible â˜…â˜…â˜…â˜†â˜†":total>=55?"Rank: Needs Work â˜…â˜…â˜†â˜†â˜†":"Rank: Low Visibility â˜…â˜†â˜†â˜†â˜†";
       const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
       [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
         .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
@@ -173,9 +181,9 @@
         renderScoreCard(j.score, j.pillars, j.highlights);
       }catch{ /* leave defaults */ }
 
-      // Load server-rendered analysis then convert insights bullet list to logo rows
+      // Load server-rendered analysis with ANALYZE mode then convert insights bullet list to logo rows
       try{
-        const res = await fetch(`${apiBase}/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const res = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`);
         const html = await res.text();
         const host = document.getElementById("summary-results");
         host.innerHTML = html;
@@ -186,7 +194,7 @@
 
       // Copy shareable score summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
+        const scoreText = document.getElementById("scoreNumber").textContent || "â€"/100";
         const labels = [...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
         const vals =   [...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
         const highlights = [...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
@@ -206,7 +214,7 @@
       if(form){
         form.addEventListener("submit", async (e)=>{
           e.preventDefault();
-          document.getElementById("formMessage").textContent = "✅ Preparing your full report…";
+          document.getElementById("formMessage").textContent = "âœ… Preparing your full reportâ€¦";
           // best-effort notify backend; do not block redirect
           try{ await fetch(`${apiBase}/api/send-link`, {method:"POST",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({ name:form.name.value, email:form.email.value, phone:form.phone.value, company:form.company.value, message:form.message.value, url:targetUrl })

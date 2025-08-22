@@ -53,3 +53,4 @@ This project expects the following environment variables to be set in Vercel:
 
 Maintained by [Yoram Ezra](https://quontora.com)  
 Questions or access issues? Ping directly.
+// Deploy trigger Fri Aug 22 10:45:52 EDT 2025
