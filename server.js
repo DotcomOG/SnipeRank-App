@@ -1,4 +1,4 @@
-// server.js v2.5.0  (analyze=50 pages, full=300 pages, no public page counts) GPT
+// server.js - v2.5.0 (analyze=50 pages, full=300 pages, no public page counts)
 // - Uses ?report=analyze|full to size both bullets and LLM insights
 // - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
 // - Deep crawling: analyze=50 pages, full=300 pages, 3 levels deep
@@ -45,18 +45,18 @@ const highScore = ()=>({ pillars:{access:22,trust:23,clarity:22,alignment:22}, s
 const splitSents = (t)=> String(t||'').replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
 const addObfuscation = (domain, salt=0)=>{
   const pool=[
-    `Treat this as directional heat rather than a checklist for ${domain}.`,
-    `Signals are suggestive, not prescriptive; nuance lives in the page furniture.`,
-    `Interpretation depends on context outside this crawl for ${domain}.`,
-    `These patterns sketch tendencies; specifics hinge on template choices.`,
-    `Consider this a lens on tendencies, not a stepâ€'byâ€'step recipe.`,
+    `Treat this as directional guidance rather than a checklist for ${domain}.`,
+    `Signals are suggestive, not prescriptive; nuance lives in the implementation details.`,
+    `Interpretation depends on context outside this analysis for ${domain}.`,
+    `These patterns sketch tendencies; specifics depend on template choices.`,
+    `Consider this a lens on tendencies, not a step-by-step recipe.`,
   ];
   return pool[salt % pool.length];
 };
 
 // enforce by mode:
-// analyze exactly 3 sentences
-// full "3 paragraphs, each paragraph 3â€"5 sentences (soft)
+// analyze -> exactly 3 sentences
+// full    -> 1-3 paragraphs, each paragraph 3-5 sentences (soft)
 function polish(desc, mode, domain, salt=0){
   const sents = splitSents(desc);
   if (mode === 'analyze'){
@@ -188,7 +188,7 @@ function targetsFor(reportType, score){
   return              { working: 10, needs: 15 };
 }
 
-// ---- AI insights (length by mode) ----
+// ---- AI insights (different for each engine) ----
 function generateAIInsights(pages, host, mode='analyze'){
   if (!pages || !pages.length){
     const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
@@ -241,7 +241,7 @@ function generateCompleteAnalysis(pages, host, reportType){
   if (!pages || !pages.length){
     return {
       working: [],
-      needsAttention: [{ title:'Site Crawl Failed', description: polish(`The crawl for ${host} didnâ€™t surface analyzable content. That usually feels like a closed door rather than a blank room.`, reportType, host) }],
+      needsAttention: [{ title:'Site Crawl Failed', description: polish(`The crawl for ${host} did not surface analyzable content. That usually feels like a closed door rather than a blank room.`, reportType, host) }],
       qualityScore: 30
     };
   }
@@ -283,11 +283,11 @@ function generateCompleteAnalysis(pages, host, reportType){
   const W=[], N=[];
 
   // working (dynamic) - NO PAGE COUNTS
-  if (httpsPages===total) W.push({ title:'Complete HTTPS Security', description:`All analyzed sections resolve over HTTPS. The foundation feels solid; readers donâ€™t step around mixed locks to get the gist.` });
+  if (httpsPages===total) W.push({ title:'Complete HTTPS Security', description:`All analyzed sections resolve over HTTPS. The foundation feels solid; readers do not step around mixed locks to get the gist.` });
   if (pct(titleOK.length,total)>=95 && longTitles.length===0 && dupTitle===0) W.push({ title:'Title Coverage & Differentiation', description:`Strong title presence with distinct, scannable labels. Previews hold their edges without colliding.` });
   if (pct(metaOK.length,total)>=80) W.push({ title:'Meta Description Presence', description:`Strong meta description coverage provides consistent previews. Most entries arrive with a hint rather than a cold open.` });
   if (schemaPages>=Math.ceil(total*0.7)) W.push({ title:'Structured Data Footprint', description:`Comprehensive structured data implementation declares typed context. Names and roles tend to keep their shape when lifted elsewhere.` });
-  if (avgInt>=6 && !weakInt.length) W.push({ title:'Internal Path Consistency', description:`Cross-links maintain strong density with consistent patterns. Nearby ideas donâ€™t feel far away.` });
+  if (avgInt>=6 && !weakInt.length) W.push({ title:'Internal Path Consistency', description:`Cross-links maintain strong density with consistent patterns. Nearby ideas do not feel far away.` });
   if (avgAltPct>=85) W.push({ title:'Image Alt Coverage', description:`Alt text covers most imagery comprehensively. When visuals drop out, the thread usually remains intact.` });
   if (avgWordsV>=600) W.push({ title:'Substantial Content Depth', description:`Content depth maintains substantial coverage throughout. Sections read like chapters, not captions.` });
   if (h1Singles.length===total) W.push({ title:'Clear Heading Spine', description:`Consistent single H1 structure throughout. Primary topics stand alone instead of competing for the mic.` });
@@ -301,19 +301,19 @@ function generateCompleteAnalysis(pages, host, reportType){
   if (dupTitle>0) N.push({ title:'Duplicate Titles', description:`Title collisions appear across the site. Different rooms sharing the same label invite mix-ups.` });
   if (pct(metaOK.length,total)<80) N.push({ title:'Thin Previews', description:`Meta description coverage needs enhancement. Without that preface, the first line has to do extra work.` });
   if (thinPages.length>0) N.push({ title:'Thin Content Sections', description:`Some sections fall short of substantial depth. Skimming turns into skipping when the thread is that short.` });
-  if (avgWordsV<400) N.push({ title:'Shallow Average Depth', description:`Overall content coverage could be more substantial. Ideas arrive, but they donâ€™t stay long.` });
+  if (avgWordsV<400) N.push({ title:'Shallow Average Depth', description:`Overall content coverage could be more substantial. Ideas arrive, but they do not stay long.` });
   if (h1None.length>0) N.push({ title:'Missing H1 Headers', description:`Some sections step onstage without lead headings. The scene opens mid-conversation.` });
   if (h1Multi.length>0) N.push({ title:'Multiple H1 Anchors', description:`Some sections carry more than one lead heading. Two spotlights on the same stage split attention.` });
   if (avgInt<6) N.push({ title:'Sparse Internal Trails', description:`Internal linking could be stronger throughout. Hops between related ideas feel longer than they need to.` });
-  if (weakInt.length>0) N.push({ title:'Isolated Content Areas', description:`Some sections sit with few connections. They read like side paths that donâ€™t loop back.` });
+  if (weakInt.length>0) N.push({ title:'Isolated Content Areas', description:`Some sections sit with few connections. They read like side paths that do not loop back.` });
   if (schemaPages<Math.ceil(total*0.7)) N.push({ title:'Typed Context Gaps', description:`Structured data signals need broader implementation. Where typing fades, names and roles smudge at the edges.` });
   if (avgAltPct<70) N.push({ title:'Alt-Text Coverage Gaps', description:`Alt attribute coverage needs improvement across imagery. When captions go missing, pictures turn into placeholders.` });
   if (crumbs<Math.ceil(total*0.4)) N.push({ title:'Limited Breadcrumb Trails', description:`Breadcrumb implementation could be expanded. Without that line, sections float more than they stack.` });
   if (navPct<80 || footPct<80) N.push({ title:'Template Inconsistencies', description:`Global elements fluctuate in presence. The room changes shape more often than expected.` });
 
   // full-only extra surface
-  if (contactPhone+contactEmail+contactAddr < Math.ceil(total*0.6)) N.push({ title:'Limited Contact Footprint', description:`Direct touchpoints surface intermittently. When the handshake isnâ€™t obvious, trust has to travel farther.` });
-  if (socialAvg===0) N.push({ title:'Minimal Social Presence', description:`Social paths donâ€™t present themselves prominently. The broader footprint feels thinner than the siteâ€™s center of gravity.` });
+  if (contactPhone+contactEmail+contactAddr < Math.ceil(total*0.6)) N.push({ title:'Limited Contact Footprint', description:`Direct touchpoints surface intermittently. When the handshake is not obvious, trust has to travel farther.` });
+  if (socialAvg===0) N.push({ title:'Minimal Social Presence', description:`Social paths do not present themselves prominently. The broader footprint feels thinner than the site center of gravity.` });
   if (extLinksAvg>8) N.push({ title:'High External Link Density', description:`Outbound references appear frequently throughout. The narrative steps outside the room more than it stays in it.` });
 
   // count banding
@@ -336,7 +336,7 @@ function generateCompleteAnalysis(pages, host, reportType){
     let i=0;
     while (arr.length < target && i < seeds.length*3){
       const [t,d]=seeds[i%seeds.length];
-      const suff = (i>=seeds.length)?` â€¢ v${Math.floor(i/seeds.length)+2}`:'';
+      const suff = (i>=seeds.length)?` • v${Math.floor(i/seeds.length)+2}`:'';
       const cand = { title: `${t}${suff}`, description: d };
       if (!arr.some(x=>x.title.toLowerCase()===cand.title.toLowerCase())) arr.push(cand);
       i++;
@@ -384,7 +384,7 @@ async function analyzeWebsite(url, reportType='analyze'){
     console.error('Analysis failed:', e.message);
     const fallback = {
       working: [],
-      needsAttention: [{ title:'Analysis Incomplete', description: polish(`${host} crawl fell short â€" only partial signals were observable. This reads more like access posture than content posture.`, 'full', host) }],
+      needsAttention: [{ title:'Analysis Incomplete', description: polish(`${host} crawl fell short - only partial signals were observable. This reads more like access posture than content posture.`, 'full', host) }],
       qualityScore: 60
     };
     return {
@@ -408,11 +408,11 @@ app.get('/report.html', async (req,res)=>{
   const analysis = await analyzeWebsite(url, report);
   const li = (t,d)=> `<li><strong>${t}:</strong> ${d}</li>`;
   const html = `
-    <div class="section-title">âœ… What's Working</div>
+    <div class="section-title">✅ What's Working</div>
     <ul>${analysis.working.map(x=>li(x.title,x.description)).join('')}</ul>
-    <div class="section-title">ðŸš¨ Needs Attention</div>
+    <div class="section-title">🚨 Needs Attention</div>
     <ul>${analysis.needsAttention.map(x=>li(x.title,x.description)).join('')}</ul>
-    <div class="section-title">ðŸ¤– AI Engine Insights</div>
+    <div class="section-title">🤖 AI Engine Insights</div>
     <ul>${analysis.insights.map(x=>`<li>${x.description}</li>`).join('')}</ul>
   `;
   res.setHeader('Content-Type','text/html');
@@ -428,12 +428,12 @@ app.get('/api/score', async (req,res)=>{
   const analysis = await analyzeWebsite(url, 'analyze');
   const total = analysis.pillars.access + analysis.pillars.trust + analysis.pillars.clarity + analysis.pillars.alignment;
 
-  const bandText = (s)=> s>=85?"Rank: Highly Visible â˜…â˜…â˜…â˜…â˜†": s>=70?"Rank: Partially Visible â˜…â˜…â˜…â˜†â˜†": s>=55?"Rank: Needs Work â˜…â˜…â˜†â˜†â˜†":"Rank: Low Visibility â˜…â˜†â˜†â˜†â˜†";
+  const bandText = (s)=> s>=85?"Rank: Highly Visible ★★★★☆": s>=70?"Rank: Partially Visible ★★★☆☆": s>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
 
   // dynamic highlights: first four needs (first sentence only)
   const highlights = analysis.needsAttention.slice(0,4).map(x=>{
     const first = splitSents(x.description)[0] || x.description;
-    return `${x.title} â€" ${first}`;
+    return `${x.title} - ${first}`;
   });
 
   const logos = { ChatGPT:"/img/chatgpt-logo.png", Claude:"/img/claude-logo.png", Gemini:"/img/gemini-logo.png", Copilot:"/img/copilot-logo.png", Perplexity:"/img/perplexity-logo.png" };
