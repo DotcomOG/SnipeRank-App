@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Full Report - long report (paragraph bullets, 2-paragraph LLM) GPT -->
+    <!-- Full Report - long report (paragraph bullets, 2-paragraph LLM) Claude -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SnipeRank — Full AI SEO Report</title>
+  <title>SnipeRank â€" Full AI SEO Report</title>
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
@@ -65,14 +65,14 @@
 
   <div class="info-row">
     <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="current-url">—</strong></div>
+    <div class="for-url">Analysis for: <strong id="current-url">â€"</strong></div>
   </div>
 
   <section class="card score-card" id="scoreCard" aria-live="polite">
     <div class="score-top">
       <div class="score-main">
-        <div class="score-number" id="scoreNumber">—</div>
-        <div class="score-band" id="scoreBand">Calculating…</div>
+        <div class="score-number" id="scoreNumber">â€"</div>
+        <div class="score-band" id="scoreBand">Calculatingâ€¦</div>
       </div>
       <div class="btn-row">
         <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
@@ -86,7 +86,7 @@
   </section>
 
   <section id="summary-results">
-    <p style="text-align:center;color:gray;">Loading full report…</p>
+    <p style="text-align:center;color:gray;">Loading full reportâ€¦</p>
   </section>
 
   <section class="consultation-section" style="text-align:center;margin:2.5rem 0 0">
@@ -98,7 +98,7 @@
     </div>
   </section>
 
-  <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
+  <div class="footer">Â© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
 
   <script>
     // shared helpers
@@ -126,7 +126,7 @@
     function renderScoreCard(total,pillars,highlights){
       document.getElementById("scoreNumber").textContent = `${total}/100`;
       document.getElementById("scoreBand").textContent =
-        total>=85?"Rank: Highly Visible ★★★★☆":total>=70?"Rank: Partially Visible ★★★☆☆":total>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+        total>=85?"Rank: Highly Visible â˜…â˜…â˜…â˜…â˜†":total>=70?"Rank: Partially Visible â˜…â˜…â˜…â˜†â˜†":total>=55?"Rank: Needs Work â˜…â˜…â˜†â˜†â˜†":"Rank: Low Visibility â˜…â˜†â˜†â˜†â˜†";
       const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
       [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
         .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
@@ -152,9 +152,9 @@
         renderScoreCard(j.score, j.pillars, j.highlights);
       }catch{}
 
-      // report HTML + logo rows
+      // report HTML + logo rows - CRITICAL: Use report=full for full report
       try{
-        const res=await fetch(`${apiBase}/report.html?url=${encodeURIComponent(targetUrl)}`);
+        const res=await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`);
         const html=await res.text();
         const host=document.getElementById('summary-results'); host.innerHTML=html; transformAIInsights(host);
       }catch{
@@ -163,7 +163,7 @@
 
       // Copy score summary
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "—/100";
+        const scoreText = document.getElementById("scoreNumber").textContent || "â€"/100";
         const labels = [...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
         const vals =   [...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
         const highlights = [...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
