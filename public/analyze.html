@@ -1,228 +1,196 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <!-- Analyze short report (paragraph bullets, 2-paragraph LLM) Claude -->
+    <!--
+      SnipeRank - Analyze Page
+      Version: 2.1.0
+      Date: 2025-08-24
+      Changes:
+        - Added score breakdown modal (What goes into this score?)
+        - Added faux progress bar with percentage + ETA text (2–4 min scan)
+        - Persisted analysis data in sessionStorage for reuse in full-report
+    -->
     
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SnipeRank â€" AI SEO Analysis Results</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SnipeRank – Analyze</title>
   <style>
-    :root{
-      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
-      --muted:#666; --border:#e5e5e5;
-      --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
-      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
-      --btn-red:#dc3545; --btn-red-hover:#c82333;
-    }
-    *{box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
-    h1{font-size:4rem;font-weight:700;margin:0 0 .25em;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem}
-    p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem}
-
-    .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
-    .powered-by,.for-url{color:var(--muted);font-size:.95rem}
-    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
-    .for-url strong{color:#000}
-
-    .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
-    .score-card{padding:1rem;margin-bottom:2.25rem}
-    .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
-    .score-main{display:flex;align-items:baseline;gap:.5rem}
-    .score-number{font-size:2.25rem;font-weight:800}
-    .score-band{color:var(--muted);font-size:.95rem}
-    .btn-row{display:flex;gap:.5rem;align-items:center}
-    .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
-    .btn-ghost:hover{background:#f2f2f2}
-    .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
-    .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
-    .pillar .label{font-weight:600}
-    .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
-    .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
-    .highlights h4{margin:0 0 .55rem;font-size:1.2rem;font-weight:800}
-    .highlights ul{margin:0;padding-left:1rem}
-    .highlights li{margin:.45rem 0;line-height:1.5}
-
-    #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem!important}
-    #summary-results p{line-height:1.68!important;margin:0 0 .9rem!important;font-size:1.05rem!important;white-space:pre-line}
-    #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
-    #summary-results li{line-height:1.7!important;margin:.6rem 0!important;font-size:1.05rem!important}
-
-    .llm-insights{margin:.4rem 0 1.2rem}
-    .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
-    .llm-row:last-child{border-bottom:0}
-    .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
-    .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
-    .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-
-    .btn-primary{background:var(--btn-red);color:#fff;border:none;padding:.85rem 2rem;border-radius:999px;font-size:1.05rem;font-weight:700;cursor:pointer;transition:background .2s;display:inline-block;text-decoration:none;text-align:center}
-    .btn-primary:hover{background:var(--btn-red-hover)}
-
-    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
-
-    /* Form styling fixes */
-    input,textarea{width:100%;padding:.75rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:1rem;font-family:inherit;transition:border-color .2s}
-    input:focus,textarea:focus{outline:none;border-color:#3182CE}
-    textarea{resize:vertical;min-height:100px}
-
-    @media(max-width:600px){.pillars{grid-template-columns:1fr}h1{font-size:3rem}}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fafafa;color:#111;margin:0}
+    .wrap{max-width:960px;margin:40px auto;padding:0 16px}
+    h1{font-size:28px;margin:0 0 16px}
+    form{display:flex;gap:8px;margin:16px 0 24px}
+    input[type=url]{flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px}
+    button{padding:12px 16px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:600;cursor:pointer}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    .card{background:#fff;border:1px solid #eaeaea;border-radius:14px;padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,.04);margin-bottom:16px}
+    .score-xl{font-size:48px;font-weight:800;letter-spacing:-.02em}
+    .muted{color:#666}
+    .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid #eaeaea;background:#fcfcfc}
+    a.inline{font-weight:600;text-decoration:none;border-bottom:1px dashed #aaa;color:#111}
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal{width:min(720px,92vw);background:#fff;border-radius:14px;border:1px solid #eaeaea;padding:18px 18px 8px}
+    .modal header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .x{background:transparent;border:0;font-size:22px;cursor:pointer;padding:8px}
+    .bullets{line-height:1.6;margin:8px 0 10px}
+    /* Progress overlay */
+    .overlay{position:fixed;inset:0;background:rgba(255,255,255,.92);display:none;z-index:40}
+    .overlay .panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);background:#fff;border:1px solid #eee;border-radius:14px;padding:18px}
+    .bar{height:10px;border-radius:8px;background:#eee;overflow:hidden;margin-top:8px}
+    .bar > div{height:100%;width:0%}
+    .eta{margin-top:8px;font-size:14px}
   </style>
 </head>
 <body>
-  <h1>SnipeRank</h1>
-  <h2>AI SEO Analysis Results</h2>
+  <div class="wrap">
+    <h1>AI SEO Analyze</h1>
+    <form id="analyze-form">
+      <input id="url" type="url" placeholder="https://example.com" required />
+      <button id="goBtn" type="submit">Analyze</button>
+    </form>
 
-  <div class="info-row">
-    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="current-url">â€"</strong></div>
+    <div id="result" class="card" style="display:none"></div>
+
+    <div style="margin-top:8px" class="muted">Tip: After analysis, click “Full Report” to see details without recalculating.</div>
   </div>
 
-  <section class="card score-card" id="scoreCard" aria-live="polite">
-    <div class="score-top">
-      <div class="score-main">
-        <div class="score-number" id="scoreNumber">â€"</div>
-        <div class="score-band" id="scoreBand">Calculatingâ€¦</div>
+  <!-- Progress overlay -->
+  <div id="overlay" class="overlay" aria-hidden="true">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <strong>Scanning your live website…</strong>
+        <span id="pctLabel" class="muted">0%</span>
       </div>
-      <div class="btn-row">
-        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
+      <div class="bar" aria-label="Progress"><div id="barFill"></div></div>
+      <div id="eta" class="eta muted">Allow <strong>2–4 minutes</strong> as we scan and analyze your live website…</div>
+    </div>
+  </div>
+
+  <!-- Score breakdown modal -->
+  <div id="modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <header>
+        <h3 id="mTitle" style="margin:6px 0">What goes into your score</h3>
+        <button class="x" id="closeModal" aria-label="Close">×</button>
+      </header>
+      <div class="bullets">
+        <ul>
+          <li><strong>Structure &amp; Crawlability:</strong> sitemap, robots, canonical usage, link graph clarity.</li>
+          <li><strong>Authority &amp; Trust:</strong> entity signals, organization schema, E-E-A-T hints, external mentions.</li>
+          <li><strong>Clarity &amp; Language:</strong> headings hierarchy, readability, task intent match, duplication.</li>
+          <li><strong>Content–AI Alignment:</strong> FAQability, snippetability, LLM context richness, retrieval clarity.</li>
+          <li><em>Proprietary blend:</em> weighting &amp; thresholds intentionally obfuscated.</li>
+        </ul>
+      </div>
+      <div style="text-align:right;padding:8px 0 12px">
+        <button class="pill" id="okModal">Got it</button>
       </div>
     </div>
-    <div class="pillars" id="pillarsGrid"></div>
-    <div class="highlights" id="highlightsBlock" hidden>
-      <h4>Highlights</h4>
-      <ul id="highlightsList"></ul>
-    </div>
-  </section>
-
-  <section id="summary-results">
-    <p style="text-align:center;color:gray;">Loading analysisâ€¦</p>
-  </section>
-
-  <section class="card" style="padding:1rem 1rem 1.5rem">
-    <h3 style="margin:.25rem 0 1rem">Get Your Full Report</h3>
-    <p style="color:#666;font-size:.9rem;margin:0 0 1rem;font-style:italic">SnipeRank is taking a deep dive into the site and may take 2-3 minutes to complete.</p>
-    <form id="fullReportForm">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
-        <input type="text" name="name" placeholder="Your Name" required autocomplete="name"/>
-        <input type="email" name="email" placeholder="Your Email" required autocomplete="email"/>
-        <input type="tel" name="phone" placeholder="Your Phone (optional)" autocomplete="tel"/>
-        <input type="text" name="company" placeholder="Your Company (optional)" autocomplete="organization"/>
-      </div>
-      <textarea name="message" placeholder="Share context or ask a specific question â€" weâ€™ll address at your free consult." rows="3" style="width:100%;margin-bottom:1rem"></textarea>
-      <input type="hidden" name="url" id="urlField"/>
-      <div style="text-align:center"><button type="submit" class="btn-primary">View Full Report Now</button></div>
-      <p id="formMessage" style="text-align:center;font-size:.95rem;color:gray;"></p>
-    </form>
-  </section>
-
-  <div class="footer">Â© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
+  </div>
 
   <script>
-    // --- LLM logos from /img ---
-    const LOGO_SOURCES = {
-      ChatGPT: '/img/chatgpt-logo.png',
-      Claude: '/img/claude-logo.png',
-      Gemini: '/img/gemini-logo.png',
-      Copilot: '/img/copilot-logo.png',
-      Perplexity: '/img/perplexity-logo.png',
-    };
-    function logoDivFor(engine){
-      const wrap=document.createElement('div'); wrap.className='llm-logo';
-      const path=LOGO_SOURCES[engine];
-      if(!path){ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; return wrap; }
-      const img=document.createElement('img'); img.alt=`${engine} logo`; img.src=path;
-      img.onload=()=>{ wrap.innerHTML=''; wrap.appendChild(img); };
-      img.onerror=()=>{ wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`; };
-      return wrap;
+    const form = document.getElementById('analyze-form');
+    const urlInput = document.getElementById('url');
+    const result = document.getElementById('result');
+    const overlay = document.getElementById('overlay');
+    const barFill = document.getElementById('barFill');
+    const pctLabel = document.getElementById('pctLabel');
+    const eta = document.getElementById('eta');
+    const modal = document.getElementById('modal');
+    const closeModal = document.getElementById('closeModal');
+    const okModal = document.getElementById('okModal');
+
+    // Faux-progress controller (nice for long-running fetch)
+    function startProgress() {
+      overlay.style.display = 'block';
+      barFill.style.width = '0%';
+      barFill.style.background = '#111';
+      pctLabel.textContent = '0%';
+      let p = 0;
+      // Ease quickly at first, then slower; cap ~95% until real finish.
+      return setInterval(() => {
+        const increment = p < 60 ? 2.2 : p < 85 ? 0.8 : 0.2;
+        p = Math.min(p + increment, 95);
+        barFill.style.width = p + '%';
+        pctLabel.textContent = Math.floor(p) + '%';
+      }, 250);
     }
-    function transformAIInsights(root){
-      const title=[...root.querySelectorAll('h2,h3,h4,.section-title')].find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim()));
-      if(!title) return;
-      let ul=title.nextElementSibling;
-      while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling;
-      if(!ul) return;
-      const bullets=[...ul.querySelectorAll('li')].map(li=>(li.textContent||'').trim());
-      if(!bullets.length) return;
-      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-      const box=document.createElement('div'); box.className='llm-insights';
-      engines.forEach((e,i)=>{ const text=bullets[i]; if(!text) return;
-        const row=document.createElement('div'); row.className='llm-row';
-        row.appendChild(logoDivFor(e)); const p=document.createElement('p'); p.textContent=text; row.appendChild(p); box.appendChild(row);
-      });
-      ul.replaceWith(box);
-    }
-    function renderScoreCard(total,pillars,highlights){
-      document.getElementById("scoreNumber").textContent = `${total}/100`;
-      document.getElementById("scoreBand").textContent =
-        total>=85?"Rank: Highly Visible â˜…â˜…â˜…â˜…â˜†":total>=70?"Rank: Partially Visible â˜…â˜…â˜…â˜†â˜†":total>=55?"Rank: Needs Work â˜…â˜…â˜†â˜†â˜†":"Rank: Low Visibility â˜…â˜†â˜†â˜†â˜†";
-      const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
-      [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
-        .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
-      if(highlights?.length){const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{const li=document.createElement("li"); li.textContent=h; ul.appendChild(li);}); document.getElementById("highlightsBlock").hidden=false;}
+    function stopProgress() {
+      overlay.style.display = 'none';
     }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetUrl = urlParams.get("url") || "https://example.com";
-      document.getElementById("current-url").textContent = targetUrl;
-      const urlField=document.getElementById("urlField"); if(urlField) urlField.value = targetUrl;
+    function showModal(show=true){
+      modal.style.display = show ? 'flex' : 'none';
+      modal.setAttribute('aria-hidden', show ? 'false' : 'true');
+    }
+    [closeModal, okModal].forEach(btn => btn.addEventListener('click', ()=>showModal(false)));
+    modal.addEventListener('click', (e)=>{ if(e.target===modal) showModal(false); });
 
-      // Choose backend (local proxy if available; else Render)
-      let apiBase='';
-      try{
-        const probe=await fetch('/api/score?url='+encodeURIComponent('https://example.com'),{method:'HEAD'});
-        if(!probe.ok) throw 0;
-      }catch{ apiBase='https://sniperank-app2.onrender.com'; }
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      if(!url) return;
 
-      // Load score -> scorecard
-      try{
-        const r=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
-        const j=await r.json();
-        renderScoreCard(j.score, j.pillars, j.highlights);
-      }catch{ /* leave defaults */ }
+      // Begin faux progress + ETA text
+      let timer = startProgress();
+      eta.innerHTML = 'Allow <strong>2–4 minutes</strong> as we scan and analyze your live website…';
 
-      // Load server-rendered analysis with ANALYZE mode then convert insights bullet list to logo rows
-      try{
-        const res = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(targetUrl)}`);
-        const html = await res.text();
-        const host = document.getElementById("summary-results");
-        host.innerHTML = html;
-        transformAIInsights(host);
-      }catch{
-        document.getElementById("summary-results").innerHTML = "<p style='text-align:center;color:red'>Error loading analysis.</p>";
-      }
+      try {
+        const resp = await fetch(`/api/friendly?url=${encodeURIComponent(url)}`);
+        if(!resp.ok) throw new Error('Failed to load report');
+        const report = await resp.json();
 
-      // Copy shareable score summary
-      document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "â€"/100";
-        const labels = [...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
-        const vals =   [...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
-        const highlights = [...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
-        const txt = [
-          `Website: ${targetUrl}`,
-          `SnipeRank Score: ${scoreText}`,
-          `Pillars:`, ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
-          ``, `Highlights/Issues:`, ...highlights.map(h=>`- ${h}`)
-        ].join("\n");
-        try{ await navigator.clipboard.writeText(txt);
-          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
-        }catch{ window.prompt("Copy the summary:", txt); }
-      });
+        // Persist for Full Report page to reuse (avoid re-running)
+        sessionStorage.setItem('snipeReport:url', url);
+        sessionStorage.setItem('snipeReport:data', JSON.stringify(report));
 
-      // Full-report redirect (no external Thank You)
-      const form=document.getElementById("fullReportForm");
-      if(form){
-        form.addEventListener("submit", async (e)=>{
-          e.preventDefault();
-          document.getElementById("formMessage").textContent = "âœ… Preparing your full reportâ€¦";
-          // best-effort notify backend; do not block redirect
-          try{ await fetch(`${apiBase}/api/send-link`, {method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({ name:form.name.value, email:form.email.value, phone:form.phone.value, company:form.company.value, message:form.message.value, url:targetUrl })
-          }); } catch {}
-          window.location.href = `/full-report.html?url=${encodeURIComponent(targetUrl)}&v=${Date.now()}`;
-        });
+        // Render scorecard with breakdown link + Full Report button
+        renderScore(report, url);
+      } catch (err) {
+        result.style.display = 'block';
+        result.innerHTML = `<div class="muted">Error: ${err.message}</div>`;
+      } finally {
+        clearInterval(timer);
+        // finish the bar nicely
+        barFill.style.width = '100%'; pctLabel.textContent = '100%';
+        setTimeout(stopProgress, 250);
       }
     });
+
+    function renderScore(report, url){
+      const score = report?.score ?? report?.data?.score ?? '—';
+      const superpowers = report?.superpowers || [];
+      const opportunities = report?.opportunities || [];
+
+      result.style.display = 'block';
+      result.innerHTML = `
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div class="muted" style="margin-bottom:6px">${url}</div>
+            <div class="score-xl">${score}</div>
+            <div class="muted">SnipeRank score</div>
+            <div style="margin-top:10px">
+              <a class="inline" href="#breakdown" id="openBreakdown">What goes into this score?</a>
+            </div>
+          </div>
+          <div>
+            <button id="fullBtn" class="pill">Full Report →</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px" class="row">
+          <span class="pill">Superpowers: ${superpowers.length}</span>
+          <span class="pill">Opportunities: ${opportunities.length}</span>
+        </div>
+      `;
+
+      document.getElementById('openBreakdown').addEventListener('click',(e)=>{ e.preventDefault(); showModal(true); });
+      document.getElementById('fullBtn').addEventListener('click', ()=>{
+        // Navigate without recalculating; full-report will read sessionStorage
+        window.location.href = `full-report.html?url=${encodeURIComponent(url)}`;
+      });
+    }
   </script>
 </body>
 </html>

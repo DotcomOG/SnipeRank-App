@@ -1,183 +1,169 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <!-- Full Report - long report (paragraph bullets, 2-paragraph LLM) Claude -->
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SnipeRank â€" Full AI SEO Report</title>
+    <!--
+      SnipeRank - Full Report Page
+      Version: 2.1.0
+      Date: 2025-08-24
+      Changes:
+        - Compact score header (removed full scorecard duplication)
+        - Reads score/report data from sessionStorage to avoid re-run
+        - Added fallback fetch with progress bar if no cached data
+    -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SnipeRank – Full Report</title>
   <style>
-    :root{
-      --max-width:760px; --pad-v:3vh; --pad-h:2rem;
-      --muted:#666; --border:#e5e5e5;
-      --sr-radius:16px; --sr-border:#e6e6e9; --sr-shadow:0 10px 30px rgba(0,0,0,.12);
-      --sr-text:#111; --sr-muted:#5b5b66; --sr-bg:#fff; --sr-pill-bg:#fafafb; --sr-gap:16px;
-      --btn-red:#dc3545; --btn-red-hover:#c82333;
-    }
-    *{box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:var(--pad-v) var(--pad-h);max-width:var(--max-width);margin-inline:auto;display:flex;flex-direction:column;align-items:flex-start}
-    h1{font-size:4rem;font-weight:700;margin:0 0 .25em;line-height:1;letter-spacing:-1px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    h2{font-size:1.6rem;font-weight:700;margin:0 0 1rem}
-    p{font-size:1.075rem;line-height:1.65;margin:0 0 1rem}
-
-    .info-row{width:100%;display:flex;gap:1rem;align-items:center;justify-content:space-between;margin:.25rem 0 1rem}
-    .powered-by,.for-url{color:var(--muted);font-size:.95rem}
-    .powered-by a{color:#3182CE;text-decoration:none;font-weight:600}
-    .for-url strong{color:#000}
-
-    .card{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);background:#fff}
-    .score-card{padding:1rem;margin-bottom:2.25rem}
-    .score-top{display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
-    .score-main{display:flex;align-items:baseline;gap:.5rem}
-    .score-number{font-size:2.25rem;font-weight:800}
-    .score-band{color:var(--muted);font-size:.95rem}
-    .btn-row{display:flex;gap:.5rem;align-items:center}
-    .btn-ghost{border:1px solid #111;background:#fff;color:#111;padding:.55rem .9rem;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;transition:.2s}
-    .btn-ghost:hover{background:#f2f2f2}
-    .btn-primary{background:var(--btn-red);color:#fff;border:none;padding:.85rem 2rem;border-radius:999px;font-size:1.05rem;font-weight:700;cursor:pointer;transition:background .2s;display:inline-block;text-decoration:none;text-align:center}
-    .btn-primary:hover{background:var(--btn-red-hover)}
-    .pillars{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
-    .pillar{border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;justify-content:space-between;font-size:.98rem;background:#fff}
-    .pillar .label{font-weight:600}
-    .badge{font-weight:700;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.85rem;background:#fafafa}
-    .highlights{margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--border)}
-    .highlights h4{margin:0 0 .55rem;font-size:1.2rem;font-weight:800}
-    .highlights ul{margin:0;padding-left:1rem}
-    .highlights li{margin:.45rem 0;line-height:1.5}
-
-    #summary-results .section-title{font-size:1.25rem!important;font-weight:700!important;margin:2rem 0 .6rem!important}
-    #summary-results p{line-height:1.68!important;margin:0 0 .9rem!important;font-size:1.05rem!important;white-space:pre-line}
-    #summary-results ul{margin:0 0 1.1rem 1.1rem!important;padding-left:.2rem!important;list-style:disc!important}
-    #summary-results li{line-height:1.7!important;margin:.6rem 0!important;font-size:1.05rem!important}
-
-    .llm-insights{margin:.4rem 0 1.2rem}
-    .llm-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem 1rem;align-items:start;padding:.8rem 0;border-bottom:1px dashed var(--border)}
-    .llm-row:last-child{border-bottom:0}
-    .llm-logo{display:flex;align-items:center;justify-content:center;min-width:42px;height:32px}
-    .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
-    .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
-
-    .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fafafa;color:#111;margin:0}
+    .wrap{max-width:1000px;margin:40px auto;padding:0 16px}
+    .card{background:#fff;border:1px solid #eaeaea;border-radius:14px;padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,.04);margin-bottom:16px}
+    .headerRow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .scoreBadge{display:flex;align-items:center;gap:10px}
+    .scoreDot{width:48px;height:48px;border-radius:12px;background:#111;color:#fff;display:grid;place-items:center;font-weight:800}
+    .muted{color:#666}
+    .section h3{margin:8px 0}
+    button{padding:10px 14px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:600;cursor:pointer}
+    /* minimal progress (fallback if fetch required) */
+    .bar{height:8px;border-radius:8px;background:#eee;overflow:hidden}
+    .bar>div{height:100%;width:0%;background:#111}
   </style>
 </head>
 <body>
-  <h1>SnipeRank</h1>
-  <h2>Full AI SEO Report</h2>
+  <div class="wrap">
+    <div id="top" class="card">
+      <div class="headerRow">
+        <div>
+          <div class="muted" id="urlLabel">—</div>
+          <div class="scoreBadge">
+            <div class="scoreDot" id="scoreDot">—</div>
+            <div>
+              <div style="font-weight:700">SnipeRank Score</div>
+              <div class="muted" style="font-size:13px">Compact view (full card hidden on this page)</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <button id="backBtn">← Back to Analyze</button>
+        </div>
+      </div>
+    </div>
 
-  <div class="info-row">
-    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="current-url">â€"</strong></div>
+    <div id="loading" class="card" style="display:none">
+      <div style="display:flex;justify-content:space-between">
+        <strong>Building full report…</strong>
+        <span id="pct">0%</span>
+      </div>
+      <div class="bar" style="margin-top:8px"><div id="fill"></div></div>
+      <div class="muted" style="margin-top:8px">Allow <strong>2–4 minutes</strong> as we scan and analyze your live website…</div>
+    </div>
+
+    <div id="content" class="card" style="display:none">
+      <div class="section">
+        <h3>Highlights</h3>
+        <div id="highlights" class="muted">—</div>
+      </div>
+      <div class="section">
+        <h3>Superpowers</h3>
+        <ul id="superpowers"></ul>
+      </div>
+      <div class="section">
+        <h3>Opportunities</h3>
+        <ul id="opportunities"></ul>
+      </div>
+      <div class="section">
+        <h3>Insights</h3>
+        <ul id="insights"></ul>
+      </div>
+    </div>
   </div>
 
-  <section class="card score-card" id="scoreCard" aria-live="polite">
-    <div class="score-top">
-      <div class="score-main">
-        <div class="score-number" id="scoreNumber">â€"</div>
-        <div class="score-band" id="scoreBand">Calculatingâ€¦</div>
-      </div>
-      <div class="btn-row">
-        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
-      </div>
-    </div>
-    <div class="pillars" id="pillarsGrid"></div>
-    <div class="highlights" id="highlightsBlock" hidden>
-      <h4>Highlights</h4>
-      <ul id="highlightsList"></ul>
-    </div>
-  </section>
-
-  <section id="summary-results">
-    <p style="text-align:center;color:gray;">Loading full reportâ€¦</p>
-  </section>
-
-  <section class="consultation-section" style="text-align:center;margin:2.5rem 0 0">
-    <h3>Ready to Improve Your AI Visibility?</h3>
-    <p>After reviewing your analysis, book a free 30-minute consultation to discuss opportunities and next steps.</p>
-    <div class="consultation-cta" style="margin:1rem 0 0">
-      <!-- Match red capsule button style -->
-      <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
-    </div>
-  </section>
-
-  <div class="footer">Â© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
-
   <script>
-    // shared helpers
-    const LOGO_SOURCES = {
-      ChatGPT: '/img/chatgpt-logo.png',
-      Claude: '/img/claude-logo.png',
-      Gemini: '/img/gemini-logo.png',
-      Copilot: '/img/copilot-logo.png',
-      Perplexity: '/img/perplexity-logo.png',
-    };
-    function logoDivFor(engine){
-      const wrap=document.createElement('div'); wrap.className='llm-logo';
-      const p=LOGO_SOURCES[engine]; if(!p){wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`;return wrap;}
-      const img=document.createElement('img'); img.alt=`${engine} logo`; img.src=p;
-      img.onload=()=>{wrap.innerHTML=''; wrap.appendChild(img)}; img.onerror=()=>{wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`}; return wrap;
+    const params = new URLSearchParams(location.search);
+    const url = params.get('url') || sessionStorage.getItem('snipeReport:url') || '';
+
+    const urlLabel = document.getElementById('urlLabel');
+    const dot = document.getElementById('scoreDot');
+    const content = document.getElementById('content');
+    const loading = document.getElementById('loading');
+    const backBtn = document.getElementById('backBtn');
+
+    backBtn.onclick = ()=>history.length>1 ? history.back() : (location.href='analyze.html');
+
+    urlLabel.textContent = url || '—';
+
+    // Try to reuse existing analysis (no re-run)
+    let report = null;
+    try {
+      const cached = sessionStorage.getItem('snipeReport:data');
+      if (cached) report = JSON.parse(cached);
+    } catch(e){}
+
+    if (report) {
+      renderHeader(report);
+      renderReport(report);
+    } else if (url) {
+      // Fallback: fetch once if user landed here directly
+      fetchWithProgress(url);
+    } else {
+      dot.textContent = '—';
+      document.getElementById('content').innerHTML = '<div class="muted">No data found. Please run an analysis first.</div>';
+      content.style.display = 'block';
     }
-    function transformAIInsights(root){
-      const title=[...root.querySelectorAll('h2,h3,h4,.section-title')].find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim())); if(!title) return;
-      let ul=title.nextElementSibling; while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
-      const bullets=[...ul.querySelectorAll('li')].map(li=>(li.textContent||'').trim()); if(!bullets.length)return;
-      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity']; const box=document.createElement('div'); box.className='llm-insights';
-      engines.forEach((e,i)=>{const t=bullets[i]; if(!t)return; const row=document.createElement('div'); row.className='llm-row'; row.appendChild(logoDivFor(e)); const p=document.createElement('p'); p.textContent=t; row.appendChild(p); box.appendChild(row);});
-      ul.replaceWith(box);
-    }
-    function renderScoreCard(total,pillars,highlights){
-      document.getElementById("scoreNumber").textContent = `${total}/100`;
-      document.getElementById("scoreBand").textContent =
-        total>=85?"Rank: Highly Visible â˜…â˜…â˜…â˜…â˜†":total>=70?"Rank: Partially Visible â˜…â˜…â˜…â˜†â˜†":total>=55?"Rank: Needs Work â˜…â˜…â˜†â˜†â˜†":"Rank: Low Visibility â˜…â˜†â˜†â˜†â˜†";
-      const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
-      [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
-        .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
-      if(highlights?.length){const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{const li=document.createElement("li"); li.textContent=h; ul.appendChild(li);}); document.getElementById("highlightsBlock").hidden=false;}
+
+    function renderHeader(r){
+      const s = r?.score ?? r?.data?.score ?? '—';
+      dot.textContent = s;
     }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetUrl = urlParams.get("url") || "https://example.com";
-      document.getElementById("current-url").textContent = targetUrl;
+    function renderReport(r){
+      const hp = document.getElementById('highlights');
+      const sp = document.getElementById('superpowers');
+      const op = document.getElementById('opportunities');
+      const inx = document.getElementById('insights');
 
-      // decide local vs remote backend
-      let apiBase='';
-      try{
-        const probe=await fetch('/api/score?url='+encodeURIComponent('https://example.com'),{method:'HEAD'});
-        if(!probe.ok) throw 0;
-      }catch{ apiBase='https://sniperank-app2.onrender.com'; }
+      hp.textContent = r?.summary || r?.highlights || '—';
 
-      // score
-      try{
-        const r=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
-        const j=await r.json();
-        renderScoreCard(j.score, j.pillars, j.highlights);
-      }catch{}
-
-      // report HTML + logo rows - CRITICAL: Use report=full for full report
-      try{
-        const res=await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`);
-        const html=await res.text();
-        const host=document.getElementById('summary-results'); host.innerHTML=html; transformAIInsights(host);
-      }catch{
-        document.getElementById('summary-results').innerHTML = "<p style='text-align:center;color:red'>Error loading full report.</p>";
-      }
-
-      // Copy score summary
-      document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "â€"/100";
-        const labels = [...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
-        const vals =   [...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
-        const highlights = [...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
-        const txt = [
-          `Website: ${targetUrl}`,
-          `SnipeRank Score: ${scoreText}`,
-          `Pillars:`, ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
-          ``, `Highlights/Issues:`, ...highlights.map(h=>`- ${h}`)
-        ].join("\n");
-        try{ await navigator.clipboard.writeText(txt);
-          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
-        }catch{ window.prompt("Copy the summary:", txt); }
+      (r?.superpowers || []).forEach(t=>{
+        const li=document.createElement('li'); li.textContent=t; sp.appendChild(li);
       });
-    });
+      (r?.opportunities || []).forEach(t=>{
+        const li=document.createElement('li'); li.textContent=t; op.appendChild(li);
+      });
+      (r?.insights || []).forEach(t=>{
+        const li=document.createElement('li'); li.textContent=t; inx.appendChild(li);
+      });
+
+      content.style.display = 'block';
+    }
+
+    async function fetchWithProgress(u){
+      loading.style.display = 'block';
+      const fill = document.getElementById('fill');
+      const pct = document.getElementById('pct');
+      let p = 0;
+      const t = setInterval(()=>{
+        const inc = p < 60 ? 2.0 : p < 85 ? 0.9 : 0.25;
+        p = Math.min(p + inc, 95);
+        fill.style.width = p+'%'; pct.textContent = Math.floor(p)+'%';
+      }, 250);
+
+      try{
+        const resp = await fetch(`/api/friendly?url=${encodeURIComponent(u)}`);
+        if(!resp.ok) throw new Error('Failed to load report');
+        const data = await resp.json();
+        // Save for future navigations in-session
+        sessionStorage.setItem('snipeReport:url', u);
+        sessionStorage.setItem('snipeReport:data', JSON.stringify(data));
+        renderHeader(data);
+        renderReport(data);
+      }catch(err){
+        loading.innerHTML = `<div class="muted">Error: ${err.message}</div>`;
+      }finally{
+        clearInterval(t);
+        fill.style.width = '100%'; pct.textContent = '100%';
+        setTimeout(()=>{ loading.style.display='none'; }, 250);
+      }
+    }
   </script>
 </body>
 </html>
