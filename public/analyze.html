@@ -1,187 +1,427 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- analyze.html - v3.0.0 - Integrated clean version with progress bar and modal -->
+  <!-- Features: Progress overlay, score breakdown modal, session storage, clean server.js integration -->
+  <!-- Compatible with: server.js v2.6.0+ (/api/score and /report.html endpoints) -->
+  
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SnipeRank – Analyze</title>
+  <title>SnipeRank - AI SEO Analysis</title>
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fafafa;color:#111;margin:0}
     .wrap{max-width:960px;margin:40px auto;padding:0 16px}
-    h1{font-size:28px;margin:0 0 16px}
-    form{display:flex;gap:8px;margin:16px 0 24px}
-    input[type=url]{flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px}
-    button{padding:12px 16px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:600;cursor:pointer}
-    button[disabled]{opacity:.6;cursor:not-allowed}
-    .card{background:#fff;border:1px solid #eaeaea;border-radius:14px;padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,.04);margin-bottom:16px}
-    .score-xl{font-size:48px;font-weight:800;letter-spacing:-.02em}
-    .muted{color:#666}
-    .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid #eaeaea;background:#fcfcfc}
-    a.inline{font-weight:600;text-decoration:none;border-bottom:1px dashed #aaa;color:#111}
-    /* Modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:50}
-    .modal{width:min(720px,92vw);background:#fff;border-radius:14px;border:1px solid #eaeaea;padding:18px 18px 8px}
-    .modal header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-    .x{background:transparent;border:0;font-size:22px;cursor:pointer;padding:8px}
-    .bullets{line-height:1.6;margin:8px 0 10px}
+    h1{font-size:32px;font-weight:700;margin:0 0 8px;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .tagline{color:#666;font-size:16px;margin:0 0 24px}
+    form{display:flex;gap:12px;margin:24px 0;align-items:stretch}
+    input[type=url]{flex:1;padding:14px 16px;border:1px solid #ddd;border-radius:12px;font-size:16px;transition:border-color .2s}
+    input[type=url]:focus{outline:none;border-color:#3182CE}
+    button{padding:14px 20px;border:0;border-radius:12px;background:#111;color:#fff;font-weight:600;cursor:pointer;transition:background .2s}
+    button:hover{background:#333}
+    button[disabled]{opacity:.6;cursor:not-allowed;background:#666}
+    
+    .card{background:#fff;border:1px solid #eaeaea;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin:20px 0}
+    .score-section{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}
+    .score-main{flex:1}
+    .score-number{font-size:56px;font-weight:800;letter-spacing:-.02em;margin:0}
+    .score-label{color:#666;font-size:16px;margin:4px 0 12px}
+    .score-band{color:#888;font-size:14px;margin-bottom:12px}
+    .score-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn-ghost{border:1px solid #ddd;background:#fff;color:#111;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:14px;text-decoration:none;transition:background .2s}
+    .btn-ghost:hover{background:#f5f5f5}
+    .btn-primary{background:#dc3545;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:600;text-decoration:none;transition:background .2s}
+    .btn-primary:hover{background:#c82333}
+    
+    .pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:20px 0}
+    .pillar{border:1px solid #eee;border-radius:10px;padding:12px;background:#fafafa;display:flex;justify-content:space-between;align-items:center}
+    .pillar-label{font-weight:600;font-size:13px}
+    .pillar-score{font-weight:700;color:#333;font-size:14px}
+    
+    .highlights{margin:20px 0;padding:16px;background:#f8f9fa;border-radius:10px;border-left:4px solid #3182CE}
+    .highlights h4{margin:0 0 8px;font-size:16px;font-weight:700}
+    .highlights ul{margin:8px 0 0 20px;padding:0}
+    .highlights li{margin:4px 0;line-height:1.4;font-size:14px}
+    
+    .report-section{border-top:1px solid #eee;padding-top:20px;margin-top:20px}
+    .report-content{display:grid;gap:24px}
+    .report-item h4{font-weight:700;color:#333;margin:0 0 8px;font-size:15px}
+    .report-item ul{margin:0;padding-left:20px}
+    .report-item li{margin:6px 0;line-height:1.5;font-size:14px}
+    
+    .llm-section{margin-top:24px}
+    .llm-insights{display:grid;gap:16px}
+    .llm-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid #eee;border-radius:8px;background:#fff}
+    .llm-logo{min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#f5f5f5;font-size:10px;font-weight:600;color:#666}
+    .llm-content{flex:1;font-size:14px;line-height:1.5}
+    
     /* Progress overlay */
-    .overlay{position:fixed;inset:0;background:rgba(255,255,255,.92);display:none;z-index:40}
-    .overlay .panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);background:#fff;border:1px solid #eee;border-radius:14px;padding:18px}
-    .bar{height:10px;border-radius:8px;background:#eee;overflow:hidden;margin-top:8px}
-    .bar > div{height:100%;width:0%}
-    .eta{margin-top:8px;font-size:14px}
+    .overlay{position:fixed;inset:0;background:rgba(255,255,255,.95);display:none;align-items:center;justify-content:center;z-index:1000}
+    .progress-panel{background:#fff;border:1px solid #eee;border-radius:16px;padding:24px;width:min(480px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.12)}
+    .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .progress-title{font-weight:700;font-size:18px}
+    .progress-pct{color:#666;font-size:16px;font-weight:600}
+    .progress-bar{height:12px;border-radius:8px;background:#eee;overflow:hidden;margin:12px 0}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#3182CE,#1a73e8);border-radius:8px;width:0%;transition:width .3s ease}
+    .progress-eta{color:#666;font-size:14px;line-height:1.4}
+    
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1001}
+    .modal{width:min(600px,90vw);background:#fff;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .modal-title{font-size:20px;font-weight:700;margin:0}
+    .modal-close{background:transparent;border:0;font-size:24px;cursor:pointer;padding:4px;color:#666}
+    .modal-close:hover{color:#000}
+    .modal-content{line-height:1.6}
+    .modal-content ul{margin:12px 0;padding-left:20px}
+    .modal-content li{margin:8px 0}
+    
+    .muted{color:#666}
+    .text-center{text-align:center}
+    .mt-1{margin-top:8px}
+    .hidden{display:none}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>AI SEO Analyze</h1>
+    <h1>SnipeRank</h1>
+    <div class="tagline">AI SEO Analysis & Optimization Intelligence</div>
+    
     <form id="analyze-form">
-      <input id="url" type="url" placeholder="https://example.com" required />
-      <button id="goBtn" type="submit">Analyze</button>
+      <input id="url-input" type="url" placeholder="https://example.com" required />
+      <button id="analyze-btn" type="submit">Analyze Website</button>
     </form>
 
-    <div id="result" class="card" style="display:none"></div>
-
-    <div style="margin-top:8px" class="muted">Tip: After analysis, click “Full Report” to see details without recalculating.</div>
-  </div>
-
-  <!-- Progress overlay -->
-  <div id="overlay" class="overlay" aria-hidden="true">
-    <div class="panel">
-      <div class="row" style="justify-content:space-between">
-        <strong>Scanning your live website…</strong>
-        <span id="pctLabel" class="muted">0%</span>
+    <div id="result-card" class="card hidden">
+      <!-- Score Section -->
+      <div class="score-section">
+        <div class="score-main">
+          <div class="score-number" id="score-number">-</div>
+          <div class="score-label">SnipeRank Score</div>
+          <div class="score-band" id="score-band">-</div>
+          <div class="score-actions">
+            <button class="btn-ghost" id="breakdown-btn">What goes into this score?</button>
+            <a href="#" class="btn-ghost" id="copy-btn">Copy Summary</a>
+          </div>
+        </div>
+        <div>
+          <a href="#" class="btn-primary" id="full-report-btn">View Full Report →</a>
+        </div>
       </div>
-      <div class="bar" aria-label="Progress"><div id="barFill"></div></div>
-      <div id="eta" class="eta muted">Allow <strong>2–4 minutes</strong> as we scan and analyze your live website…</div>
+
+      <!-- Pillars Grid -->
+      <div class="pillars" id="pillars-grid"></div>
+
+      <!-- Highlights -->
+      <div class="highlights hidden" id="highlights-section">
+        <h4>Key Issues Identified</h4>
+        <ul id="highlights-list"></ul>
+      </div>
+
+      <!-- Analysis Report -->
+      <div class="report-section" id="report-section">
+        <div id="report-content"></div>
+      </div>
+    </div>
+
+    <div class="mt-1 muted text-center">
+      Tip: After analysis, use "View Full Report" for comprehensive details without recalculating.
     </div>
   </div>
 
-  <!-- Score breakdown modal -->
-  <div id="modal" class="modal-backdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
-      <header>
-        <h3 id="mTitle" style="margin:6px 0">What goes into your score</h3>
-        <button class="x" id="closeModal" aria-label="Close">×</button>
-      </header>
-      <div class="bullets">
-        <ul>
-          <li><strong>Structure &amp; Crawlability:</strong> sitemap, robots, canonical usage, link graph clarity.</li>
-          <li><strong>Authority &amp; Trust:</strong> entity signals, organization schema, E-E-A-T hints, external mentions.</li>
-          <li><strong>Clarity &amp; Language:</strong> headings hierarchy, readability, task intent match, duplication.</li>
-          <li><strong>Content–AI Alignment:</strong> FAQability, snippetability, LLM context richness, retrieval clarity.</li>
-          <li><em>Proprietary blend:</em> weighting &amp; thresholds intentionally obfuscated.</li>
-        </ul>
+  <!-- Progress Overlay -->
+  <div id="progress-overlay" class="overlay">
+    <div class="progress-panel">
+      <div class="progress-header">
+        <div class="progress-title">Analyzing your website...</div>
+        <div class="progress-pct" id="progress-pct">0%</div>
       </div>
-      <div style="text-align:right;padding:8px 0 12px">
-        <button class="pill" id="okModal">Got it</button>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-eta" id="progress-eta">
+        Scanning up to <strong>25 pages</strong> for comprehensive analysis.<br>
+        This typically takes <strong>15-45 seconds</strong>.
+      </div>
+    </div>
+  </div>
+
+  <!-- Score Breakdown Modal -->
+  <div id="breakdown-modal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">What goes into your SnipeRank score?</h3>
+        <button class="modal-close" id="modal-close">×</button>
+      </div>
+      <div class="modal-content">
+        <ul>
+          <li><strong>AI Access Readiness:</strong> How easily can AI systems discover, crawl, and understand your site structure.</li>
+          <li><strong>Trust & Verification Signals:</strong> Authority indicators, security, and credibility markers that AI engines prioritize.</li>
+          <li><strong>LLM Interpretability & Clarity:</strong> Content organization, semantic markup, and clarity for AI language models.</li>
+          <li><strong>Prompt-Pattern Alignment:</strong> How well your content matches common search patterns and query structures.</li>
+          <li><strong>Freshness & Engagement Signals:</strong> Content recency, user engagement, and dynamic elements.</li>
+        </ul>
+        <p style="margin-top:16px;font-style:italic;color:#666;">
+          Our proprietary analysis combines 50+ ranking factors with weightings optimized for AI search engines.
+        </p>
       </div>
     </div>
   </div>
 
   <script>
+    // Elements
     const form = document.getElementById('analyze-form');
-    const urlInput = document.getElementById('url');
-    const result = document.getElementById('result');
-    const overlay = document.getElementById('overlay');
-    const barFill = document.getElementById('barFill');
-    const pctLabel = document.getElementById('pctLabel');
-    const eta = document.getElementById('eta');
-    const modal = document.getElementById('modal');
-    const closeModal = document.getElementById('closeModal');
-    const okModal = document.getElementById('okModal');
+    const urlInput = document.getElementById('url-input');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const resultCard = document.getElementById('result-card');
+    const progressOverlay = document.getElementById('progress-overlay');
+    const progressFill = document.getElementById('progress-fill');
+    const progressPct = document.getElementById('progress-pct');
+    const progressEta = document.getElementById('progress-eta');
+    const breakdownModal = document.getElementById('breakdown-modal');
+    const modalClose = document.getElementById('modal-close');
+    const breakdownBtn = document.getElementById('breakdown-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const fullReportBtn = document.getElementById('full-report-btn');
 
-    // Faux-progress controller (nice for long-running fetch)
+    let currentUrl = '';
+    let currentData = null;
+
+    // Progress simulation
     function startProgress() {
-      overlay.style.display = 'block';
-      barFill.style.width = '0%';
-      barFill.style.background = '#111';
-      pctLabel.textContent = '0%';
-      let p = 0;
-      // Ease quickly at first, then slower; cap ~95% until real finish.
+      progressOverlay.style.display = 'flex';
+      progressFill.style.width = '0%';
+      progressPct.textContent = '0%';
+      
+      let progress = 0;
       return setInterval(() => {
-        const increment = p < 60 ? 2.2 : p < 85 ? 0.8 : 0.2;
-        p = Math.min(p + increment, 95);
-        barFill.style.width = p + '%';
-        pctLabel.textContent = Math.floor(p) + '%';
-      }, 250);
+        const increment = progress < 60 ? 2.5 : progress < 85 ? 1.2 : 0.3;
+        progress = Math.min(progress + increment, 95);
+        progressFill.style.width = progress + '%';
+        progressPct.textContent = Math.floor(progress) + '%';
+        
+        if (progress > 30) {
+          progressEta.innerHTML = 'Processing content structure and AI optimization signals...<br>Almost done!';
+        }
+      }, 200);
     }
+
     function stopProgress() {
-      overlay.style.display = 'none';
+      progressFill.style.width = '100%';
+      progressPct.textContent = '100%';
+      setTimeout(() => {
+        progressOverlay.style.display = 'none';
+      }, 300);
     }
 
-    function showModal(show=true){
-      modal.style.display = show ? 'flex' : 'none';
-      modal.setAttribute('aria-hidden', show ? 'false' : 'true');
+    // Modal controls
+    function showModal(show = true) {
+      breakdownModal.style.display = show ? 'flex' : 'none';
     }
-    [closeModal, okModal].forEach(btn => btn.addEventListener('click', ()=>showModal(false)));
-    modal.addEventListener('click', (e)=>{ if(e.target===modal) showModal(false); });
+    
+    breakdownBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showModal(true);
+    });
+    
+    modalClose.addEventListener('click', () => showModal(false));
+    breakdownModal.addEventListener('click', (e) => {
+      if (e.target === breakdownModal) showModal(false);
+    });
 
+    // Form submission
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const url = urlInput.value.trim();
-      if(!url) return;
+      if (!url) return;
 
-      // Begin faux progress + ETA text
-      let timer = startProgress();
-      eta.innerHTML = 'Allow <strong>2–4 minutes</strong> as we scan and analyze your live website…';
+      currentUrl = url;
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = 'Analyzing...';
+      
+      const progressTimer = startProgress();
 
       try {
-        const resp = await fetch(`/api/friendly?url=${encodeURIComponent(url)}`);
-        if(!resp.ok) throw new Error('Failed to load report');
-        const report = await resp.json();
+        // Check API availability
+        let apiBase = '';
+        try {
+          const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), {method:'HEAD'});
+          if (!probe.ok) apiBase = 'https://sniperank-app2.onrender.com';
+        } catch {
+          apiBase = 'https://sniperank-app2.onrender.com';
+        }
 
-        // Persist for Full Report page to reuse (avoid re-running)
-        sessionStorage.setItem('snipeReport:url', url);
-        sessionStorage.setItem('snipeReport:data', JSON.stringify(report));
+        // Get score data
+        const scoreResponse = await fetch(`${apiBase}/api/score?url=${encodeURIComponent(url)}`);
+        if (!scoreResponse.ok) throw new Error('Analysis failed');
+        const scoreData = await scoreResponse.json();
 
-        // Render scorecard with breakdown link + Full Report button
-        renderScore(report, url);
-      } catch (err) {
-        result.style.display = 'block';
-        result.innerHTML = `<div class="muted">Error: ${err.message}</div>`;
+        // Get report content  
+        const reportResponse = await fetch(`${apiBase}/report.html?report=analyze&url=${encodeURIComponent(url)}`);
+        if (!reportResponse.ok) throw new Error('Report generation failed');
+        const reportHtml = await reportResponse.text();
+
+        // Combine data
+        currentData = {
+          score: scoreData.score,
+          pillars: scoreData.pillars,
+          highlights: scoreData.highlights,
+          band: scoreData.band,
+          reportHtml: reportHtml,
+          insights: scoreData.insights
+        };
+
+        // Store for full report
+        sessionStorage.setItem('sniperank:url', url);
+        sessionStorage.setItem('sniperank:data', JSON.stringify(currentData));
+
+        renderResults(currentData, url);
+        
+      } catch (error) {
+        console.error('Analysis error:', error);
+        resultCard.className = 'card';
+        resultCard.innerHTML = `
+          <div class="text-center muted">
+            <strong>Analysis Error</strong><br>
+            ${error.message}<br>
+            Please check the URL and try again.
+          </div>
+        `;
       } finally {
-        clearInterval(timer);
-        // finish the bar nicely
-        barFill.style.width = '100%'; pctLabel.textContent = '100%';
-        setTimeout(stopProgress, 250);
+        clearInterval(progressTimer);
+        stopProgress();
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = 'Analyze Website';
       }
     });
 
-    function renderScore(report, url){
-      const score = report?.score ?? report?.data?.score ?? '—';
-      const superpowers = report?.superpowers || [];
-      const opportunities = report?.opportunities || [];
-
-      result.style.display = 'block';
-      result.innerHTML = `
-        <div class="row" style="justify-content:space-between;">
-          <div>
-            <div class="muted" style="margin-bottom:6px">${url}</div>
-            <div class="score-xl">${score}</div>
-            <div class="muted">SnipeRank score</div>
-            <div style="margin-top:10px">
-              <a class="inline" href="#breakdown" id="openBreakdown">What goes into this score?</a>
-            </div>
-          </div>
-          <div>
-            <button id="fullBtn" class="pill">Full Report →</button>
-          </div>
-        </div>
-
-        <div style="margin-top:14px" class="row">
-          <span class="pill">Superpowers: ${superpowers.length}</span>
-          <span class="pill">Opportunities: ${opportunities.length}</span>
-        </div>
-      `;
-
-      document.getElementById('openBreakdown').addEventListener('click',(e)=>{ e.preventDefault(); showModal(true); });
-      document.getElementById('fullBtn').addEventListener('click', ()=>{
-        // Navigate without recalculating; full-report will read sessionStorage
-        window.location.href = `full-report.html?url=${encodeURIComponent(url)}`;
+    function renderResults(data, url) {
+      // Show result card
+      resultCard.classList.remove('hidden');
+      
+      // Update score
+      document.getElementById('score-number').textContent = data.score + '/100';
+      document.getElementById('score-band').textContent = data.band || '';
+      
+      // Update pillars
+      const pillarsGrid = document.getElementById('pillars-grid');
+      pillarsGrid.innerHTML = '';
+      
+      const pillarLabels = [
+        ['AI Access Readiness', data.pillars.access],
+        ['Trust & Verification Signals', data.pillars.trust], 
+        ['LLM Interpretability & Clarity', data.pillars.clarity],
+        ['Prompt-Pattern Alignment', data.pillars.alignment]
+      ];
+      
+      pillarLabels.forEach(([label, score]) => {
+        const div = document.createElement('div');
+        div.className = 'pillar';
+        div.innerHTML = `
+          <div class="pillar-label">${label}</div>
+          <div class="pillar-score">${score}/25</div>
+        `;
+        pillarsGrid.appendChild(div);
       });
+
+      // Update highlights
+      if (data.highlights && data.highlights.length > 0) {
+        const highlightsSection = document.getElementById('highlights-section');
+        const highlightsList = document.getElementById('highlights-list');
+        highlightsList.innerHTML = '';
+        
+        data.highlights.slice(0, 4).forEach(highlight => {
+          const li = document.createElement('li');
+          li.textContent = highlight;
+          highlightsList.appendChild(li);
+        });
+        
+        highlightsSection.classList.remove('hidden');
+      }
+
+      // Update report content
+      const reportContent = document.getElementById('report-content');
+      reportContent.innerHTML = data.reportHtml;
+      
+      // Transform AI insights to logo format
+      transformAIInsights(reportContent);
+
+      // Update full report button
+      fullReportBtn.href = `full-report.html?url=${encodeURIComponent(url)}`;
     }
+
+    // Transform AI insights section
+    function transformAIInsights(container) {
+      const title = [...container.querySelectorAll('h2,h3,h4,.section-title')].find(n => 
+        /ai\s*engine\s*insights?/i.test((n.textContent || '').trim())
+      );
+      
+      if (!title) return;
+      
+      let ul = title.nextElementSibling;
+      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+      if (!ul) return;
+      
+      const bullets = [...ul.querySelectorAll('li')].map(li => (li.textContent || '').trim());
+      if (!bullets.length) return;
+      
+      const engines = ['ChatGPT', 'Claude', 'Gemini', 'Copilot', 'Perplexity'];
+      const insightsContainer = document.createElement('div');
+      insightsContainer.className = 'llm-insights';
+      
+      engines.forEach((engine, i) => {
+        const text = bullets[i];
+        if (!text) return;
+        
+        const row = document.createElement('div');
+        row.className = 'llm-row';
+        row.innerHTML = `
+          <div class="llm-logo">${engine.slice(0,3)}</div>
+          <div class="llm-content">${text}</div>
+        `;
+        insightsContainer.appendChild(row);
+      });
+      
+      ul.replaceWith(insightsContainer);
+    }
+
+    // Copy summary functionality
+    copyBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!currentData || !currentUrl) return;
+      
+      const summary = `Website: ${currentUrl}
+SnipeRank Score: ${currentData.score}/100
+
+Pillars:
+- AI Access Readiness: ${currentData.pillars.access}/25
+- Trust & Verification: ${currentData.pillars.trust}/25  
+- LLM Interpretability: ${currentData.pillars.clarity}/25
+- Prompt-Pattern Alignment: ${currentData.pillars.alignment}/25
+
+Key Issues:
+${currentData.highlights ? currentData.highlights.map(h => `- ${h}`).join('\n') : '- See full analysis for details'}
+
+Generated by SnipeRank AI SEO Analysis`;
+
+      try {
+        await navigator.clipboard.writeText(summary);
+        const oldText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = oldText, 2000);
+      } catch {
+        // Fallback for browsers without clipboard API
+        const textarea = document.createElement('textarea');
+        textarea.value = summary;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        const oldText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = oldText, 2000);
+      }
+    });
   </script>
 </body>
 </html>
-
