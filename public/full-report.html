@@ -222,14 +222,39 @@
       }
     }
 
-    function hideCalculating() {
+function hideCalculating() {
       document.getElementById('calculating-overlay').style.display = 'none';
       document.getElementById('main-content').classList.remove('hidden');
+    }
+
+    function animateProgress() {
+      let progress = 0;
+      const progressBar = document.getElementById('progress-bar');
+      const progressPercent = document.getElementById('progress-percent');
+      
+      const interval = setInterval(() => {
+        if (progress < 95) {
+          // Slow down as we get higher
+          const increment = progress < 60 ? 3 : progress < 85 ? 2 : 1;
+          progress = Math.min(progress + increment, 95);
+          progressBar.style.width = progress + '%';
+          progressPercent.textContent = progress + '%';
+        }
+      }, 100);
+      
+      return () => {
+        clearInterval(interval);
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+      };
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
+      
+      // Start progress animation
+      const completeProgress = animateProgress();
       
       // Show calculating for minimum 3 seconds for better UX
       const minShowTime = 3000;
@@ -265,8 +290,11 @@
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, minShowTime - elapsed);
       
-      setTimeout(hideCalculating, remaining);
-
+setTimeout(() => {
+        completeProgress();  // Complete the progress bar
+        setTimeout(hideCalculating, 300);  // Wait 300ms then hide
+      }, remaining);
+      
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "-/100";
         const labels = [...document.querySelectorAll('.pillar .label')].map(el => el.textContent.trim());
