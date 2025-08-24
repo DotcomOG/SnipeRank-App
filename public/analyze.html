@@ -61,14 +61,15 @@
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
 
     /* Get Full Report Form Section */
-    .form-section{text-align:center;padding:3rem 2rem;border-top:1px solid var(--border);margin-top:3rem}
+    .form-section{text-align:center;padding:3rem 2rem;border-top:1px solid var(--border);margin-top:3rem;width:100%}
     .form-section h3{margin:0 0 2rem;font-size:1.8rem;font-weight:700}
-    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:600px;margin:0 auto 1rem}
+    .form-container{max-width:100%;margin:0 auto}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0 auto 1rem}
     .form-full{grid-column:1/-1}
     .form-section input, .form-section textarea{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:4px;font-size:16px;font-family:inherit}
     .form-section textarea{min-height:100px;resize:vertical}
     .form-section input:focus, .form-section textarea:focus{outline:none;border-color:#3182CE}
-    .form-btn{margin-top:1rem}
+    .form-btn{margin-top:1rem;max-width:300px}
 
     /* Consultation Section */
     .consultation-section{text-align:center;padding:3rem 2rem;margin-top:3rem}
@@ -136,16 +137,18 @@
   <!-- Get Full Report Form -->
   <section class="form-section">
     <h3>Get Your Full Report</h3>
-    <form id="full-report-form">
-      <div class="form-grid">
-        <input type="text" id="name-input" placeholder="Your Name" required />
-        <input type="email" id="email-input" placeholder="Your Email" required />
-        <input type="tel" id="phone-input" placeholder="Your Phone (optional)" />
-        <input type="text" id="company-input" placeholder="Your Company (optional)" />
-        <textarea class="form-full" id="context-input" placeholder="Share context or ask a specific question — we'll address at your free consult."></textarea>
-      </div>
-      <button type="submit" class="btn-primary form-btn">Email Me My Full Report</button>
-    </form>
+    <div class="form-container">
+      <form id="full-report-form">
+        <div class="form-grid">
+          <input type="text" id="name-input" placeholder="Your Name" required />
+          <input type="email" id="email-input" placeholder="Your Email" required />
+          <input type="tel" id="phone-input" placeholder="Your Phone (optional)" />
+          <input type="text" id="company-input" placeholder="Your Company (optional)" />
+          <textarea class="form-full" id="context-input" placeholder="Share context or ask a specific question — we'll address at your free consult."></textarea>
+        </div>
+        <button type="submit" class="btn-primary form-btn">Email Me My Full Report</button>
+      </form>
+    </div>
   </section>
 
   <!-- Consultation Section -->
