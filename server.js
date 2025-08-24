@@ -457,8 +457,8 @@ app.get('/api/score', async (req,res)=>{
   const analysis = await analyzeWebsite(url, 'analyze');
   const total = analysis.pillars.access + analysis.pillars.trust + analysis.pillars.clarity + analysis.pillars.alignment;
 
-  const bandText = (s)=> s>=85?"Rank: Highly Visible ★★★★☆": s>=70?"Rank: Partially Visible ★★★☆☆": s>=55?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
-
+const bandText = (s)=> s>=70?"Rank: Highly Visible ★★★★☆": s>=55?"Rank: Partially Visible ★★★☆☆": s>=40?"Rank: Needs Work ★★☆☆☆":"Rank: Low Visibility ★☆☆☆☆";
+  
   // dynamic highlights: first four needs (first sentence only)
   const highlights = analysis.needsAttention.slice(0,4).map(x=>{
     const first = splitSents(x.description)[0] || x.description;
