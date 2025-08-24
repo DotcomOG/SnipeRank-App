@@ -79,12 +79,23 @@
   </style>
 </head>
 <body>
-  <!-- Calculating Overlay -->
+<!-- Calculating Overlay -->
   <div id="calculating-overlay" class="calculating-overlay">
     <div class="calculating-panel">
       <h2 class="calculating-title">Calculating Your Full Report</h2>
       <p class="calculating-subtitle">Performing comprehensive website analysis. This may take a few minutes.</p>
-      <div class="spinner"></div>
+      
+      <!-- Progress Bar -->
+      <div style="margin: 2rem 0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:600;color:#333">Progress</span>
+          <span id="progress-percent" style="font-weight:600;color:#3182CE">0%</span>
+        </div>
+        <div style="height:12px;background:#f3f3f3;border-radius:8px;overflow:hidden">
+          <div id="progress-bar" style="height:100%;background:linear-gradient(90deg,#3182CE,#1a73e8);width:0%;transition:width 0.3s ease;border-radius:8px"></div>
+        </div>
+      </div>
+      
       <div class="calculating-info">
         This deep analysis examines:<br>
         <strong>• Technical SEO factors</strong><br>
