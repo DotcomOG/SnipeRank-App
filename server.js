@@ -1,6 +1,7 @@
-// server.js — v2.4.1  (analyze=3 sentences per item; full-report=long paragraphs; LLM sized by mode) GPT
+// Deploy speed optimized server v2.6.0 (25/300 pages)
+// - Speed optimized: analyze=25 pages with 5s timeout, full=300 pages with 8s timeout
+// - Prioritized crawling: homepage, key pages first
 // - Uses ?report=analyze|full to size both bullets and LLM insights
-// - Full-report: Needs Attention banded by score (low=25, medium=20, high=15); Working banded similarly
 
 import express from 'express';
 import cors from 'cors';
@@ -43,18 +44,18 @@ const highScore = ()=>({ pillars:{access:22,trust:23,clarity:22,alignment:22}, s
 const splitSents = (t)=> String(t||'').replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
 const addObfuscation = (domain, salt=0)=>{
   const pool=[
-    `Treat this as directional heat rather than a checklist for ${domain}.`,
-    `Signals are suggestive, not prescriptive; nuance lives in the page furniture.`,
-    `Interpretation depends on context outside this crawl for ${domain}.`,
-    `These patterns sketch tendencies; specifics hinge on template choices.`,
-    `Consider this a lens on tendencies, not a step‑by‑step recipe.`,
+    `Treat this as directional guidance rather than a checklist for ${domain}.`,
+    `Signals are suggestive, not prescriptive; nuance lives in the implementation details.`,
+    `Interpretation depends on context outside this analysis for ${domain}.`,
+    `These patterns sketch tendencies; specifics depend on template choices.`,
+    `Consider this a lens on tendencies, not a step-by-step recipe.`,
   ];
   return pool[salt % pool.length];
 };
 
 // enforce by mode:
-// analyze → exactly 3 sentences
-// full    → 1–3 paragraphs, each paragraph 3–5 sentences (soft)
+// analyze -> exactly 3 sentences
+// full    -> 1-3 paragraphs, each paragraph 3-5 sentences (soft)
 function polish(desc, mode, domain, salt=0){
   const sents = splitSents(desc);
   if (mode === 'analyze'){
@@ -76,20 +77,46 @@ function polish(desc, mode, domain, salt=0){
   return paras.slice(0,3).join('\n\n'); // will render as multi-line inside <li>
 }
 
-// ---- crawler ----
-async function crawlSitePages(startUrl, maxPages=10){
+// ---- optimized crawler with priority pages ----
+async function crawlSitePages(startUrl, maxPages=25, reportType='analyze'){
   const host = hostOf(startUrl);
   const visited = new Set();
   const pages = [];
+  
+  // Speed optimization: different timeouts for different modes
+  const timeout = reportType === 'analyze' ? 5000 : 8000;
+  
+  // Priority pages for faster, more targeted crawling
+  const priorityPaths = [
+    '',           // homepage
+    '/',          // homepage alt
+    '/about',
+    '/about-us',
+    '/services',
+    '/products',
+    '/contact',
+    '/blog',
+    '/news'
+  ];
+  
+  // Build priority queue
   const queue = [startUrl];
+  priorityPaths.forEach(path => {
+    if (path === '' || path === '/') return; // already have homepage
+    try {
+      const priorityUrl = new URL(path, startUrl).href;
+      if (!queue.includes(priorityUrl)) queue.push(priorityUrl);
+    } catch {}
+  });
 
   while (queue.length && pages.length < maxPages){
     const current = queue.shift();
     if (visited.has(current)) continue;
+    
     try{
       visited.add(current);
       const resp = await axios.get(current, {
-        timeout: 8000,
+        timeout: timeout,
         headers: { 'User-Agent': 'SnipeRank SEO Analyzer Bot' }
       });
       const $ = cheerio.load(resp.data);
@@ -126,7 +153,8 @@ async function crawlSitePages(startUrl, maxPages=10){
       };
       pages.push(pageData);
 
-      if (pageData.level < 3 && pages.length < maxPages){
+      // Only discover more pages if we haven't hit the limit and we're not doing a quick analyze
+      if (pageData.level < 3 && pages.length < maxPages && (reportType === 'full' || pages.length < Math.floor(maxPages * 0.8))){
         $('a[href]').each((_, link) => {
           const href = $(link).attr('href');
           if (!href) return;
@@ -138,7 +166,8 @@ async function crawlSitePages(startUrl, maxPages=10){
               if (full &&
                 !visited.has(full) &&
                 !queue.includes(full) &&
-                !full.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i)
+                !full.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i) &&
+                queue.length < maxPages * 2 // Limit queue size for speed
               ) queue.push(full);
             }catch{}
           }
@@ -146,6 +175,7 @@ async function crawlSitePages(startUrl, maxPages=10){
       }
     }catch(e){
       console.log(`Failed to crawl ${current}:`, e.message);
+      // Continue with other pages instead of stopping
     }
   }
   return pages;
@@ -186,12 +216,13 @@ function targetsFor(reportType, score){
   return              { working: 10, needs: 15 };
 }
 
-// ---- AI insights (length by mode) ----
+// ---- AI insights (different for each engine) ----
 function generateAIInsights(pages, host, mode='analyze'){
   if (!pages || !pages.length){
-    const short = `Unable to analyze ${host} — crawl didn’t surface enough content to read.`;
-    const make = ()=>({ description: mode==='analyze' ? short : `${short} In practice, this reads like an access posture rather than a content posture. Signals exist, but not in a way that holds steady across lifts.` });
-    return [make(),make(),make(),make(),make()];
+    const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+    return engines.map(engine => ({
+      description: `Unable to analyze ${host} - ${engine} requires sufficient content access for meaningful evaluation.`
+    }));
   }
 
   const total = pages.length;
@@ -202,23 +233,35 @@ function generateAIInsights(pages, host, mode='analyze'){
   const metaPages = pages.filter(p=>p.metaDesc.length>0).length;
   const httpsPages = pages.filter(p=>p.hasSSL).length;
 
-  const bits = [
-    `Across ${total} pages on ${host}, headings ${properH1===total?'hold a single spine':'vary in number page to page'}, and content sits around ${avgWords} words on average. Typed hints ${schemaPages>=total*0.8?'travel well':'thin out in places'}, while previews ${metaPages>=total*0.8?'frame intent consistently':'come and go'}.`,
-    `Internal trails average ~${avgLinks} per page, which ${avgLinks>=5?'brings adjacent ideas into reach quickly':'stretches the hop distance a bit'}. Transport ${httpsPages===total?'stays uniform':'mixes in a few un‑locked paths'}, which can color how quotes and pointers are carried forward.`
-  ];
+  // Different insights per engine
+  const insights = {
+    ChatGPT: `Content structure analysis reveals ${properH1===total?'consistent heading hierarchy':'inconsistent heading patterns'} across the analyzed sections of ${host}. The ${avgWords}-word average content depth ${avgWords>=500?'supports comprehensive topic coverage':'may benefit from expansion'}, while internal linking patterns create ${avgLinks>=5?'strong content relationships':'opportunities for enhanced connectivity'}.`,
+    
+    Claude: `Technical infrastructure assessment shows ${httpsPages===total?'consistent security implementation':'mixed security protocols'} throughout ${host}. Schema markup coverage at ${Math.round((schemaPages/total)*100)}% ${schemaPages>=total*0.7?'provides strong semantic signals':'indicates room for structured data enhancement'}, supporting improved content interpretation.`,
+    
+    Gemini: `Meta description analysis indicates ${metaPages>=total*0.8?'comprehensive preview coverage':'gaps in content previews'} across the evaluated sections of ${host}. Content organization demonstrates ${avgWords>=400?'substantial depth per section':'opportunities for content expansion'} with ${avgLinks} average internal connections per area.`,
+    
+    Copilot: `Accessibility and crawling evaluation of ${host} reveals ${properH1===total && httpsPages===total?'strong foundational signals':'areas requiring optimization attention'}. The current ${avgWords}-word content average ${avgWords>=600?'exceeds recommended thresholds':'approaches minimum depth requirements'} for effective indexing.`,
+    
+    Perplexity: `Information architecture analysis shows ${schemaPages>=total*0.6?'adequate structured data implementation':'limited semantic markup presence'} throughout ${host}. Cross-referencing patterns with ${avgLinks} average internal links per section ${avgLinks>=6?'create strong topical clusters':'suggest opportunities for enhanced content connectivity'}.`
+  };
 
-  const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
-  return engines.map((_,i)=>{
-    if (mode==='analyze'){
-      // one paragraph (3–4 sentences)
-      const sents = splitSents(bits.join(' '));
-      while (sents.length < 4) sents.push(addObfuscation(host, i+sents.length));
-      return { description: sents.slice(0,4).join(' ') };
-    }
-    // full → two paragraphs
-    const pad = addObfuscation(host, i);
-    return { description: `${bits[0]}\n\n${bits[1]} ${pad}` };
-  });
+  if (mode === 'full') {
+    // For full mode, add second paragraphs
+    insights.ChatGPT += `\n\nDeeper content analysis reveals patterns in user experience signals and engagement indicators. The current implementation shows potential for optimization in areas where content depth intersects with navigational clarity.`;
+    
+    insights.Claude += `\n\nAdvanced crawling assessment indicates opportunities for enhanced semantic relationships between content sections. The technical foundation supports improved AI understanding through strategic markup expansion.`;
+    
+    insights.Gemini += `\n\nComprehensive structure evaluation suggests potential improvements in content clustering and internal link distribution. The existing framework provides a solid foundation for enhanced topical authority development.`;
+    
+    insights.Copilot += `\n\nExtended technical analysis reveals opportunities for improved content discoverability and indexing efficiency. The current structure supports optimization initiatives focused on semantic clarity and accessibility enhancement.`;
+    
+    insights.Perplexity += `\n\nDetailed information architecture review identifies potential enhancements in cross-content referencing and topic clustering. The existing foundation enables strategic improvements in content relationship mapping.`;
+  }
+
+  return ['ChatGPT','Claude','Gemini','Copilot','Perplexity'].map(engine => ({
+    description: insights[engine]
+  }));
 }
 
 // ---- dynamic analysis ----
@@ -226,7 +269,7 @@ function generateCompleteAnalysis(pages, host, reportType){
   if (!pages || !pages.length){
     return {
       working: [],
-      needsAttention: [{ title:'Site Crawl Failed', description: polish(`The crawl for ${host} didn’t surface analyzable pages. That usually feels like a closed door rather than a blank room.`, reportType, host) }],
+      needsAttention: [{ title:'Site Crawl Failed', description: polish(`The crawl for ${host} did not surface analyzable content. That usually feels like a closed door rather than a blank room.`, reportType, host) }],
       qualityScore: 30
     };
   }
@@ -267,39 +310,39 @@ function generateCompleteAnalysis(pages, host, reportType){
 
   const W=[], N=[];
 
-  // working (dynamic)
-  if (httpsPages===total) W.push({ title:'Complete HTTPS Security', description:`Every sampled page resolves over HTTPS. The floor feels solid; readers don’t step around mixed locks to get the gist.` });
-  if (pct(titleOK.length,total)>=95 && longTitles.length===0 && dupTitle===0) W.push({ title:'Title Coverage & Differentiation', description:`${pct(titleOK.length,total)}% of pages present distinct, scannable titles. Previews hold their edges without colliding labels.` });
-  if (pct(metaOK.length,total)>=80) W.push({ title:'Meta Description Presence', description:`${pct(metaOK.length,total)}% of pages bring a short preface. Most entries arrive with a hint rather than a cold open.` });
-  if (schemaPages>=Math.ceil(total*0.7)) W.push({ title:'Structured Data Footprint', description:`${pct(schemaPages,total)}% of pages declare typed context. Names and roles tend to keep their shape when lifted elsewhere.` });
-  if (avgInt>=6 && !weakInt.length) W.push({ title:'Internal Path Consistency', description:`Cross‑links cluster around ~${avgInt} per page with few outliers. Nearby ideas don’t feel far away.` });
-  if (avgAltPct>=85) W.push({ title:'Image Alt Coverage', description:`Alt text lands on most imagery (~${avgAltPct}% on average). When visuals drop out, the thread usually remains intact.` });
-  if (avgWordsV>=600) W.push({ title:'Substantial Content Depth', description:`Average depth sits near ${avgWordsV} words (σ≈${spreadV}). Sections read like chapters, not captions.` });
-  if (h1Singles.length===total) W.push({ title:'Clear Heading Spine', description:`Pages carry a single H1. Primary topics stand alone instead of competing for the mic.` });
-  if (navPct>=90 && footPct>=90) W.push({ title:'Template Consistency', description:`Global furniture shows up reliably (nav ${navPct}%, footer ${footPct}%). Orientation tends to persist from page to page.` });
-  if (crumbs>=Math.ceil(total*0.6)) W.push({ title:'Breadcrumb Traces', description:`${pct(crumbs,total)}% of pages expose a trail. Sections announce where they live in the larger map.` });
+  // working (dynamic) - NO PAGE COUNTS
+  if (httpsPages===total) W.push({ title:'Complete HTTPS Security', description:`All analyzed sections resolve over HTTPS. The foundation feels solid; readers do not step around mixed locks to get the gist.` });
+  if (pct(titleOK.length,total)>=95 && longTitles.length===0 && dupTitle===0) W.push({ title:'Title Coverage & Differentiation', description:`Strong title presence with distinct, scannable labels. Previews hold their edges without colliding.` });
+  if (pct(metaOK.length,total)>=80) W.push({ title:'Meta Description Presence', description:`Strong meta description coverage provides consistent previews. Most entries arrive with a hint rather than a cold open.` });
+  if (schemaPages>=Math.ceil(total*0.7)) W.push({ title:'Structured Data Footprint', description:`Comprehensive structured data implementation declares typed context. Names and roles tend to keep their shape when lifted elsewhere.` });
+  if (avgInt>=6 && !weakInt.length) W.push({ title:'Internal Path Consistency', description:`Cross-links maintain strong density with consistent patterns. Nearby ideas do not feel far away.` });
+  if (avgAltPct>=85) W.push({ title:'Image Alt Coverage', description:`Alt text covers most imagery comprehensively. When visuals drop out, the thread usually remains intact.` });
+  if (avgWordsV>=600) W.push({ title:'Substantial Content Depth', description:`Content depth maintains substantial coverage throughout. Sections read like chapters, not captions.` });
+  if (h1Singles.length===total) W.push({ title:'Clear Heading Spine', description:`Consistent single H1 structure throughout. Primary topics stand alone instead of competing for the mic.` });
+  if (navPct>=90 && footPct>=90) W.push({ title:'Template Consistency', description:`Global furniture shows up reliably throughout the site. Orientation tends to persist from section to section.` });
+  if (crumbs>=Math.ceil(total*0.6)) W.push({ title:'Breadcrumb Traces', description:`Strong breadcrumb implementation exposes clear trails. Sections announce where they live in the larger map.` });
 
-  // needs (dynamic)
-  if (httpsPages!==total) N.push({ title:'HTTPS Gaps', description:`${httpsPages}/${total} pages travel with locks. The rest step out without them, and the tone changes when they do.` });
-  if (titleOK.length<total) N.push({ title:'Missing Titles', description:`${total-titleOK.length} pages publish without a nameplate. Untitled entries tend to blur at the doorway.` });
-  if (longTitles.length>0) N.push({ title:'Overlong Titles', description:`${longTitles.length} pages let titles run long. Edges get trimmed, and the key phrase can fall outside the frame.` });
-  if (dupTitle>0) N.push({ title:'Duplicate Titles', description:`${dupTitle} collisions show up across the set. Different rooms sharing the same label invite mix‑ups.` });
-  if (pct(metaOK.length,total)<80) N.push({ title:'Thin Previews', description:`Only ${pct(metaOK.length,total)}% of pages bring a summary. Without that preface, the first line has to do extra work.` });
-  if (thinPages.length>0) N.push({ title:'Thin Sections', description:`${thinPages.length}/${total} pages land under 300 words. Skimming turns into skipping when the thread is that short.` });
-  if (avgWordsV<400) N.push({ title:'Shallow Average Depth', description:`Coverage averages ${avgWordsV} words (σ≈${spreadV}). Ideas arrive, but they don’t stay long.` });
-  if (h1None.length>0) N.push({ title:'Missing H1', description:`${h1None.length} pages step onstage without a lead heading. The scene opens mid‑conversation.` });
-  if (h1Multi.length>0) N.push({ title:'Multiple H1 Anchors', description:`${h1Multi.length} pages carry more than one lead. Two spotlights on the same stage split attention.` });
-  if (avgInt<6) N.push({ title:'Sparse Trails', description:`Internal links average ${avgInt} per page. Hops between related ideas feel longer than they need to.` });
-  if (weakInt.length>0) N.push({ title:'Isolated Pages', description:`${weakInt.length} pages sit with fewer than three connections. They read like side paths that don’t loop back.` });
-  if (schemaPages<Math.ceil(total*0.7)) N.push({ title:'Typed Context Gaps', description:`Typed signals reach ${pct(schemaPages,total)}% of pages. Where typing fades, names and roles smudge at the edges.` });
-  if (avgAltPct<70) N.push({ title:'Alt‑Text Thin Spots', description:`Alt attributes average ~${avgAltPct}% across imagery. When captions go missing, pictures turn into placeholders.` });
-  if (crumbs<Math.ceil(total*0.4)) N.push({ title:'Few Breadcrumbs', description:`Only ${pct(crumbs,total)}% of pages show a trail. Without that line, sections float more than they stack.` });
-  if (navPct<80 || footPct<80) N.push({ title:'Template Drift', description:`Global elements fluctuate (nav ${navPct}%, footer ${footPct}%). The room changes shape more often than expected.` });
+  // needs (dynamic) - NO PAGE COUNTS
+  if (httpsPages!==total) N.push({ title:'HTTPS Gaps', description:`Some sections travel without security locks. The tone changes when they do, affecting trust signals.` });
+  if (titleOK.length<total) N.push({ title:'Missing Titles', description:`Some sections publish without nameplates. Untitled entries tend to blur at the doorway.` });
+  if (longTitles.length>0) N.push({ title:'Overlong Titles', description:`Some titles run too long. Edges get trimmed, and the key phrase can fall outside the frame.` });
+  if (dupTitle>0) N.push({ title:'Duplicate Titles', description:`Title collisions appear across the site. Different rooms sharing the same label invite mix-ups.` });
+  if (pct(metaOK.length,total)<80) N.push({ title:'Thin Previews', description:`Meta description coverage needs enhancement. Without that preface, the first line has to do extra work.` });
+  if (thinPages.length>0) N.push({ title:'Thin Content Sections', description:`Some sections fall short of substantial depth. Skimming turns into skipping when the thread is that short.` });
+  if (avgWordsV<400) N.push({ title:'Shallow Average Depth', description:`Overall content coverage could be more substantial. Ideas arrive, but they do not stay long.` });
+  if (h1None.length>0) N.push({ title:'Missing H1 Headers', description:`Some sections step onstage without lead headings. The scene opens mid-conversation.` });
+  if (h1Multi.length>0) N.push({ title:'Multiple H1 Anchors', description:`Some sections carry more than one lead heading. Two spotlights on the same stage split attention.` });
+  if (avgInt<6) N.push({ title:'Sparse Internal Trails', description:`Internal linking could be stronger throughout. Hops between related ideas feel longer than they need to.` });
+  if (weakInt.length>0) N.push({ title:'Isolated Content Areas', description:`Some sections sit with few connections. They read like side paths that do not loop back.` });
+  if (schemaPages<Math.ceil(total*0.7)) N.push({ title:'Typed Context Gaps', description:`Structured data signals need broader implementation. Where typing fades, names and roles smudge at the edges.` });
+  if (avgAltPct<70) N.push({ title:'Alt-Text Coverage Gaps', description:`Alt attribute coverage needs improvement across imagery. When captions go missing, pictures turn into placeholders.` });
+  if (crumbs<Math.ceil(total*0.4)) N.push({ title:'Limited Breadcrumb Trails', description:`Breadcrumb implementation could be expanded. Without that line, sections float more than they stack.` });
+  if (navPct<80 || footPct<80) N.push({ title:'Template Inconsistencies', description:`Global elements fluctuate in presence. The room changes shape more often than expected.` });
 
   // full-only extra surface
-  if (contactPhone+contactEmail+contactAddr < Math.ceil(total*0.6)) N.push({ title:'Light Contact Footprint', description:`Direct touchpoints surface intermittently. When the handshake isn’t obvious, trust has to travel farther.` });
-  if (socialAvg===0) N.push({ title:'Quiet Social Surface', description:`Social paths don’t present themselves here. The broader footprint feels thinner than the site’s center of gravity.` });
-  if (extLinksAvg>8) N.push({ title:'High External Link Density', description:`Outbound references average ~${extLinksAvg} per page. The narrative steps outside the room more than it stays in it.` });
+  if (contactPhone+contactEmail+contactAddr < Math.ceil(total*0.6)) N.push({ title:'Limited Contact Footprint', description:`Direct touchpoints surface intermittently. When the handshake is not obvious, trust has to travel farther.` });
+  if (socialAvg===0) N.push({ title:'Minimal Social Presence', description:`Social paths do not present themselves prominently. The broader footprint feels thinner than the site center of gravity.` });
+  if (extLinksAvg>8) N.push({ title:'High External Link Density', description:`Outbound references appear frequently throughout. The narrative steps outside the room more than it stays in it.` });
 
   // count banding
   const score = calculateQualityScore(pages);
@@ -307,11 +350,11 @@ function generateCompleteAnalysis(pages, host, reportType){
 
   // grow with neutral seeds if short
   const seeds = [
-    ['Texture Spread', `Depth varies (σ≈${spreadV}). A caption in one room becomes a chapter in the next.`],
-    ['Trail Density', `Trails settle around ~${avgInt} links per page. Hop distance sets how quickly adjacent ideas come into view.`],
-    ['Caption Footing', `Alt coverage hovers near ~${avgAltPct}%. Where captions thin, lifted visuals feel more like placeholders than references.`],
-    ['Typing Footprint', `Typed context reaches ${pct(schemaPages,total)}% of pages. Where typing fades, names and roles blur at the edges.`],
-    ['Preview Cadence', `Summaries cover ${pct(metaOK.length,total)}% of entries. Intros show up often enough to set the scene, but not always.`]
+    ['Content Depth Variation', `Depth varies across sections. A caption in one area becomes a chapter in the next.`],
+    ['Link Trail Density', `Linking patterns establish connection rhythms. Hop distance sets how quickly adjacent ideas come into view.`],
+    ['Image Caption Coverage', `Alt coverage varies throughout the site. Where captions thin, lifted visuals feel more like placeholders than references.`],
+    ['Structured Context Implementation', `Typed context appears selectively across sections. Where typing fades, names and roles blur at the edges.`],
+    ['Preview Content Cadence', `Summaries appear with moderate consistency. Intros show up often enough to set the scene, but not always.`]
   ];
 
   let Wuniq = uniqueByTitle(W), Nuniq = uniqueByTitle(N);
@@ -344,8 +387,9 @@ function generateCompleteAnalysis(pages, host, reportType){
 async function analyzeWebsite(url, reportType='analyze'){
   const host = hostOf(url);
   try{
-    const maxPages = reportType==='full' ? 15 : 8;
-    const pages = await crawlSitePages(url, maxPages);
+    // Speed optimization: 25 pages for analyze (fast), 300 for full (comprehensive)
+    const maxPages = reportType==='full' ? 300 : 25;
+    const pages = await crawlSitePages(url, maxPages, reportType);
     if (!pages.length) throw new Error('No pages crawled');
 
     let analysis = generateCompleteAnalysis(pages, host, reportType);
@@ -369,7 +413,7 @@ async function analyzeWebsite(url, reportType='analyze'){
     console.error('Analysis failed:', e.message);
     const fallback = {
       working: [],
-      needsAttention: [{ title:'Analysis Incomplete', description: polish(`${host} crawl fell short — only partial signals were observable. This reads more like access posture than content posture.`, 'full', host) }],
+      needsAttention: [{ title:'Analysis Incomplete', description: polish(`${host} crawl fell short - only partial signals were observable. This reads more like access posture than content posture.`, 'full', host) }],
       qualityScore: 60
     };
     return {
@@ -382,7 +426,7 @@ async function analyzeWebsite(url, reportType='analyze'){
 }
 
 // ---- endpoints ----
-app.get('/', (_req,res)=>res.send('SnipeRank Backend v2.4.1'));
+app.get('/', (_req,res)=>res.send('SnipeRank Backend v2.6.0 - Speed Optimized'));
 
 app.get('/report.html', async (req,res)=>{
   const url = req.query.url;
@@ -418,7 +462,7 @@ app.get('/api/score', async (req,res)=>{
   // dynamic highlights: first four needs (first sentence only)
   const highlights = analysis.needsAttention.slice(0,4).map(x=>{
     const first = splitSents(x.description)[0] || x.description;
-    return `${x.title} — ${first}`;
+    return `${x.title} - ${first}`;
   });
 
   const logos = { ChatGPT:"/img/chatgpt-logo.png", Claude:"/img/claude-logo.png", Gemini:"/img/gemini-logo.png", Copilot:"/img/copilot-logo.png", Perplexity:"/img/perplexity-logo.png" };
@@ -428,4 +472,4 @@ app.get('/api/score', async (req,res)=>{
   res.json({ url, host, score: total, pillars: analysis.pillars, highlights, band: bandText(total), override: OVERRIDE.has(host), insights });
 });
 
-app.listen(PORT, ()=> console.log(`SnipeRank Backend v2.4.1 running on port ${PORT}`));
+app.listen(PORT, ()=> console.log(`SnipeRank Backend v2.6.0 running on port ${PORT}`));

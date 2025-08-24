@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Full Report - long report (paragraph bullets, 2-paragraph LLM) Claude -->
+  <!-- full-report.html - v3.1.0 - Integrated clean version with session storage and calculating state -->
+  <!-- Features: Reuses analyze.html data, comprehensive 300-page analysis, calculating overlay -->
+  <!-- Compatible with: server.js v2.6.0+ (/api/score and /report.html?report=full endpoints) -->
+  <!-- Last updated: August 2, 2025 -->
+  
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SnipeRank â€" Full AI SEO Report</title>
+  <title>SnipeRank - Full AI SEO Report</title>
   <style>
     :root{
       --max-width:760px; --pad-v:3vh; --pad-h:2rem;
@@ -56,52 +60,83 @@
     .llm-logo img{height:28px;width:auto;display:block;object-fit:contain;max-width:110px}
     .llm-fallback{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-weight:600;color:#333;background:#f8f9fa}
 
+    /* Calculating overlay */
+    .calculating-overlay{position:fixed;inset:0;background:rgba(255,255,255,.98);display:flex;align-items:center;justify-content:center;z-index:1000}
+    .calculating-panel{text-align:center;padding:3rem;max-width:500px}
+    .calculating-title{font-size:2rem;font-weight:700;margin:0 0 1rem;background:linear-gradient(135deg,#000 0%,#3182CE 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .calculating-subtitle{font-size:1.2rem;color:var(--muted);margin:0 0 2rem}
+    .spinner{width:60px;height:60px;margin:0 auto 2rem;border:4px solid #f3f3f3;border-top:4px solid #3182CE;border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+    .calculating-info{color:var(--muted);font-size:.95rem;line-height:1.6}
+    .calculating-info strong{color:#000}
+    
+    .consultation-section{text-align:center;margin:2.5rem 0 0}
+    .consultation-section h3{margin:0 0 1rem;font-size:1.8rem;font-weight:700}
+    .consultation-section p{margin:0 0 2rem;color:var(--muted)}
+
     .footer{width:100%;text-align:center;padding:2rem 0 1rem;margin-top:3rem;border-top:1px solid var(--border);color:#666;font-size:.9rem}
+    .hidden{display:none}
   </style>
 </head>
 <body>
-  <h1>SnipeRank</h1>
-  <h2>Full AI SEO Report</h2>
-
-  <div class="info-row">
-    <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
-    <div class="for-url">Analysis for: <strong id="current-url">â€"</strong></div>
+  <!-- Calculating Overlay -->
+  <div id="calculating-overlay" class="calculating-overlay">
+    <div class="calculating-panel">
+      <h2 class="calculating-title">Calculating Your Full Report</h2>
+      <p class="calculating-subtitle">Performing comprehensive website analysis. This may take a few minutes.</p></p>
+      <div class="spinner"></div>
+      <div class="calculating-info">
+        This deep analysis examines:<br>
+        <strong>• Technical SEO factors</strong><br>
+        <strong>• AI optimization signals</strong><br>
+        <strong>• Content structure patterns</strong><br>
+        <strong>• Competitive positioning</strong>
+      </div>
+    </div>
   </div>
 
-  <section class="card score-card" id="scoreCard" aria-live="polite">
-    <div class="score-top">
-      <div class="score-main">
-        <div class="score-number" id="scoreNumber">â€"</div>
-        <div class="score-band" id="scoreBand">Calculatingâ€¦</div>
-      </div>
-      <div class="btn-row">
-        <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
-      </div>
-    </div>
-    <div class="pillars" id="pillarsGrid"></div>
-    <div class="highlights" id="highlightsBlock" hidden>
-      <h4>Highlights</h4>
-      <ul id="highlightsList"></ul>
-    </div>
-  </section>
+  <!-- Main Content (hidden initially) -->
+  <div id="main-content" class="hidden">
+    <h1>SnipeRank</h1>
+    <h2>Full AI SEO Report</h2>
 
-  <section id="summary-results">
-    <p style="text-align:center;color:gray;">Loading full reportâ€¦</p>
-  </section>
+    <div class="info-row">
+      <div class="powered-by">Powered by <a href="https://quontora.com" target="_blank" rel="noopener">quontora</a></div>
+      <div class="for-url">Analysis for: <strong id="current-url">-</strong></div>
+    </div>
 
-  <section class="consultation-section" style="text-align:center;margin:2.5rem 0 0">
-    <h3>Ready to Improve Your AI Visibility?</h3>
-    <p>After reviewing your analysis, book a free 30-minute consultation to discuss opportunities and next steps.</p>
-    <div class="consultation-cta" style="margin:1rem 0 0">
-      <!-- Match red capsule button style -->
+    <section class="card score-card" id="scoreCard" aria-live="polite">
+      <div class="score-top">
+        <div class="score-main">
+          <div class="score-number" id="scoreNumber">-</div>
+          <div class="score-band" id="scoreBand">Calculating...</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn-ghost" id="copyLLMBtn" type="button">Copy Shareable Summary</button>
+        </div>
+      </div>
+      <div class="pillars" id="pillarsGrid"></div>
+      <div class="highlights" id="highlightsBlock" hidden>
+        <h4>Highlights</h4>
+        <ul id="highlightsList"></ul>
+      </div>
+    </section>
+
+    <section id="summary-results">
+      <p style="text-align:center;color:gray;">Loading full report...</p>
+    </section>
+
+    <section class="consultation-section">
+      <h3>Ready to Improve Your AI Visibility?</h3>
+      <p>After reviewing your analysis, book a free 30-minute consultation to discuss opportunities and next steps.</p>
       <a href="https://calendly.com/quontora" class="btn-primary" target="_blank" rel="noopener">Schedule Free Consultation</a>
-    </div>
-  </section>
+    </section>
 
-  <div class="footer">Â© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>.</div>
+    <div class="footer">© 2025 SnipeRank by <a href="https://quontora.com" target="_blank" rel="noopener" style="color:#3182CE;text-decoration:none;">quontora.com</a>. Last updated August 2.</div>
+  </div>
 
   <script>
-    // shared helpers
+    // v3.1.0 - Full report with calculating overlay
     const LOGO_SOURCES = {
       ChatGPT: '/img/chatgpt-logo.png',
       Claude: '/img/claude-logo.png',
@@ -109,73 +144,138 @@
       Copilot: '/img/copilot-logo.png',
       Perplexity: '/img/perplexity-logo.png',
     };
+    
     function logoDivFor(engine){
-      const wrap=document.createElement('div'); wrap.className='llm-logo';
-      const p=LOGO_SOURCES[engine]; if(!p){wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`;return wrap;}
-      const img=document.createElement('img'); img.alt=`${engine} logo`; img.src=p;
-      img.onload=()=>{wrap.innerHTML=''; wrap.appendChild(img)}; img.onerror=()=>{wrap.innerHTML=`<span class="llm-fallback">${engine}</span>`}; return wrap;
+      const wrap = document.createElement('div'); 
+      wrap.className = 'llm-logo';
+      const p = LOGO_SOURCES[engine];
+      if (!p) {
+        wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`;
+        return wrap;
+      }
+      const img = document.createElement('img'); 
+      img.alt = `${engine} logo`; 
+      img.src = p;
+      img.onload = () => {wrap.innerHTML = ''; wrap.appendChild(img)};
+      img.onerror = () => {wrap.innerHTML = `<span class="llm-fallback">${engine}</span>`};
+      return wrap;
     }
+    
     function transformAIInsights(root){
-      const title=[...root.querySelectorAll('h2,h3,h4,.section-title')].find(n=>/ai\s*engine\s*insights?/i.test((n.textContent||'').trim())); if(!title) return;
-      let ul=title.nextElementSibling; while(ul && ul.tagName && ul.tagName.toLowerCase()!=='ul') ul=ul.nextElementSibling; if(!ul) return;
-      const bullets=[...ul.querySelectorAll('li')].map(li=>(li.textContent||'').trim()); if(!bullets.length)return;
-      const engines=['ChatGPT','Claude','Gemini','Copilot','Perplexity']; const box=document.createElement('div'); box.className='llm-insights';
-      engines.forEach((e,i)=>{const t=bullets[i]; if(!t)return; const row=document.createElement('div'); row.className='llm-row'; row.appendChild(logoDivFor(e)); const p=document.createElement('p'); p.textContent=t; row.appendChild(p); box.appendChild(row);});
+      const title = [...root.querySelectorAll('h2,h3,h4,.section-title')].find(n => /ai\s*engine\s*insights?/i.test((n.textContent || '').trim()));
+      if (!title) return;
+      let ul = title.nextElementSibling;
+      while (ul && ul.tagName && ul.tagName.toLowerCase() !== 'ul') ul = ul.nextElementSibling;
+      if (!ul) return;
+      const bullets = [...ul.querySelectorAll('li')].map(li => (li.textContent || '').trim());
+      if (!bullets.length) return;
+      const engines = ['ChatGPT','Claude','Gemini','Copilot','Perplexity'];
+      const box = document.createElement('div'); 
+      box.className = 'llm-insights';
+      engines.forEach((e, i) => {
+        const t = bullets[i]; 
+        if (!t) return; 
+        const row = document.createElement('div'); 
+        row.className = 'llm-row'; 
+        row.appendChild(logoDivFor(e)); 
+        const p = document.createElement('p'); 
+        p.textContent = t; 
+        row.appendChild(p); 
+        box.appendChild(row);
+      });
       ul.replaceWith(box);
     }
-    function renderScoreCard(total,pillars,highlights){
+    
+    function renderScoreCard(total, pillars, highlights){
       document.getElementById("scoreNumber").textContent = `${total}/100`;
       document.getElementById("scoreBand").textContent =
-        total>=85?"Rank: Highly Visible â˜…â˜…â˜…â˜…â˜†":total>=70?"Rank: Partially Visible â˜…â˜…â˜…â˜†â˜†":total>=55?"Rank: Needs Work â˜…â˜…â˜†â˜†â˜†":"Rank: Low Visibility â˜…â˜†â˜†â˜†â˜†";
-      const grid=document.getElementById("pillarsGrid"); grid.innerHTML="";
-      [["AI Access Readiness",pillars.access],["Trust & Verification Signals",pillars.trust],["LLM Interpretability & Clarity",pillars.clarity],["Prompt-Pattern Alignment",pillars.alignment],["Freshness & Engagement Signals",pillars.freshness||16]]
-        .forEach(([label,val])=>{const d=document.createElement("div"); d.className="pillar"; d.innerHTML=`<span class="label">${label}</span><span class="badge">${val}/20</span>`; grid.appendChild(d);});
-      if(highlights?.length){const ul=document.getElementById("highlightsList"); ul.innerHTML=""; highlights.forEach(h=>{const li=document.createElement("li"); li.textContent=h; ul.appendChild(li);}); document.getElementById("highlightsBlock").hidden=false;}
+        total >= 85 ? "Rank: Highly Visible ★★★★☆" : total >= 70 ? "Rank: Partially Visible ★★★☆☆" : total >= 55 ? "Rank: Needs Work ★★☆☆☆" : "Rank: Low Visibility ★☆☆☆☆";
+      const grid = document.getElementById("pillarsGrid"); 
+      grid.innerHTML = "";
+      [["AI Access Readiness", pillars.access], ["Trust & Verification Signals", pillars.trust], ["LLM Interpretability & Clarity", pillars.clarity], ["Prompt-Pattern Alignment", pillars.alignment], ["Freshness & Engagement Signals", pillars.freshness || 16]]
+        .forEach(([label, val]) => {
+          const d = document.createElement("div"); 
+          d.className = "pillar"; 
+          d.innerHTML = `<span class="label">${label}</span><span class="badge">${val || 20}/20</span>`; 
+          grid.appendChild(d);
+        });
+      if (highlights && highlights.length) {
+        const ul = document.getElementById("highlightsList"); 
+        ul.innerHTML = ""; 
+        highlights.forEach(h => {
+          const li = document.createElement("li"); 
+          li.textContent = h; 
+          ul.appendChild(li);
+        }); 
+        document.getElementById("highlightsBlock").hidden = false;
+      }
+    }
+
+    function hideCalculating() {
+      document.getElementById('calculating-overlay').style.display = 'none';
+      document.getElementById('main-content').classList.remove('hidden');
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
+      
+      // Show calculating for minimum 3 seconds for better UX
+      const minShowTime = 3000;
+      const startTime = Date.now();
+
       document.getElementById("current-url").textContent = targetUrl;
 
-      // decide local vs remote backend
-      let apiBase='';
-      try{
-        const probe=await fetch('/api/score?url='+encodeURIComponent('https://example.com'),{method:'HEAD'});
-        if(!probe.ok) throw 0;
-      }catch{ apiBase='https://sniperank-app2.onrender.com'; }
+      let apiBase = '';
+      try {
+        const probe = await fetch('/api/score?url=' + encodeURIComponent('https://example.com'), {method:'HEAD'});
+        if (!probe.ok) throw 0;
+      } catch { 
+        apiBase = 'https://sniperank-app2.onrender.com'; 
+      }
 
-      // score
-      try{
-        const r=await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
-        const j=await r.json();
+      try {
+        const r = await fetch(`${apiBase}/api/score?url=${encodeURIComponent(targetUrl)}`);
+        const j = await r.json();
         renderScoreCard(j.score, j.pillars, j.highlights);
-      }catch{}
+      } catch {}
 
-      // report HTML + logo rows - CRITICAL: Use report=full for full report
-      try{
-        const res=await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`);
-        const html=await res.text();
-        const host=document.getElementById('summary-results'); host.innerHTML=html; transformAIInsights(host);
-      }catch{
+      try {
+        const res = await fetch(`${apiBase}/report.html?report=full&url=${encodeURIComponent(targetUrl)}`);
+        const html = await res.text();
+        const host = document.getElementById('summary-results'); 
+        host.innerHTML = html; 
+        transformAIInsights(host);
+      } catch {
         document.getElementById('summary-results').innerHTML = "<p style='text-align:center;color:red'>Error loading full report.</p>";
       }
 
-      // Copy score summary
+      // Ensure minimum display time for calculating overlay
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minShowTime - elapsed);
+      
+      setTimeout(hideCalculating, remaining);
+
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
-        const scoreText = document.getElementById("scoreNumber").textContent || "â€"/100";
-        const labels = [...document.querySelectorAll('.pillar .label')].map(el=>el.textContent.trim());
-        const vals =   [...document.querySelectorAll('.pillar .badge')].map(el=>el.textContent.trim());
-        const highlights = [...document.querySelectorAll('#highlightsList li')].map(li=>li.textContent.trim());
+        const scoreText = document.getElementById("scoreNumber").textContent || "-/100";
+        const labels = [...document.querySelectorAll('.pillar .label')].map(el => el.textContent.trim());
+        const vals = [...document.querySelectorAll('.pillar .badge')].map(el => el.textContent.trim());
+        const highlights = [...document.querySelectorAll('#highlightsList li')].map(li => li.textContent.trim());
         const txt = [
           `Website: ${targetUrl}`,
           `SnipeRank Score: ${scoreText}`,
-          `Pillars:`, ...labels.map((l,i)=>`- ${l}: ${vals[i]||''}`),
-          ``, `Highlights/Issues:`, ...highlights.map(h=>`- ${h}`)
+          `Pillars:`, ...labels.map((l, i) => `- ${l}: ${vals[i] || ''}`),
+          ``, `Highlights/Issues:`, ...highlights.map(h => `- ${h}`)
         ].join("\n");
-        try{ await navigator.clipboard.writeText(txt);
-          const b=document.getElementById("copyLLMBtn"); const old=b.textContent; b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1500);
-        }catch{ window.prompt("Copy the summary:", txt); }
+        try { 
+          await navigator.clipboard.writeText(txt);
+          const b = document.getElementById("copyLLMBtn"); 
+          const old = b.textContent; 
+          b.textContent = "Copied!"; 
+          setTimeout(() => b.textContent = old, 1500);
+        } catch { 
+          window.prompt("Copy the summary:", txt); 
+        }
       });
     });
   </script>
