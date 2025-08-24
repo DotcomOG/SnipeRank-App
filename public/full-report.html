@@ -189,8 +189,8 @@
     function renderScoreCard(total, pillars, highlights){
       document.getElementById("scoreNumber").textContent = `${total}/100`;
       document.getElementById("scoreBand").textContent =
-        total >= 85 ? "Rank: Highly Visible ★★★★☆" : total >= 70 ? "Rank: Partially Visible ★★★☆☆" : total >= 55 ? "Rank: Needs Work ★★☆☆☆" : "Rank: Low Visibility ★☆☆☆☆";
-      const grid = document.getElementById("pillarsGrid"); 
+        total >= 70 ? "Rank: Highly Visible ★★★★☆" : total >= 55 ? "Rank: Partially Visible ★★★☆☆" : total >= 40 ? "Rank: Needs Work ★★☆☆☆" : "Rank: Low Visibility ★☆☆☆☆";
+            const grid = document.getElementById("pillarsGrid"); 
       grid.innerHTML = "";
       [["AI Access Readiness", pillars.access], ["Trust & Verification Signals", pillars.trust], ["LLM Interpretability & Clarity", pillars.clarity], ["Prompt-Pattern Alignment", pillars.alignment], ["Freshness & Engagement Signals", pillars.freshness || 16]]
         .forEach(([label, val]) => {
