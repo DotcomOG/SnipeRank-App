@@ -79,23 +79,12 @@
   </style>
 </head>
 <body>
-<!-- Calculating Overlay -->
+  <!-- Calculating Overlay -->
   <div id="calculating-overlay" class="calculating-overlay">
     <div class="calculating-panel">
       <h2 class="calculating-title">Calculating Your Full Report</h2>
-      <p class="calculating-subtitle">Performing comprehensive website analysis. This may take a few minutes.</p>
-      
-      <!-- Progress Bar -->
-      <div style="margin: 2rem 0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-weight:600;color:#333">Progress</span>
-          <span id="progress-percent" style="font-weight:600;color:#3182CE">0%</span>
-        </div>
-        <div style="height:12px;background:#f3f3f3;border-radius:8px;overflow:hidden">
-          <div id="progress-bar" style="height:100%;background:linear-gradient(90deg,#3182CE,#1a73e8);width:0%;transition:width 0.3s ease;border-radius:8px"></div>
-        </div>
-      </div>
-      
+      <p class="calculating-subtitle">Performing comprehensive website analysis. This may take a few minutes.</p></p>
+      <div class="spinner"></div>
       <div class="calculating-info">
         This deep analysis examines:<br>
         <strong>• Technical SEO factors</strong><br>
@@ -222,39 +211,14 @@
       }
     }
 
-function hideCalculating() {
+    function hideCalculating() {
       document.getElementById('calculating-overlay').style.display = 'none';
       document.getElementById('main-content').classList.remove('hidden');
-    }
-
-    function animateProgress() {
-      let progress = 0;
-      const progressBar = document.getElementById('progress-bar');
-      const progressPercent = document.getElementById('progress-percent');
-      
-      const interval = setInterval(() => {
-        if (progress < 95) {
-          // Slow down as we get higher
-          const increment = progress < 60 ? 3 : progress < 85 ? 2 : 1;
-          progress = Math.min(progress + increment, 95);
-          progressBar.style.width = progress + '%';
-          progressPercent.textContent = progress + '%';
-        }
-      }, 100);
-      
-      return () => {
-        clearInterval(interval);
-        progressBar.style.width = '100%';
-        progressPercent.textContent = '100%';
-      };
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUrl = urlParams.get("url") || "https://example.com";
-      
-      // Start progress animation
-      const completeProgress = animateProgress();
       
       // Show calculating for minimum 3 seconds for better UX
       const minShowTime = 3000;
@@ -290,11 +254,8 @@ function hideCalculating() {
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, minShowTime - elapsed);
       
-setTimeout(() => {
-        completeProgress();  // Complete the progress bar
-        setTimeout(hideCalculating, 300);  // Wait 300ms then hide
-      }, remaining);
-      
+      setTimeout(hideCalculating, remaining);
+
       document.getElementById("copyLLMBtn").addEventListener("click", async () => {
         const scoreText = document.getElementById("scoreNumber").textContent || "-/100";
         const labels = [...document.querySelectorAll('.pillar .label')].map(el => el.textContent.trim());
