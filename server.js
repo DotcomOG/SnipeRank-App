@@ -1,4 +1,4 @@
-// server.js - v2.6.0 (analyze=25 pages FAST, full=300 pages deep)
+// Deploy speed optimized server v2.6.0 (25/300 pages)
 // - Speed optimized: analyze=25 pages with 5s timeout, full=300 pages with 8s timeout
 // - Prioritized crawling: homepage, key pages first
 // - Uses ?report=analyze|full to size both bullets and LLM insights
